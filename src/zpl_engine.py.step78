@@ -1,0 +1,261 @@
+            lw2 = bbox[2] - bbox[0]
+        except AttributeError:
+            lw2, _ = draw.textsize(lot_safe, font=font_normal)
+        draw.text(((img_w - lw2) // 2, lot_y), lot_safe, fill=0, font=font_normal)
+
+        return image
+
+    def _build_tpcl_job(self, image: Image.Image) -> bytes:
+        """Assemble le job TPCL complet (header XPML + SG compressé + footer) depuis un bitmap PIL."""
+        # Inversion bits : Pillow '1' → 0=noir ; Toshiba TOPIX veut 1=noir
+        raw = image.tobytes()
+        inverted = bytes(b ^ 0xFF for b in raw)
+
+        # Compression TOPIX Mode 3
+        compressed = self.compress_topix(self.TOSHIBA_W_BYTES, self.TOSHIBA_H_DOTS, inverted)
+        clen = len(compressed)
+        belen = bytes([clen >> 8, clen & 0xFF])
+
+        crlf = b"\r\n"
+        pitch_str = f"{self.TOSHIBA_PITCH_MM} mm"
+
+        header = (
+            f"<xpml><page quantity='0' pitch='{pitch_str}'></xpml>".encode('ascii') +
+            b"{D0763,1016,0743|}" + crlf +
+            b"<xpml></page></xpml>" +
+            f"<xpml><page quantity='1' pitch='{pitch_str}'></xpml>".encode('ascii') +
+            b"{C|}" + crlf
+        )
+        ox = self.TOSHIBA_OFFSET_X
+        oy = self.TOSHIBA_OFFSET_Y
+        sg_cmd = (
+            # Width en DOTS dans la commande SG (0616), pas en bytes
+            f"{{SG;{ox:04d},{oy:04d},{self.TOSHIBA_W_DOTS:04d},{self.TOSHIBA_H_DOTS:04d},3,".encode('ascii')
+            + belen + compressed + b"|}" + crlf
+        )
+        footer = (
+            b"{XS;I,0001,0000C5000|}" + crlf +
+            b"<xpml></page></xpml><xpml><end/></xpml>"
+        )
+        return header + sg_cmd + footer
+
+    def generate_ticket_tpcl(self, data: TicketData) -> str:
+        """Génère le flux TPCL graphique compressé en TOPIX pour la Toshiba B-FV4D.
+        
+        Dimensions issues du driver Seagull officiel :
+          - Bitmap : 616 bytes × 300 dots (76.3mm × ~37mm à 203 DPI)
+          - Pitch  : 74.3 mm (hauteur physique de l'étiquette)
+          - L'imprimante gère elle-même la répétition 3-up.
+        """
+        image = self._render_toshiba_label(data)
+        job = self._build_tpcl_job(image)
+        return job.decode('latin-1')
+ 
+    def generate_separator_tpcl(self, next_product_name: str) -> str:
+        """Génère une étiquette de séparation graphique compressée en TOPIX pour la Toshiba B-FV4D.
+        
+        Utilise les mêmes dimensions que generate_ticket_tpcl (616 bytes × 300 dots, pitch 74.3mm).
+        """
+        img_w = self.TOSHIBA_W_DOTS   # 616 dots
+        img_h = self.TOSHIBA_H_DOTS   # 300 dots
+
+        image = Image.new('1', (img_w, img_h), color=1)
+        draw = ImageDraw.Draw(image)
+
+        try:
+            font = ImageFont.truetype("arialbd.ttf", 48)
+        except IOError:
+            try:
+                font = ImageFont.truetype("DejaVuSans-Bold.ttf", 48)
+            except IOError:
+                font = ImageFont.load_default()
+
+        text_to_draw = f">>> {next_product_name} <<<"
+
+        try:
+            left, top, right, bottom = draw.textbbox((0, 0), text_to_draw, font=font)
+            text_width = right - left
+            text_height = bottom - top
+        except AttributeError:
+            text_width, text_height = draw.textsize(text_to_draw, font=font)
+
+        x = max(0, (img_w - text_width) // 2)
+        y = max(0, (img_h - text_height) // 2)
+        draw.text((x, y), text_to_draw, fill=0, font=font)
+
+        job = self._build_tpcl_job(image)
+        return job.decode('latin-1')
+
+    def generate_ticket_zpl(self, data: TicketData) -> str:
+        """Génère le flux ZPL pour une ligne physique (3 étiquettes)."""
+        width_dots = self.mm_to_dots(115)
+        height_dots = self.mm_to_dots(30)
+        
+        zpl_parts = [
+            "^XA",
+            f"^PW{width_dots}",
+            f"^LL{height_dots}",
+            "^CI27",
+        ]
+
+        scale = self.dots_per_mm / 8.0
+        
+        # Centres physiques réels en mm
+        centers_mm = [19.125, 57.375, 95.625]
+        centers = [int(c * self.dots_per_mm) for c in centers_mm]
+
+        # Coordonnées et tailles de polices proportionnelles au DPI
+        y_lib = int(15 * scale)
+        y_barcode = int(45 * scale)
+        barcode_h = int(64 * scale)
+        y_text = int(115 * scale)
+        y_lot = int(155 * scale)
+
+        lib_font_h = int(14 * scale)
+        text_font_h = int(11 * scale)
+        lot_font_h = int(11 * scale)
+
+        # Chaînes nettoyées
+        lib_safe = data.libelle.encode('latin-1', 'ignore').decode('latin-1')
+        lot_safe = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        barcode_text = f"(01){data.gtin}(17){data.date_expiration}(10){data.lot}"
+
+        # Calculer la largeur estimée du code-barres pour le centrage
+        barcode_width = self._estimate_barcode_width(data.gtin, data.date_expiration, data.lot)
+
+        for center_x in centers:
+            # A. Dessin du libellé produit (centré)
+            zpl_parts.append(self._get_zpl_centered_text(lib_safe, center_x, y_lib, lib_font_h))
+            
+            # B. Code-barres (centré)
+            x_barcode = center_x - barcode_width // 2
+            zpl_parts.append(f"^FO{x_barcode},{y_barcode}^BY1^BCN,{barcode_h},N,N,N^FD>:>801{data.gtin}17{data.date_expiration}10{data.lot}^FS")
+            
+            # C. Texte sous le code-barres (centré)
+            zpl_parts.append(self._get_zpl_centered_text(barcode_text, center_x, y_text, text_font_h))
+            
+            # D. Informations de lot (centré)
+            zpl_parts.append(self._get_zpl_centered_text(lot_safe, center_x, y_lot, lot_font_h))
+
+        zpl_parts.append("^XZ")
+        return "\n".join(zpl_parts)
+
+    def generate_4up_nature_zpl(self, quantity: int) -> str:
+        """Génère le flux ZPL pour le layout 4-up (TEC B-EV4) - Yaourt Nature."""
+        width_dots = self.mm_to_dots(100)
+        height_dots = self.mm_to_dots(43)
+        
+        scale = self.dots_per_mm / 8.0
+        offsets = [int(o * scale) for o in [0, 192, 384, 576]]
+        
+        zpl_parts = []
+        nb_rows = (quantity + 3) // 4
+        remaining = quantity
+
+        for r in range(nb_rows):
+            to_print = min(4, remaining)
+            zpl_parts.append("^XA")
+            zpl_parts.append(f"^PW{width_dots}")
+            zpl_parts.append(f"^LL{height_dots}")
+            zpl_parts.append("^CI28")
+
+            for i in range(to_print):
+                x_offset = offsets[i]
+                zpl_parts.extend(self._get_nature_label_content_zpl(x_offset))
+            
+            zpl_parts.append("^XZ")
+            remaining -= to_print
+
+        return "\n".join(zpl_parts)
+
+    def generate_4up_nature_tpcl(self, quantity: int) -> str:
+        """Génère le flux TPCL (Toshiba Native) pour le layout 4-up (TEC B-EV4)."""
+        tpcl_parts = []
+        # Initialisation TPCL
+        tpcl_parts.append("\x1bAX\x1bAY\x1b{D0430,1000,0380|}\x1bC")
+        
+        offsets = [0, 192, 384, 576]
+        nb_rows = (quantity + 3) // 4
+        remaining = quantity
+
+        for r in range(nb_rows):
+            to_print = min(4, remaining)
+            tpcl_parts.append("\x1bL") # Start label
+            
+            for i in range(to_print):
+                x = offsets[i]
+                # Texte "Yaourt Nature"
+                tpcl_parts.append(f"\x1bPC001;{x+20:04d},0050,10,10,k,00,B=Yaourt Nature|")
+                tpcl_parts.append(f"\x1bPC001;{x+35:04d},0090,08,08,k,00,B=2 x 125gr|")
+                # Code EAN-13
+                tpcl_parts.append(f"\x1bB00;{x+25:04d},0140,2,2,050,0,0,1,0,3412345678901|")
+            
+            tpcl_parts.append("\x1bXS\x1bI") # Print & Feed
+            remaining -= to_print
+
+        return "".join(tpcl_parts)
+
+    def _get_nature_label_content_zpl(self, x_offset: int) -> list[str]:
+        """Contenu ZPL pour l'étiquette Yaourt Nature."""
+        scale = self.dots_per_mm / 8.0
+        x1 = x_offset + int(20 * scale)
+        y1 = int(40 * scale)
+        h1 = int(25 * scale)
+        
+        x2 = x_offset + int(35 * scale)
+        y2 = int(70 * scale)
+        h2 = int(20 * scale)
+        
+        x3 = x_offset + int(25 * scale)
+        y3 = int(110 * scale)
+        h3 = int(50 * scale)
+        
+        return [
+            f"^FO{x1},{y1}^A0N,{h1},{h1}^FDYaourt Nature^FS",
+            f"^FO{x2},{y2}^A0N,{h2},{h2}^FD2 x 125gr^FS",
+            f"^FO{x3},{y3}^BEN,{h3},Y,N^FD3412345678901^FS"
+        ]
+
+    def _estimate_barcode_width(self, gtin: str, date_exp: str, lot: str) -> int:
+        """Estime la largeur du code-barres Code 128 (Subset C/B) en modules."""
+        # Start C (1) + FNC1 (1) = 2 symboles
+        # "01" (2 chiffres) = 1 symbole
+        # gtin (14 chiffres) = 7 symboles
+        # "17" (2 chiffres) = 1 symbole
+        # date_exp (6 chiffres) = 3 symboles
+        # "10" (2 chiffres) = 1 symbole
+        num_symbols = 2 + 1 + 7 + 1 + 3 + 1
+        
+        # Encodage du lot
+        if lot.isdigit():
+            n = len(lot)
+            if n % 2 == 0:
+                num_symbols += n // 2
+            else:
+                num_symbols += (n // 2) + 2
+        else:
+            try:
+                first_letter_idx = next(i for i, c in enumerate(lot) if c.isalpha())
+            except StopIteration:
+                first_letter_idx = len(lot)
+            
+            pre_digits = first_letter_idx
+            if pre_digits % 2 == 0:
+                num_symbols += pre_digits // 2
+            else:
+                num_symbols += (pre_digits // 2) + 2
+                
+            num_symbols += 1 # Switch vers Code B
+            num_symbols += len(lot) - first_letter_idx
+            
+        # Total modules = symboles * 11 + 13 (Stop)
+        total_modules = num_symbols * 11 + 13
+        return total_modules
+
+    def _get_zpl_centered_text(self, text: str, center_x: int, y: int, font_h: int) -> str:
+        """Génère la commande ZPL de texte centré sur la largeur d'une étiquette."""
+        width = int(32 * self.dots_per_mm)
+        x_start = center_x - width // 2
+        if x_start < 0:
+            x_start = 0
+        return f"^FO{x_start},{y}^A0N,{font_h},{font_h}^FB{width},1,0,C^FD{text}^FS"

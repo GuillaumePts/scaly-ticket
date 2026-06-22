@@ -1,0 +1,9 @@
+pydantic
+pydantic-settings
+python-dotenv
+fastapi
+uvicorn
+jinja2
+python-multipart
+python-barcode
+Pillow

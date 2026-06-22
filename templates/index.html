@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scaly-Ticket - Ferme des Peupliers</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-main">
+                <h1>Scaly-Ticket</h1>
+                <p>Impression d'étiquettes 3-up</p>
+            </div>
+            <button type="button" id="manage-printers-btn" class="btn-icon">⚙️ Gérer les imprimantes</button>
+        </header>
+
+        <main>
+            <section class="sector-selection">
+                <label>Votre secteur :</label>
+                <div class="sector-buttons">
+                    <button type="button" class="sector-btn" data-sector="preparation">📦 Préparation</button>
+                    <button type="button" class="sector-btn" data-sector="commande">🚚 Commande</button>
+                    <button type="button" class="sector-btn" data-sector="production">🏭 Production</button>
+                </div>
+            </section>
+
+            <section class="printer-selection" id="printer-section" style="display: none;">
+                <label for="printer">Sélectionner l'imprimante :</label>
+                <select id="printer">
+                    <!-- Sera rempli dynamiquement par JS -->
+                </select>
+                <div id="printer-status" class="status-badge">Vérification...</div>
+            </section>
+
+            <!-- Section spécifique pour la production (Yaourt Nature) -->
+            <section id="nature-section" style="display: none;">
+                <div class="nature-card">
+                    <div class="nature-header">
+                        <h3>Etiquette Yaourt Nature</h3>
+                        <p>Format 4-up (TEC B-EV4)</p>
+                    </div>
+                    <div class="nature-body">
+                        <label for="nature-qty">Nombre d'étiquettes à imprimer :</label>
+                        <input type="number" id="nature-qty" value="40" min="1" max="1000">
+                        <button type="button" id="print-nature-btn" class="btn-primary" style="margin-top: 15px;">🖨️ Lancer l'impression</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="upload-section" style="display: none;">
+                <div class="upload-zone" id="drop-zone">
+                    <div class="upload-content">
+                        <span class="icon">📄</span>
+                        <p>Glissez-déposez votre fichier CSV ici</p>
+                        <p>ou</p>
+                        <input type="file" id="file-input" accept=".csv,.txt,.tsv,text/plain" hidden>
+                        <button type="button" onclick="document.getElementById('file-input').click()">Parcourir</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="edit-section" style="display: none;">
+                <div class="order-info">
+                    <h3 id="order-client">Client : -</h3>
+                    <p id="order-id">Commande : -</p>
+                </div>
+                <div class="table-container">
+                    <table id="products-table">
+                        <thead>
+                            <tr>
+                                <th width="40"><input type="checkbox" id="select-all" checked></th>
+                                <th>Produit</th>
+                                <th width="120">DLC</th>
+                                <th width="150">Lot</th>
+                                <th width="80">Qté</th>
+                                <th width="40"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Lignes générées par JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="actions">
+                    <button type="button" id="print-all-btn" class="btn-primary" style="background: #3498db;">🚀 Tout imprimer</button>
+                    <button type="button" id="print-btn" class="btn-primary">🖨️ Imprimer la sélection</button>
+                    <button type="button" id="delete-selected-btn" class="btn-error" style="background: var(--error);">🗑️ Supprimer sélection</button>
+                    <button type="button" id="cancel-btn" class="btn-secondary">Fermer</button>
+                </div>
+            </section>
+
+            <section id="progress-container" style="display: none;">
+                <div class="progress-header">
+                    <h3>Impression en cours...</h3>
+                    <button type="button" id="stop-btn" class="btn-error" style="background: var(--error); color: white; padding: 5px 15px; border-radius: 4px;">🛑 STOP</button>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" style="width: 0%;"></div>
+                </div>
+                <p id="progress-text">Préparation du job...</p>
+            </section>
+
+            <section id="log-container">
+                <h3>Logs en temps réel</h3>
+                <div id="logs" class="log-box"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modale personnalisée -->
+    <div id="custom-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div id="modal-icon" class="modal-icon"></div>
+            <h3 id="modal-title">Titre</h3>
+            <p id="modal-message">Message ici...</p>
+            <div class="modal-actions">
+                <button type="button" id="modal-cancel" class="btn-secondary">Annuler</button>
+                <button type="button" id="modal-confirm" class="btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale de gestion des imprimantes -->
+    <div id="printer-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content large">
+            <h3>Configuration des Imprimantes</h3>
+            <div class="table-container">
+                <table id="manage-printers-table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>IP</th>
+                            <th>DPI</th>
+                            <th>Langage</th>
+                            <th>Secteur</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rempli par JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="add-printer-btn" class="btn-secondary">➕ Ajouter</button>
+                <button type="button" id="save-printers-btn" class="btn-primary">💾 Sauvegarder</button>
+                <button type="button" id="close-printer-modal" class="btn-error">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const printersData = {{ printers|tojson }};
+    </script>
+    <script src="/static/script.js?v=2"></script>
+</body>
+</html>

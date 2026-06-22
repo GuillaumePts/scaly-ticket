@@ -1,0 +1,34 @@
+[
+    {
+        "name": "Toshiba (Expédition)",
+        "ip": "200.200.129.200",
+        "port": 9100,
+        "dpi": 203,
+        "language": "TPCL",
+        "sector": "commande"
+    },
+    {
+        "name": "Zebra (Commande)",
+        "ip": "192.168.1.101",
+        "port": 9100,
+        "dpi": 300,
+        "language": "ZPL",
+        "sector": "commande"
+    },
+    {
+        "name": "Zebra (Préparation)",
+        "ip": "192.168.2.100",
+        "port": 9100,
+        "dpi": 300,
+        "language": "ZPL",
+        "sector": "preparation"
+    },
+    {
+        "name": "Toshiba TEC B-EV4 (Yaourt)",
+        "ip": "",
+        "port": 9100,
+        "dpi": 203,
+        "language": "TPCL",
+        "sector": "production"
+    }
+]
