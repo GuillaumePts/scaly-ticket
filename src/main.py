@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -66,6 +66,13 @@ class PrintNatureRequest(BaseModel):
     printer_language: str = "TPCL"
     quantity: int
 
+class Print4UpRequest(BaseModel):
+    printer_ip: str
+    printer_dpi: int
+    printer_language: str = "TPCL"
+    parfum_id: str
+    quantity: int
+
 @app.post("/print-nature")
 async def print_nature(request: PrintNatureRequest):
     global is_cancelled
@@ -85,6 +92,103 @@ async def print_nature(request: PrintNatureRequest):
 
     except Exception as e:
         logger.error(f"Erreur impression Nature: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/parfums-4up")
+async def get_parfums_4up():
+    try:
+        path = base_path / "data" / "parfums_4up.json"
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Erreur chargement parfums: {e}")
+        return []
+
+class Parfum4Up(BaseModel):
+    nom: str
+    ean13: str
+
+@app.post("/api/parfums-4up")
+async def add_parfum_4up(parfum: Parfum4Up):
+    try:
+        path = base_path / "data" / "parfums_4up.json"
+        with open(path, "r", encoding="utf-8") as f:
+            parfums = json.load(f)
+            
+        import uuid
+        new_id = str(uuid.uuid4())
+        new_parfum = {
+            "id": new_id,
+            "nom": parfum.nom,
+            "ean13": parfum.ean13
+        }
+        parfums.append(new_parfum)
+        
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(parfums, f, indent=4, ensure_ascii=False)
+            
+        return {"message": "Parfum ajouté", "parfum": new_parfum}
+    except Exception as e:
+        logger.error(f"Erreur ajout parfum: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/preview-4up-live")
+async def preview_4up_live(nom: str, ean13: str):
+    try:
+        engine = ZPLEngine(dpi=203)
+        parfum = {"nom": nom, "ean13": ean13}
+        img_bytes = engine.generate_4up_preview_png(parfum)
+        return Response(content=img_bytes, media_type="image/png")
+    except Exception as e:
+        logger.error(f"Erreur preview 4-up live: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/preview-4up/{parfum_id}")
+async def preview_4up(parfum_id: str):
+    try:
+        path = base_path / "data" / "parfums_4up.json"
+        with open(path, "r", encoding="utf-8") as f:
+            parfums = json.load(f)
+            
+        parfum = next((p for p in parfums if p["id"] == parfum_id), None)
+        if not parfum:
+            raise HTTPException(status_code=404, detail="Parfum non trouvé")
+            
+        engine = ZPLEngine(dpi=203)
+        img_bytes = engine.generate_4up_preview_png(parfum)
+        return Response(content=img_bytes, media_type="image/png")
+    except Exception as e:
+        logger.error(f"Erreur preview 4-up: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/print-4up")
+async def print_4up(request: Print4UpRequest):
+    global is_cancelled
+    is_cancelled = False
+    
+    try:
+        path = base_path / "data" / "parfums_4up.json"
+        with open(path, "r", encoding="utf-8") as f:
+            parfums = json.load(f)
+            
+        parfum = next((p for p in parfums if p["id"] == request.parfum_id), None)
+        if not parfum:
+            raise HTTPException(status_code=404, detail="Parfum non trouvé")
+            
+        engine = ZPLEngine(dpi=request.printer_dpi)
+        printer = PrinterClient(host=request.printer_ip)
+        
+        if request.printer_language == "TPCL":
+            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity)
+        else:
+            # Fallback ou autre imprimante, non implémenté pour l'instant
+            raise HTTPException(status_code=400, detail="ZPL non supporté pour ce format")
+            
+        printer.send_zpl(flux)
+        return {"message": f"Impression 4-up de {request.quantity} étiquettes envoyée."}
+
+    except Exception as e:
+        logger.error(f"Erreur impression 4-up: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/print-json")

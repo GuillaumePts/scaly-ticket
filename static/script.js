@@ -62,7 +62,8 @@ const progressText = document.getElementById('progress-text');
 const sectorBtns = document.querySelectorAll('.sector-btn');
 const printerSection = document.getElementById('printer-section');
 const uploadSection = document.getElementById('upload-section');
-const natureSection = document.getElementById('nature-section');
+const parfumSection = document.getElementById('parfum-section');
+const printFormatSelect = document.getElementById('print-format');
 
 const editSection = document.getElementById('edit-section');
 const productsTableBody = document.querySelector('#products-table tbody');
@@ -95,48 +96,175 @@ sectorBtns.forEach(btn => {
         filterPrinters(sector);
         printerSection.style.display = 'flex';
         
-        if (sector === 'production') {
-            uploadSection.style.display = 'none';
-            natureSection.style.display = 'block';
-        } else {
-            uploadSection.style.display = 'block';
-            natureSection.style.display = 'none';
-        }
+        // Par défaut, on remet le format à 3up et on affiche uploadSection
+        printFormatSelect.value = '3up';
+        uploadSection.style.display = 'block';
+        parfumSection.style.display = 'none';
         
         addLog(`Secteur changé : ${btn.textContent.trim()}`);
     };
 });
 
-// Bouton impression Nature
-const printNatureBtn = document.getElementById('print-nature-btn');
-const natureQtyInput = document.getElementById('nature-qty');
+// Gestion du changement de format
+printFormatSelect.addEventListener('change', () => {
+    if (printFormatSelect.value === '3up') {
+        uploadSection.style.display = 'block';
+        parfumSection.style.display = 'none';
+    } else {
+        uploadSection.style.display = 'none';
+        parfumSection.style.display = 'block';
+    }
+});
 
-if (printNatureBtn) {
-    printNatureBtn.onclick = async () => {
+// Chargement des parfums 4-up
+const parfumSelect = document.getElementById('parfum-select');
+const parfumPreviewImg = document.getElementById('parfum-preview-img');
+
+parfumSelect.addEventListener('change', () => {
+    if (parfumSelect.value) {
+        // Ajout d'un paramètre temporel pour éviter le cache navigateur si l'image change
+        parfumPreviewImg.src = `/api/preview-4up/${parfumSelect.value}?t=${new Date().getTime()}`;
+        parfumPreviewImg.style.display = 'inline-block';
+    } else {
+        parfumPreviewImg.style.display = 'none';
+    }
+});
+
+fetch('/api/parfums-4up')
+    .then(res => res.json())
+    .then(parfums => {
+        parfumSelect.innerHTML = '';
+        parfums.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.nom}`;
+            parfumSelect.appendChild(opt);
+        });
+        // Déclencher le changement pour charger la première image
+        if (parfums.length > 0) {
+            parfumSelect.dispatchEvent(new Event('change'));
+        }
+    })
+    .catch(err => {
+        parfumSelect.innerHTML = '<option value="">Erreur chargement</option>';
+        console.error(err);
+    });
+
+// Gestion du formulaire "Nouveau Parfum"
+const toggleAddParfumBtn = document.getElementById('toggle-add-parfum-btn');
+const addParfumForm = document.getElementById('add-parfum-form');
+const newParfumNom = document.getElementById('new-parfum-nom');
+const newParfumEan = document.getElementById('new-parfum-ean');
+const previewNewParfumBtn = document.getElementById('preview-new-parfum-btn');
+const saveNewParfumBtn = document.getElementById('save-new-parfum-btn');
+
+toggleAddParfumBtn.onclick = () => {
+    if (addParfumForm.style.display === 'none') {
+        addParfumForm.style.display = 'block';
+        toggleAddParfumBtn.textContent = '❌ Annuler';
+    } else {
+        addParfumForm.style.display = 'none';
+        toggleAddParfumBtn.textContent = '➕ Nouveau';
+    }
+};
+
+previewNewParfumBtn.onclick = () => {
+    const nom = newParfumNom.value.trim();
+    const ean = newParfumEan.value.trim();
+    
+    if (!nom || !ean) {
+        Modal.error("Champs manquants", "Veuillez renseigner le nom et l'EAN-13.");
+        return;
+    }
+    
+    if (ean.length < 13) {
+        Modal.error("EAN invalide", "L'EAN doit contenir 13 ou 14 chiffres.");
+        return;
+    }
+    
+    parfumPreviewImg.src = `/api/preview-4up-live?nom=${encodeURIComponent(nom)}&ean13=${encodeURIComponent(ean)}&t=${new Date().getTime()}`;
+    parfumPreviewImg.style.display = 'inline-block';
+};
+
+saveNewParfumBtn.onclick = async () => {
+    const nom = newParfumNom.value.trim();
+    const ean = newParfumEan.value.trim();
+    
+    if (!nom || !ean) {
+        Modal.error("Champs manquants", "Veuillez renseigner le nom et l'EAN-13.");
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/parfums-4up', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nom, ean13: ean })
+        });
+        
+        const result = await response.json();
+        if (response.ok) {
+            Modal.alert("Succès", result.message, '✅');
+            
+            // Ajouter à la liste déroulante et sélectionner
+            const opt = document.createElement('option');
+            opt.value = result.parfum.id;
+            opt.textContent = `${result.parfum.nom}`;
+            parfumSelect.appendChild(opt);
+            parfumSelect.value = result.parfum.id;
+            
+            // Fermer le formulaire
+            addParfumForm.style.display = 'none';
+            toggleAddParfumBtn.textContent = '➕ Nouveau';
+            
+            // Mettre à jour l'aperçu
+            parfumSelect.dispatchEvent(new Event('change'));
+        } else {
+            Modal.error("Erreur serveur", result.detail);
+        }
+    } catch (e) {
+        Modal.error("Erreur réseau", e.message);
+    }
+};
+
+// Bouton impression 4-up
+const print4UpBtn = document.getElementById('print-4up-btn');
+const parfumQtyInput = document.getElementById('parfum-qty');
+
+if (print4UpBtn) {
+    print4UpBtn.onclick = async () => {
         if (!isPrinterReady) {
             Modal.error("Imprimante non prête", "L'imprimante n'est pas prête ou hors ligne.");
             return;
         }
 
-        const qty = parseInt(natureQtyInput.value);
+        const qty = parseInt(parfumQtyInput.value);
         if (isNaN(qty) || qty <= 0) {
             Modal.error("Quantité invalide", "Veuillez saisir une quantité supérieure à 0.");
             return;
         }
 
-        const ok = await Modal.confirm("Impression Nature", `Lancer l'impression de ${qty} étiquettes Yaourt Nature ?`, '🏭');
+        const parfumId = parfumSelect.value;
+        if (!parfumId) {
+            Modal.error("Parfum invalide", "Veuillez sélectionner un parfum.");
+            return;
+        }
+
+        const parfumName = parfumSelect.options[parfumSelect.selectedIndex].text;
+        const ok = await Modal.confirm("Impression 4-up", `Lancer l'impression de ${qty} étiquettes pour : ${parfumName} ?`, '🏭');
         if (!ok) return;
 
-        addLog(`Lancement impression Nature (${qty} ex.)`);
+        addLog(`Lancement impression 4-up (${qty} ex. - ${parfumName})`);
         
         try {
-            const response = await fetch('/print-nature', {
+            const response = await fetch('/print-4up', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     printer_ip: printerSelect.value,
                     printer_dpi: parseInt(printerSelect.options[printerSelect.selectedIndex].dataset.dpi),
                     printer_language: printerSelect.options[printerSelect.selectedIndex].dataset.language,
+                    parfum_id: parfumId,
                     quantity: qty
                 })
             });

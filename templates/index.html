@@ -32,19 +32,55 @@
                     <!-- Sera rempli dynamiquement par JS -->
                 </select>
                 <div id="printer-status" class="status-badge">Vérification...</div>
+                
+                <div id="format-container" style="margin-top: 15px;">
+                    <label for="print-format">Format d'impression :</label>
+                    <select id="print-format">
+                        <option value="3up">Format 3-up (Fichier CSV/TXT)</option>
+                        <option value="4up">Format 4-up (Parfums fixes)</option>
+                    </select>
+                </div>
             </section>
 
-            <!-- Section spécifique pour la production (Yaourt Nature) -->
-            <section id="nature-section" style="display: none;">
+            <!-- Section spécifique pour l'impression de parfums 4-up -->
+            <section id="parfum-section" style="display: none;">
                 <div class="nature-card">
                     <div class="nature-header">
-                        <h3>Etiquette Yaourt Nature</h3>
-                        <p>Format 4-up (TEC B-EV4)</p>
+                        <h3>Etiquettes 4-up (Parfums)</h3>
+                        <p>Format 4-up Toshiba B-FV4D</p>
                     </div>
-                    <div class="nature-body">
-                        <label for="nature-qty">Nombre d'étiquettes à imprimer :</label>
-                        <input type="number" id="nature-qty" value="40" min="1" max="1000">
-                        <button type="button" id="print-nature-btn" class="btn-primary" style="margin-top: 15px;">🖨️ Lancer l'impression</button>
+                    <div class="nature-body" style="display: flex; flex-wrap: wrap; gap: 20px;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <label for="parfum-select">Parfum :</label>
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                                <select id="parfum-select" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="">Chargement...</option>
+                                </select>
+                                <button type="button" id="toggle-add-parfum-btn" class="btn-secondary" style="padding: 0 10px;">➕ Nouveau</button>
+                            </div>
+                            
+                            <!-- Formulaire d'ajout -->
+                            <div id="add-parfum-form" style="display: none; background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #eee;">
+                                <h4>Ajouter une étiquette</h4>
+                                <label>Nom de l'étiquette :</label>
+                                <input type="text" id="new-parfum-nom" placeholder="Ex: Yaourt fraise 4x125gr" style="width: 100%; margin-bottom: 10px; padding: 6px;">
+                                <label>Code EAN-13 :</label>
+                                <input type="text" id="new-parfum-ean" placeholder="Ex: 3374270030348" maxlength="14" style="width: 100%; margin-bottom: 10px; padding: 6px;">
+                                
+                                <div style="display: flex; gap: 10px;">
+                                    <button type="button" id="preview-new-parfum-btn" class="btn-secondary" style="flex: 1;">👁️ Aperçu</button>
+                                    <button type="button" id="save-new-parfum-btn" class="btn-primary" style="flex: 1;">💾 Enregistrer</button>
+                                </div>
+                            </div>
+
+                            <label for="parfum-qty">Nombre d'étiquettes (total) :</label>
+                            <input type="number" id="parfum-qty" value="40" min="1" max="10000">
+                            <button type="button" id="print-4up-btn" class="btn-primary" style="margin-top: 15px; width: 100%;">🖨️ Lancer l'impression 4-up</button>
+                        </div>
+                        <div style="flex: 1; text-align: center; border: 1px dashed #ccc; padding: 10px; border-radius: 4px; min-width: 250px; background: #fafafa;">
+                            <p style="margin-top: 0; color: #666; font-size: 14px;">Aperçu de l'étiquette</p>
+                            <img id="parfum-preview-img" style="max-width: 100%; max-height: 150px; border: 1px solid #eee; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                        </div>
                     </div>
                 </div>
             </section>
@@ -154,6 +190,6 @@
     <script>
         const printersData = {{ printers|tojson }};
     </script>
-    <script src="/static/script.js?v=2"></script>
+    <script src="/static/script.js?v=4"></script>
 </body>
 </html>

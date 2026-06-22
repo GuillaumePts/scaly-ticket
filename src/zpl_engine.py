@@ -425,3 +425,120 @@ class ZPLEngine:
         if x_start < 0:
             x_start = 0
         return f"^FO{x_start},{y}^A0N,{font_h},{font_h}^FB{width},1,0,C^FD{text}^FS"
+
+    def _draw_4up_toshiba_single_label(self, parfum_name: str, ean13: str) -> Image.Image:
+        """Dessine une étiquette 4-up (43x22mm -> 344x176 dots) et la pivote."""
+        img_w, img_h = 344, 176
+        img = Image.new('1', (img_w, img_h), color=1)
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            font_title = ImageFont.truetype("arial.ttf", 22)
+        except IOError:
+            font_title = ImageFont.load_default()
+
+        # Texte (Centré en haut, marge de 5)
+        title_w = draw.textlength(parfum_name, font=font_title)
+        draw.text(((img_w - title_w) // 2, 5), parfum_name, font=font_title, fill=0)
+
+        # Code-barres EAN-13
+        stream = io.BytesIO()
+        fp = barcode.get('ean13', ean13, writer=ImageWriter())
+        fp.write(stream, options={
+            'dpi': 203,
+            'module_width': 0.40,
+            'module_height': 12.0,
+            'quiet_zone': 2.0,
+            'write_text': False
+        })
+        stream.seek(0)
+        bc_img = Image.open(stream).convert('1')
+        
+        # Le code-barres généré a une taille naturelle qui rentre sans redimensionnement
+        bc_img = bc_img.point(lambda p: p > 128 and 255)
+        # On le place à y=32 pour ne pas écraser le texte
+        img.paste(bc_img, ((img_w - bc_img.width)//2, 32))
+        
+        # Texte manuel du code-barre formaté avec espaces
+        if len(ean13) == 13:
+            ean_spaced = f"{ean13[0]} {ean13[1:7]} {ean13[7:13]}"
+        else:
+            ean_spaced = ean13
+            
+        try:
+            font_bc = ImageFont.truetype("arial.ttf", 20)
+        except IOError:
+            font_bc = ImageFont.load_default()
+            
+        tw = draw.textlength(ean_spaced, font=font_bc)
+        draw.text(((img_w - tw) // 2, 140), ean_spaced, font=font_bc, fill=0)
+        
+        return img.transpose(Image.ROTATE_90)
+
+    def _render_4up_toshiba_band(self, parfum_name: str, ean13: str) -> Image.Image:
+        """Génère la bande 4-up complète de largeur 800 et de hauteur 344."""
+        canvas_h = 344 
+        main = Image.new('1', (800, canvas_h), color=1)
+        
+        # 4 étiquettes de 176 dots de large (22mm) avec 24 dots (~3mm) d'espacement.
+        # On retire la marge gauche de 12 dots car l'imprimante a déjà un décalage physique.
+        x_offsets = [0, 200, 400, 600]
+        for x in x_offsets:
+            lbl = self._draw_4up_toshiba_single_label(parfum_name, ean13)
+            main.paste(lbl, (x, 0))
+            
+        return main
+
+    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int) -> str:
+        """Génère le flux binaire TPCL (Raster Mode) pour l'impression 4-up."""
+        # Nombre de lignes physiques (4 étiquettes par ligne)
+        nb_rows = (quantity + 3) // 4
+        
+        parfum_name = parfum['nom']
+        ean13 = parfum['ean13']
+        
+        # On génère l'image de la ligne
+        image = self._render_4up_toshiba_band(parfum_name, ean13)
+        img_w, img_h = image.size
+        w_bytes = img_w // 8
+        
+        # On utilise le même trick que le 3-up : D1221,0975,1201| car physiquement 
+        # le capteur de la machine reste calibré sur 120.1mm de hauteur.
+        # Mais le {C|} efface le buffer. 
+        header = (
+            b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>{D1221,0975,1201|}\r\n"
+            b"<xpml></page></xpml><xpml><page quantity='1' pitch='120.1 mm'></xpml>{C|}\r\n"
+        )
+        
+        raw = image.tobytes()
+        inv = bytes(b ^ 0xFF for b in raw)
+        
+        # On compresse 1 rangée (344 lignes)
+        comp = self.compress_topix(w_bytes, img_h, inv)
+        
+        # Commande SG : H=0300 (Fake height to bypass memory crash), payload = 344 lignes réelles.
+        sg = f"{{SG;0000,0000,{img_w:04d},0300,3,".encode('ascii')
+        
+        clen = len(comp)
+        sg += bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
+        
+        # On répète la rangée nb_rows fois avec XS;I,xxxx
+        footer = f"{{XS;I,{nb_rows:04d},0002C5000|}}\r\n<xpml></page></xpml><xpml><end/></xpml>\r\n".encode('ascii')
+        
+        job = header + sg + footer
+        return job.decode('latin-1')
+
+    def generate_4up_preview_png(self, parfum: dict) -> bytes:
+        """Génère l'aperçu PNG pour l'interface Web d'une seule étiquette 4-up."""
+        lbl_rot = self._draw_4up_toshiba_single_label(parfum['nom'], parfum['ean13'])
+        # L'image est retournée à 90° (176x344) pour l'imprimante.
+        # On la remet en mode paysage (344x176) pour l'aperçu Web.
+        img = lbl_rot.transpose(Image.ROTATE_270)
+        
+        # Agrandissement x2 pour la netteté sur l'écran
+        img = img.resize((img.width * 2, img.height * 2), Image.NEAREST)
+        
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
