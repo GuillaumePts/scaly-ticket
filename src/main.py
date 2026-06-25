@@ -58,6 +58,8 @@ class PrintJobRequest(BaseModel):
     printer_ip: str
     printer_dpi: int
     printer_language: str = "ZPL"
+    offset_x: int = 800
+    offset_y: int = 18
     items: List[TicketData]
 
 class PrintNatureRequest(BaseModel):
@@ -209,13 +211,20 @@ async def print_json(request: PrintJobRequest):
             # Plus besoin de printer.wait_until_ready() à chaque étiquette, 
             # la machine va buffuriser le gros flux réseau d'un coup.
             if not first_job:
-                sep = engine.generate_separator_tpcl(ticket.libelle) if lang == "TPCL" else engine.generate_separator_zpl(ticket.libelle)
-                full_flux += sep
+                if lang == "TPCL":
+                    sep = engine.generate_separator_tpcl(ticket.libelle)
+                    full_flux += sep
             
             first_job = False
             
             days_offset = get_days_offset(ticket.date_expiration)
-            nb_rows = (ticket.quantite + 2) // 3
+            
+            # Gestion du format : 3-up (TPCL) ou 1-up (ZPL Zebra)
+            if lang == "TPCL":
+                nb_rows = (ticket.quantite + 2) // 3
+            else:
+                nb_rows = ticket.quantite
+                
             current_dlc = ticket.date_expiration
 
             for i in range(nb_rows):
@@ -230,7 +239,11 @@ async def print_json(request: PrintJobRequest):
                     ticket.lot = new_lot
                     ticket.num_lot_display = new_lot
                 
-                flux = engine.generate_ticket_tpcl(ticket) if lang == "TPCL" else engine.generate_ticket_zpl(ticket)
+                if lang == "TPCL":
+                    flux = engine.generate_ticket_tpcl(ticket)
+                else:
+                    flux = engine.generate_ticket_zebra_300(ticket, offset_x=request.offset_x, offset_y=request.offset_y)
+                    
                 full_flux += flux
         
         # Envoi d'un seul énorme bloc pour éviter la lenteur réseau et les temps morts
@@ -292,13 +305,20 @@ async def upload_csv(
             ticket = TicketData(**row)
 
             if not first_job:
-                sep = engine.generate_separator_tpcl(ticket.libelle) if lang == "TPCL" else engine.generate_separator_zpl(ticket.libelle)
-                full_flux += sep
+                if lang == "TPCL":
+                    sep = engine.generate_separator_tpcl(ticket.libelle)
+                    full_flux += sep
             
             first_job = False
             
             days_offset = get_days_offset(ticket.date_expiration)
-            nb_rows = (ticket.quantite + 2) // 3
+            
+            # Gestion du format : 3-up (TPCL) ou 1-up (ZPL Zebra)
+            if lang == "TPCL":
+                nb_rows = (ticket.quantite + 2) // 3
+            else:
+                nb_rows = ticket.quantite
+                
             current_dlc = ticket.date_expiration
 
             for i in range(nb_rows):
@@ -313,17 +333,75 @@ async def upload_csv(
                     ticket.lot = new_lot
                     ticket.num_lot_display = new_lot
                 
-                flux = engine.generate_ticket_tpcl(ticket) if lang == "TPCL" else engine.generate_ticket_zpl(ticket)
+                if lang == "TPCL":
+                    flux = engine.generate_ticket_tpcl(ticket)
+                else:
+                    flux = engine.generate_ticket_zebra_300(ticket, offset_x=offset_x, offset_y=offset_y)
+                    
                 full_flux += flux
         
         if full_flux:
             printer.send_zpl(full_flux)
             
-        return {"message": f"Impression de {file.filename} terminée en rafale."}
+        return {"message": f"Impression réseau lancée pour {file.filename}."}
 
     except Exception as e:
-        logger.error(f"Erreur impression: {e}")
+        logger.error(f"Erreur upload CSV: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/preview-zebra-1up")
+async def get_preview_zebra_1up():
+    try:
+        engine = ZPLEngine(dpi=300)
+        # Billet fictif pour la visualisation
+        ticket = TicketData(
+            libelle="YAOURT NATURE", 
+            gtin="12345678901234", 
+            date_expiration="240831", 
+            lot="L123", 
+            quantite=1,
+            Client="TEST",
+            Commande="CMD-TEST",
+            DateLivraison="01/01/2026",
+            Numlot="L123"
+        )
+        img_bytes = engine.generate_zebra_1up_preview_png(ticket)
+        return Response(content=img_bytes, media_type="image/png")
+    except Exception as e:
+        logger.error(f"Erreur preview Zebra: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class PrinterOffsetsRequest(BaseModel):
+    ip: str
+    offset_x: int
+    offset_y: int
+
+@app.post("/api/update-printer-offsets")
+async def update_printer_offsets(req: PrinterOffsetsRequest):
+    path = base_path / settings.PRINTERS_FILE
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="printers.json introuvable")
+    
+    with open(path, "r", encoding="utf-8") as f:
+        printers = json.load(f)
+        
+    updated = False
+    for p in printers:
+        if p.get("ip") == req.ip:
+            p["offset_x"] = req.offset_x
+            p["offset_y"] = req.offset_y
+            updated = True
+            break
+            
+    if updated:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(printers, f, indent=4)
+        # Met à jour le cache en mémoire (optionnel)
+        settings.printers.clear()
+        settings.printers.extend(printers)
+        return {"message": "Offsets sauvegardés"}
+    else:
+        raise HTTPException(status_code=404, detail="Imprimante non trouvée")
 
 if __name__ == "__main__":
     import uvicorn

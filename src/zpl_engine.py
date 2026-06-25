@@ -528,6 +528,143 @@ class ZPLEngine:
         job = header + sg + footer
         return job.decode('latin-1')
 
+    def image_to_zebra_gfa(self, image: Image.Image, x_pos: int, y_pos: int) -> str:
+        """
+        Convertit une image Pillow (mode '1') en commande ZPL ^GFA (Graphic Field) avec encodage Hex.
+        C'est l'équivalent direct du flux binaire envoyé par les drivers Windows.
+        """
+        if image.mode != '1':
+            image = image.convert('1')
+            
+        img_w, img_h = image.size
+        bytes_per_row = (img_w + 7) // 8
+        
+        # S'assurer que l'image est un multiple de 8 en largeur pour un alignement parfait des octets
+        if img_w % 8 != 0:
+            padded = Image.new('1', (bytes_per_row * 8, img_h), color=1)
+            padded.paste(image, (0, 0))
+            image = padded
+            
+        raw = image.tobytes()
+        # Inversion des bits : Pillow (0=Noir, 255=Blanc) -> tobytes(0=Noir)
+        # ZPL attend : 1=Noir, 0=Blanc. Donc on inverse avec un XOR 0xFF
+        inv = bytes(b ^ 0xFF for b in raw)
+        
+        # Encodage en Hexadécimal ASCII
+        hex_str = inv.hex().upper()
+        total_bytes = len(inv)
+        
+        # Construction de la commande finale ZPL
+        zpl = (
+            f"^XA\n"
+            f"^FO{x_pos},{y_pos}\n"
+            f"^GFA,{total_bytes},{total_bytes},{bytes_per_row},{hex_str}\n"
+            f"^PQ1,0,1,Y\n"
+            f"^XZ"
+        )
+        return zpl
+
+    def _draw_zebra_single_label_1up(self, data: TicketData) -> Image.Image:
+        """Dessine une étiquette individuelle pour Zebra 300 DPI (1144x352) puis la pivote."""
+        img_w, img_h = 1144, 352
+        img = Image.new('1', (img_w, img_h), color=1)
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            # Polices plus grandes car on est en 300 DPI
+            font_title  = ImageFont.truetype("arial.ttf", 40)
+            font_normal = ImageFont.truetype("arial.ttf", 45) # Date/Lot
+            font_small  = ImageFont.truetype("arial.ttf", 30)
+        except IOError:
+            font_title  = ImageFont.load_default()
+            font_normal = ImageFont.load_default()
+            font_small  = ImageFont.load_default()
+
+        # Libellé (collé en haut)
+        libelle = data.libelle.encode('latin-1', 'ignore').decode('latin-1')
+        try:
+            bbox = draw.textbbox((0, 0), libelle, font=font_title)
+            tw = bbox[2] - bbox[0]
+        except AttributeError:
+            tw, _ = draw.textsize(libelle, font=font_title)
+        draw.text(((img_w - tw)//2, 5), libelle, fill=0, font=font_title)
+
+        # Code-barres
+        barcode_y = 50
+        barcode_data = f"01{data.gtin}17{data.date_expiration}10{data.lot}"
+        stream = io.BytesIO()
+        fp = barcode.get('gs1_128', barcode_data, writer=ImageWriter())
+        fp.write(stream, options={
+            'dpi': 300,
+            'module_width': 0.35,
+            'module_height': 15.0,
+            'quiet_zone': 2.0,
+            'write_text': False,
+        })
+        stream.seek(0)
+        bc_img = Image.open(stream).convert('1')
+        img.paste(bc_img, ((img_w - bc_img.width)//2, barcode_y))
+        barcode_bottom = barcode_y + bc_img.height
+
+        # Texte sous code-barres
+        gs1_text = f"(01){data.gtin}(17){data.date_expiration}(10){data.lot}"
+        try:
+            bbox = draw.textbbox((0, 0), gs1_text, font=font_small)
+            tw = bbox[2] - bbox[0]
+        except AttributeError:
+            tw, _ = draw.textsize(gs1_text, font=font_small)
+        draw.text(((img_w - tw)//2, barcode_bottom + 5), gs1_text, fill=0, font=font_small)
+
+        # Lot et DLC (agrandi et positionné juste en dessous)
+        lot_text = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        try:
+            bbox = draw.textbbox((0, 0), lot_text, font=font_normal)
+            tw = bbox[2] - bbox[0]
+        except AttributeError:
+            tw, _ = draw.textsize(lot_text, font=font_normal)
+        draw.text(((img_w - tw)//2, barcode_bottom + 40), lot_text, fill=0, font=font_normal)
+        
+        # Zebra attend l'image pivotée (352 de large x 1144 de haut)
+        return img.transpose(Image.ROTATE_90)
+        
+    def generate_ticket_zebra_300(self, data: TicketData, offset_x: int = 800, offset_y: int = 18) -> str:
+        """Génère le flux ZPL graphique complet pour la Zebra 300 DPI (Prépa Commande)"""
+        img = self._draw_zebra_single_label_1up(data)
+        return self.image_to_zebra_gfa(img, offset_x, offset_y)
+
+    def generate_separator_zebra_300(self, next_product_name: str, offset_x: int = 800, offset_y: int = 18) -> str:
+        """Génère le séparateur ZPL graphique pour la Zebra 300 DPI"""
+        img_w, img_h = 1144, 352
+        lbl = Image.new('1', (img_w, img_h), color=1)
+        draw = ImageDraw.Draw(lbl)
+        try:
+            font = ImageFont.truetype("arialbd.ttf", 80)
+        except IOError:
+            font = ImageFont.load_default()
+
+        text_to_draw = f">>> {next_product_name} <<<"
+        try:
+            bbox = draw.textbbox((0, 0), text_to_draw, font=font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+        except AttributeError:
+            tw, th = draw.textsize(text_to_draw, font=font)
+
+        draw.text((max(0, (img_w - tw) // 2), max(0, (img_h - th) // 2)), text_to_draw, fill=0, font=font)
+        
+        lbl_rot = lbl.transpose(Image.ROTATE_90)
+        return self.image_to_zebra_gfa(lbl_rot, offset_x, offset_y)
+
+    def generate_zebra_1up_preview_png(self, data: TicketData) -> bytes:
+        """Génère l'aperçu PNG pour la calibration visuelle de la Zebra 1-up."""
+        img = self._draw_zebra_single_label_1up(data)
+        # L'image renvoyée est en portrait (352x1144) pour l'impression ZPL.
+        # On la remet en mode paysage (1144x352) pour l'affichage web.
+        img = img.transpose(Image.ROTATE_270)
+        stream = io.BytesIO()
+        img.save(stream, format='PNG')
+        return stream.getvalue()
+
     def generate_4up_preview_png(self, parfum: dict) -> bytes:
         """Génère l'aperçu PNG pour l'interface Web d'une seule étiquette 4-up."""
         lbl_rot = self._draw_4up_toshiba_single_label(parfum['nom'], parfum['ean13'])

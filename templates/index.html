@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scaly-Ticket - Ferme des Peupliers</title>
+    <title>Etiquetage - Ferme des Peupliers</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,10 +16,13 @@
     <div class="container">
         <header>
             <div class="header-main">
-                <h1>Scaly-Ticket</h1>
+                <img class="logo-peuplier" src="/static/img/logo-center.png" alt="Logo d'entreprise Ferme des Peupliers">
                 <p>Système d'impression d'étiquettes</p>
             </div>
             <div style="display: flex; gap: 15px;">
+                <button type="button" id="open-calibration-header-btn" class="btn-icon" style="display: none; color: var(--warning);" title="Calibrer l'imprimante Zebra">
+                    <i data-lucide="move"></i> Calibrage Zebra
+                </button>
                 <button type="button" id="help-modal-btn" class="btn-icon" style="display: none; color: var(--primary);" title="Mode d'emploi et dépannage Toshiba">
                     <i data-lucide="life-buoy"></i> Aide Toshiba
                 </button>
@@ -67,7 +70,7 @@
                     <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement" data-tool="zebra">
                         <i data-lucide="printer" class="hub-icon text-orange"></i>
                         <h3>Ligne 1</h3>
-                        <p>Interface en construction</p>
+                        <p>Imprimante Zebra - 1-up</p>
                     </a>
                     <!-- Mode Expert caché à la demande de l'utilisateur -->
                     <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement" data-tool="expert" style="display: none;">
@@ -107,7 +110,12 @@
                     
                     <div class="printer-selection-box">
                         <label for="printer" class="sr-only">Imprimante :</label>
-                        <select id="printer" class="large-select"></select>
+                        <div style="display: flex; gap: 10px; width: 100%;">
+                            <select id="printer" class="large-select" style="flex-grow: 1;"></select>
+                            <button type="button" id="open-calibration-btn" class="btn-secondary" style="display: none;" title="Ajuster l'impression au millimètre">
+                                <i data-lucide="move"></i> Calibrer
+                            </button>
+                        </div>
                         <div id="printer-status" class="status-badge"><i data-lucide="loader"></i> Vérification...</div>
                     </div>
                 </section>
@@ -310,6 +318,57 @@
                 <button type="button" id="save-printers-btn" class="btn-primary"><i data-lucide="save"></i> Enregistrer les modifications</button>
                 <button type="button" id="close-printer-modal" class="btn-error"><i data-lucide="x"></i> Fermer sans sauvegarder</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modale de Calibrage Visuel Zebra -->
+    <div id="calibration-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content large" style="max-width: 800px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; display:flex; align-items:center; gap:10px;"><i data-lucide="move" class="icon-info"></i> Calibrage Visuel - Impression</h3>
+                <button type="button" id="close-calibration-modal" class="btn-icon" style="border:none; background:transparent;"><i data-lucide="x"></i></button>
+            </div>
+            
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Ajustez l'impression au millimètre (1 pixel = 1 point d'impression). L'image se déplace exactement comme elle s'imprimera.</p>
+
+            <div style="display: flex; gap: 30px;">
+                <!-- Panneau de contrôle -->
+                <div style="display: flex; flex-direction: column; gap: 20px; min-width: 200px;">
+                    <div class="control-group">
+                        <label>Axe Horizontal (Gauche / Droite)</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button type="button" class="btn-icon" id="calib-left" title="Décaler à gauche"><i data-lucide="arrow-left"></i></button>
+                            <input type="number" id="calib-val-x" style="width: 80px; text-align: center; font-weight: bold;" value="18">
+                            <button type="button" class="btn-icon" id="calib-right" title="Décaler à droite"><i data-lucide="arrow-right"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Axe Vertical (Haut / Bas)</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button type="button" class="btn-icon" id="calib-up" title="Décaler en haut"><i data-lucide="arrow-up"></i></button>
+                            <input type="number" id="calib-val-y" style="width: 80px; text-align: center; font-weight: bold;" value="800">
+                            <button type="button" class="btn-icon" id="calib-down" title="Décaler en bas"><i data-lucide="arrow-down"></i></button>
+                        </div>
+                    </div>
+
+                    <button type="button" id="save-calibration-btn" class="btn-primary" style="margin-top: auto;">
+                        <i data-lucide="save"></i> Enregistrer le calage
+                    </button>
+                </div>
+
+                <!-- Visuel -->
+                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; padding: 20px;">
+                    <!-- Représentation de l'étiquette 115x30 -->
+                    <!-- 1358x354 dots affiché à l'échelle 0.4 -->
+                    <div style="width: 543px; height: 141px; background: white; border: 1px dashed #ef4444; position: relative; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div style="position: absolute; top: 0; left: 0; transform-origin: top left; transform: scale(0.4);">
+                            <img id="calibration-preview-img" src="" alt="Aperçu du ticket" style="position: absolute; transition: top 0.1s, left 0.1s;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 10px; font-size: 0.85rem; color: #ef4444;">Le cadre pointillé rouge représente le bord physique de l'étiquette.</div>
         </div>
     </div>
 

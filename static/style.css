@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
 :root {
-    --primary: #1d4ed8;
-    --primary-hover: #1e40af;
+    --primary: #8cc63f;
+    --primary-hover: #73a92f;
     --secondary: #059669;
     --secondary-hover: #047857;
     --background: #f1f5f9;
@@ -95,6 +95,11 @@ i[data-lucide] {
     display: flex;
     align-items: center;
     margin-bottom: 15px;
+}
+
+.logo-peuplier{
+    width: 300px;
+    height: auto;
 }
 
 .step-number {
@@ -274,7 +279,7 @@ button:hover { background: var(--primary-hover); }
     height: 48px;
     margin-bottom: 15px;
 }
-.text-blue { color: #3b82f6; }
+.text-blue { color: #8cc63f; }
 .text-green { color: #10b981; }
 .text-orange { color: #f59e0b; }
 .text-gray { color: #64748b; }

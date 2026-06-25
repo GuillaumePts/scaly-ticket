@@ -5,15 +5,19 @@
         "port": 9100,
         "dpi": 203,
         "language": "TPCL",
-        "sector": "prepa_commande"
+        "sector": "prepa_commande",
+        "offset_x": 0,
+        "offset_y": 0
     },
     {
-        "name": "Zebra Prépa commande",
-        "ip": "192.168.1.101",
+        "name": "Zebra Pr\u00e9pa commande",
+        "ip": "200.200.129.164",
         "port": 9100,
         "dpi": 300,
         "language": "ZPL",
-        "sector": "prepa_commande"
+        "sector": "prepa_commande",
+        "offset_x": 803,
+        "offset_y": 104
     },
     {
         "name": "Zebra Conditionnement",
@@ -21,6 +25,8 @@
         "port": 9100,
         "dpi": 300,
         "language": "ZPL",
-        "sector": "conditionnement"
+        "sector": "conditionnement",
+        "offset_x": 800,
+        "offset_y": 18
     }
 ]

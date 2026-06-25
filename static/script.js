@@ -239,9 +239,20 @@ function activateDedicatedTool(tool, sector) {
         const toshiba = Array.from(printerSelect.options).find(opt => opt.dataset.language === 'TPCL');
         if (toshiba) {
             printerSelect.value = toshiba.value;
+            printerSelect.dispatchEvent(new Event('change'));
             updatePrinterStatus();
         } else {
             Modal.error("Imprimante introuvable", "Aucune imprimante Toshiba n'est configurée pour ce secteur !");
+        }
+    } else if (tool.startsWith('zebra')) {
+        // Sélectionne l'imprimante ZPL parmi celles du secteur
+        const zebra = Array.from(printerSelect.options).find(opt => opt.dataset.language === 'ZPL');
+        if (zebra) {
+            printerSelect.value = zebra.value;
+            printerSelect.dispatchEvent(new Event('change'));
+            updatePrinterStatus();
+        } else {
+            Modal.error("Imprimante introuvable", "Aucune imprimante Zebra n'est configurée pour ce secteur !");
         }
     }
 
@@ -259,10 +270,13 @@ function activateDedicatedTool(tool, sector) {
         const stepNum = parfumSection.querySelector('.step-number');
         if (stepNum) stepNum.style.display = 'none';
         parfumSection.querySelector('h2').textContent = "Configuration des étiquettes";
-    } else if (tool === 'zebra' || tool === 'zebra_prepa' || tool === 'zebra_condi') {
-        uploadSection.style.display = 'none';
+    } else if (tool.startsWith('zebra')) {
+        currentFormat = '1up'; // Zebra 300 1-up
+        uploadSection.style.display = 'block';
         parfumSection.style.display = 'none';
-        Modal.alert("En construction", "L'interface Zebra arrive cet après-midi !", "clock", "icon-warning");
+        const stepNum = uploadSection.querySelector('.step-number');
+        if (stepNum) stepNum.style.display = 'none';
+        uploadSection.querySelector('h2').textContent = "Commandes (Zebra 1-up)";
     }
 }
 
@@ -556,12 +570,113 @@ function filterPrinters(sector) {
         opt.textContent = `${p.name} (${p.ip})`;
         opt.dataset.dpi = p.dpi;
         opt.dataset.language = p.language || 'ZPL';
+        opt.dataset.offsetX = p.offset_x || 800;
+        opt.dataset.offsetY = p.offset_y || 18;
         printerSelect.appendChild(opt);
     });
+    
+    // Afficher ou cacher le bouton de calibrage selon l'imprimante
+    const openCalibrationBtn = document.getElementById('open-calibration-btn');
+    const openCalibrationHeaderBtn = document.getElementById('open-calibration-header-btn');
+    const toggleCalibrationBtn = () => {
+        const opt = printerSelect.options[printerSelect.selectedIndex];
+        const isZpl = opt && opt.dataset.language === 'ZPL';
+        if (openCalibrationBtn) openCalibrationBtn.style.display = isZpl ? 'block' : 'none';
+        if (openCalibrationHeaderBtn) openCalibrationHeaderBtn.style.display = isZpl ? 'flex' : 'none';
+    };
+    printerSelect.addEventListener('change', toggleCalibrationBtn);
+    toggleCalibrationBtn();
+    
     updatePrinterStatus();
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(updatePrinterStatus, 3000);
 }
+
+// ==========================================
+// Logique de calibrage Zebra 1-up
+// ==========================================
+const calibrationModal = document.getElementById('calibration-modal');
+const closeCalibrationModal = document.getElementById('close-calibration-modal');
+const openCalibrationBtn = document.getElementById('open-calibration-btn');
+const openCalibrationHeaderBtn = document.getElementById('open-calibration-header-btn');
+const calibValX = document.getElementById('calib-val-x'); // Gauche/Droite = offsetY en ZPL
+const calibValY = document.getElementById('calib-val-y'); // Haut/Bas = offsetX en ZPL
+const calibImg = document.getElementById('calibration-preview-img');
+const saveCalibrationBtn = document.getElementById('save-calibration-btn');
+
+function updateCalibrationVisual() {
+    const zebraY = parseInt(calibValX.value) || 0;
+    const zebraX = parseInt(calibValY.value) || 0;
+    
+    calibImg.style.left = zebraY + 'px';
+    calibImg.style.top = (zebraX - 800) + 'px';
+}
+
+const openCalibrationModal = async () => {
+    const opt = printerSelect.options[printerSelect.selectedIndex];
+    if (!opt) return;
+    
+    calibValX.value = opt.dataset.offsetY || 18;
+    calibValY.value = opt.dataset.offsetX || 800;
+    
+    // Charger l'image de preview
+    calibImg.src = "/api/preview-zebra-1up?" + new Date().getTime(); // Anti-cache
+    
+    updateCalibrationVisual();
+    calibrationModal.style.display = 'flex';
+};
+
+if (openCalibrationBtn) openCalibrationBtn.onclick = openCalibrationModal;
+if (openCalibrationHeaderBtn) openCalibrationHeaderBtn.onclick = openCalibrationModal;
+
+closeCalibrationModal.onclick = () => {
+    calibrationModal.style.display = 'none';
+};
+    
+    document.getElementById('calib-left').onclick = () => { calibValX.value = parseInt(calibValX.value) - 1; updateCalibrationVisual(); };
+    document.getElementById('calib-right').onclick = () => { calibValX.value = parseInt(calibValX.value) + 1; updateCalibrationVisual(); };
+    document.getElementById('calib-up').onclick = () => { calibValY.value = parseInt(calibValY.value) - 1; updateCalibrationVisual(); };
+    document.getElementById('calib-down').onclick = () => { calibValY.value = parseInt(calibValY.value) + 1; updateCalibrationVisual(); };
+    
+    calibValX.oninput = updateCalibrationVisual;
+    calibValY.oninput = updateCalibrationVisual;
+    
+    saveCalibrationBtn.onclick = async () => {
+        const opt = printerSelect.options[printerSelect.selectedIndex];
+        const newOffsetX = parseInt(calibValY.value);
+        const newOffsetY = parseInt(calibValX.value);
+        
+        try {
+            const res = await fetch('/api/update-printer-offsets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ip: opt.value,
+                    offset_x: newOffsetX,
+                    offset_y: newOffsetY
+                })
+            });
+            if (res.ok) {
+                // Mettre à jour en local
+                opt.dataset.offsetX = newOffsetX;
+                opt.dataset.offsetY = newOffsetY;
+                
+                // Mettre à jour aussi dans printersData pour que ce soit persistant si on re-filtre
+                const pData = printersData.find(p => p.ip === opt.value);
+                if (pData) {
+                    pData.offset_x = newOffsetX;
+                    pData.offset_y = newOffsetY;
+                }
+                
+                Modal.alert("Succès", "Calibrage enregistré !");
+                calibrationModal.style.display = 'none';
+            } else {
+                Modal.error("Erreur", "Impossible de sauvegarder le calibrage.");
+            }
+        } catch (e) {
+            Modal.error("Erreur", "Problème réseau lors de la sauvegarde.");
+        }
+    };
 
 async function updatePrinterStatus() {
     const ip = printerSelect.value;
@@ -734,13 +849,16 @@ async function startPrint(all = false) {
     progressContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     try {
+        const opt = printerSelect.options[printerSelect.selectedIndex];
         const response = await fetch('/print-json', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 printer_ip: printerSelect.value,
-                printer_dpi: parseInt(printerSelect.options[printerSelect.selectedIndex].dataset.dpi),
-                printer_language: printerSelect.options[printerSelect.selectedIndex].dataset.language,
+                printer_dpi: parseInt(opt.dataset.dpi),
+                printer_language: opt.dataset.language,
+                offset_x: parseInt(opt.dataset.offsetX) || 800,
+                offset_y: parseInt(opt.dataset.offsetY) || 18,
                 items: updatedData
             })
         });
