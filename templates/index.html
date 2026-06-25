@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scaly-Ticket - Ferme des Peupliers</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -11,107 +17,221 @@
         <header>
             <div class="header-main">
                 <h1>Scaly-Ticket</h1>
-                <p>Impression d'étiquettes 3-up</p>
+                <p>Système d'impression d'étiquettes</p>
             </div>
-            <button type="button" id="manage-printers-btn" class="btn-icon">⚙️ Gérer les imprimantes</button>
+            <div style="display: flex; gap: 15px;">
+                <button type="button" id="help-modal-btn" class="btn-icon" style="display: none; color: var(--primary);" title="Mode d'emploi et dépannage Toshiba">
+                    <i data-lucide="life-buoy"></i> Aide Toshiba
+                </button>
+                <button type="button" id="manage-printers-btn" class="btn-icon" title="Paramètres techniques">
+                    <i data-lucide="settings"></i> Réglages
+                </button>
+            </div>
         </header>
 
         <main>
-            <section class="sector-selection">
-                <label>Votre secteur :</label>
-                <div class="sector-buttons">
-                    <button type="button" class="sector-btn" data-sector="preparation">📦 Préparation</button>
-                    <button type="button" class="sector-btn" data-sector="commande">🚚 Commande</button>
-                    <button type="button" class="sector-btn" data-sector="production">🏭 Production</button>
+            <!-- PORTAIL HUB (Accueil) -->
+            <section id="hub-sector-choice" class="step-section">
+                <div class="step-header">
+                    <h2><i data-lucide="layout-grid"></i> Portail d'impression - Accueil</h2>
                 </div>
-            </section>
-
-            <section class="printer-selection" id="printer-section" style="display: none;">
-                <label for="printer">Sélectionner l'imprimante :</label>
-                <select id="printer">
-                    <!-- Sera rempli dynamiquement par JS -->
-                </select>
-                <div id="printer-status" class="status-badge">Vérification...</div>
+                <p class="help-text"><i data-lucide="info"></i> Avant de commencer, veuillez confirmer votre atelier de travail pour éviter les erreurs d'imprimante.</p>
                 
-                <div id="format-container" style="margin-top: 15px;">
-                    <label for="print-format">Format d'impression :</label>
-                    <select id="print-format">
-                        <option value="3up">Format 3-up (Fichier CSV/TXT)</option>
-                        <option value="4up">Format 4-up (Parfums fixes)</option>
-                    </select>
+                <div class="sector-buttons">
+                    <button type="button" class="hub-sector-btn" data-sector="prepa_commande">
+                        <i data-lucide="package"></i> Prépa Commande
+                    </button>
+                    <button type="button" class="hub-sector-btn" data-sector="conditionnement">
+                        <i data-lucide="box"></i> Conditionnement
+                    </button>
                 </div>
             </section>
 
-            <!-- Section spécifique pour l'impression de parfums 4-up -->
-            <section id="parfum-section" style="display: none;">
-                <div class="nature-card">
-                    <div class="nature-header">
-                        <h3>Etiquettes 4-up (Parfums)</h3>
-                        <p>Format 4-up Toshiba B-FV4D</p>
-                    </div>
-                    <div class="nature-body" style="display: flex; flex-wrap: wrap; gap: 20px;">
-                        <div style="flex: 1; min-width: 250px;">
-                            <label for="parfum-select">Parfum :</label>
-                            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                                <select id="parfum-select" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="">Chargement...</option>
-                                </select>
-                                <button type="button" id="toggle-add-parfum-btn" class="btn-secondary" style="padding: 0 10px;">➕ Nouveau</button>
-                            </div>
-                            
-                            <!-- Formulaire d'ajout -->
-                            <div id="add-parfum-form" style="display: none; background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #eee;">
-                                <h4>Ajouter une étiquette</h4>
-                                <label>Nom de l'étiquette :</label>
-                                <input type="text" id="new-parfum-nom" placeholder="Ex: Yaourt fraise 4x125gr" style="width: 100%; margin-bottom: 10px; padding: 6px;">
-                                <label>Code EAN-13 :</label>
-                                <input type="text" id="new-parfum-ean" placeholder="Ex: 3374270030348" maxlength="14" style="width: 100%; margin-bottom: 10px; padding: 6px;">
-                                
-                                <div style="display: flex; gap: 10px;">
-                                    <button type="button" id="preview-new-parfum-btn" class="btn-secondary" style="flex: 1;">👁️ Aperçu</button>
-                                    <button type="button" id="save-new-parfum-btn" class="btn-primary" style="flex: 1;">💾 Enregistrer</button>
-                                </div>
-                            </div>
-
-                            <label for="parfum-qty">Nombre d'étiquettes (total) :</label>
-                            <input type="number" id="parfum-qty" value="40" min="1" max="10000">
-                            <button type="button" id="print-4up-btn" class="btn-primary" style="margin-top: 15px; width: 100%;">🖨️ Lancer l'impression 4-up</button>
-                        </div>
-                        <div style="flex: 1; text-align: center; border: 1px dashed #ccc; padding: 10px; border-radius: 4px; min-width: 250px; background: #fafafa;">
-                            <p style="margin-top: 0; color: #666; font-size: 14px;">Aperçu de l'étiquette</p>
-                            <img id="parfum-preview-img" style="max-width: 100%; max-height: 150px; border: 1px solid #eee; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
-                        </div>
-                    </div>
+            <section id="hub-tools-choice" class="step-section" style="display: none;">
+                <div class="step-header">
+                    <h2><i data-lucide="tool"></i> Outils disponibles pour votre atelier</h2>
+                </div>
+                <p class="help-text"><i data-lucide="info"></i> Cliquez sur la tâche que vous souhaitez accomplir. Une page dédiée s'ouvrira.</p>
+                
+                <div class="hub-grid">
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande" data-tool="toshiba_3up">
+                        <i data-lucide="file-spreadsheet" class="hub-icon text-blue"></i>
+                        <h3>Commandes (Fichier TXT)</h3>
+                        <p>Imprimante Toshiba - 3-up</p>
+                    </a>
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande" data-tool="toshiba_4up">
+                        <i data-lucide="tags" class="hub-icon text-green"></i>
+                        <h3>Ligne 2</h3>
+                        <p>Parfums (Format 4-up)</p>
+                    </a>
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement" data-tool="zebra">
+                        <i data-lucide="printer" class="hub-icon text-orange"></i>
+                        <h3>Ligne 1</h3>
+                        <p>Interface en construction</p>
+                    </a>
+                    <!-- Mode Expert caché à la demande de l'utilisateur -->
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement" data-tool="expert" style="display: none;">
+                        <i data-lucide="settings-2" class="hub-icon text-gray"></i>
+                        <h3>Mode Expert / Technicien</h3>
+                        <p>Toutes options débloquées</p>
+                    </a>
                 </div>
             </section>
 
-            <section id="upload-section" style="display: none;">
-                <div class="upload-zone" id="drop-zone">
+            <div id="wizard-section" style="display: none;">
+                <!-- ETAPE 1 -->
+                <section class="step-section" id="step1">
+                    <div class="step-header">
+                        <span class="step-number">1</span>
+                        <h2>Où vous trouvez-vous ?</h2>
+                    </div>
+                    <p class="help-text"><i data-lucide="info"></i> Cliquez sur le bouton correspondant à votre atelier de travail actuel.</p>
+                    
+                    <div class="sector-buttons">
+                        <button type="button" class="sector-btn" data-sector="prepa_commande">
+                            <i data-lucide="package"></i> Prépa Commande
+                        </button>
+                        <button type="button" class="sector-btn" data-sector="conditionnement">
+                            <i data-lucide="box"></i> Conditionnement
+                        </button>
+                    </div>
+                </section>
+
+                <!-- ETAPE 2 -->
+                <section class="step-section" id="step2" style="display: none;">
+                    <div class="step-header">
+                        <span class="step-number">2</span>
+                        <h2>Sur quelle machine voulez-vous imprimer ?</h2>
+                    </div>
+                    <p class="help-text"><i data-lucide="info"></i> Choisissez l'imprimante qui va sortir vos étiquettes parmi celles disponibles dans votre atelier.</p>
+                    
+                    <div class="printer-selection-box">
+                        <label for="printer" class="sr-only">Imprimante :</label>
+                        <select id="printer" class="large-select"></select>
+                        <div id="printer-status" class="status-badge"><i data-lucide="loader"></i> Vérification...</div>
+                    </div>
+                </section>
+
+                <!-- ETAPE 3 -->
+                <section class="step-section" id="step3" style="display: none;">
+                    <div class="step-header">
+                        <span class="step-number">3</span>
+                        <h2>Que voulez-vous imprimer ?</h2>
+                    </div>
+                    <p class="help-text"><i data-lucide="info"></i> Sélectionnez le type d'étiquettes dont vous avez besoin aujourd'hui.</p>
+                    
+                    <div class="format-buttons">
+                        <button type="button" class="format-btn active" data-format="3up">
+                            <i data-lucide="file-spreadsheet"></i> 
+                            <div class="format-text">
+                                <strong>Fichier de commandes</strong>
+                                <span>Fichier de type .txt (Format 3-up)</span>
+                            </div>
+                        </button>
+                        <button type="button" class="format-btn" data-format="4up">
+                            <i data-lucide="tags"></i> 
+                            <div class="format-text">
+                                <strong>Etiquettes de Parfums</strong>
+                                <span>Pour les yaourts (Format 4-up)</span>
+                            </div>
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ETAPE 4 (CSV) -->
+            <section class="step-section" id="upload-section" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">4</span>
+                    <h2>Fournir le fichier de commandes</h2>
+                </div>
+                <p class="help-text"><i data-lucide="info"></i> Cliquez dans le grand cadre pointillé ci-dessous pour chercher votre fichier de commande sur cet ordinateur.</p>
+                
+                <div class="upload-zone" id="drop-zone" tabindex="0">
                     <div class="upload-content">
-                        <span class="icon">📄</span>
-                        <p>Glissez-déposez votre fichier CSV ici</p>
-                        <p>ou</p>
+                        <i data-lucide="file-up" class="icon-large"></i>
+                        <p class="upload-main-text">Cliquez ici pour choisir votre fichier</p>
+                        <p class="upload-sub-text">Format accepté : .txt</p>
                         <input type="file" id="file-input" accept=".csv,.txt,.tsv,text/plain" hidden>
-                        <button type="button" onclick="document.getElementById('file-input').click()">Parcourir</button>
                     </div>
                 </div>
             </section>
 
-            <section id="edit-section" style="display: none;">
-                <div class="order-info">
-                    <h3 id="order-client">Client : -</h3>
-                    <p id="order-id">Commande : -</p>
+            <!-- ETAPE 4 (Parfums 4-up) -->
+            <section class="step-section" id="parfum-section" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">4</span>
+                    <h2>Configurer vos étiquettes de parfums</h2>
                 </div>
+                <p class="help-text"><i data-lucide="info"></i> Choisissez le parfum désiré et indiquez combien d'étiquettes vous voulez imprimer au total.</p>
+                
+                <div class="nature-body">
+                    <div class="form-group">
+                        <label for="parfum-select"><strong>1. Quel parfum imprimer ?</strong></label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <select id="parfum-select" class="large-select"></select>
+                            <button type="button" id="toggle-add-parfum-btn" class="btn-secondary" title="Créer un nouveau parfum">
+                                <i data-lucide="plus-circle"></i> Nouveau
+                            </button>
+                        </div>
+                        
+                        <!-- Formulaire d'ajout caché par défaut -->
+                        <div id="add-parfum-form" class="sub-form" style="display: none;">
+                            <h4><i data-lucide="tag"></i> Créer un nouveau parfum</h4>
+                            
+                            <label>Nom exact de l'étiquette :</label>
+                            <input type="text" id="new-parfum-nom" placeholder="Ex: Yaourt fraise 4x125gr">
+                            
+                            <label style="margin-top:10px;">Code barre (EAN-13) :</label>
+                            <input type="text" id="new-parfum-ean" placeholder="Ex: 3374270030348" maxlength="14">
+                            
+                            <div class="sub-form-actions">
+                                <button type="button" id="preview-new-parfum-btn" class="btn-secondary"><i data-lucide="eye"></i> Voir un aperçu</button>
+                                <button type="button" id="save-new-parfum-btn" class="btn-primary"><i data-lucide="save"></i> Enregistrer ce parfum</button>
+                            </div>
+                        </div>
+
+                        <label for="parfum-qty"><strong>2. Combien d'étiquettes voulez-vous au total ?</strong></label>
+                        <input type="number" id="parfum-qty" value="40" min="1" max="10000" class="large-input">
+                        
+                        <button type="button" id="print-4up-btn" class="btn-primary btn-massive" style="margin-top: 25px;">
+                            <i data-lucide="printer"></i> Lancer l'impression des parfums
+                        </button>
+                    </div>
+                    
+                    <div class="preview-box">
+                        <p class="preview-title"><i data-lucide="image"></i> Aperçu visuel de l'étiquette</p>
+                        <div class="preview-image-container">
+                            <img id="parfum-preview-img" style="display: none;" alt="Aperçu de l'étiquette" />
+                            <p id="parfum-preview-empty" style="color:var(--text-muted); margin: 40px 0;">Aucun parfum sélectionné</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ETAPE 5 (Edition CSV) -->
+            <section class="step-section" id="edit-section" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">5</span>
+                    <h2>Vérification avant impression</h2>
+                </div>
+                <p class="help-text"><i data-lucide="info"></i> Voici le contenu de votre fichier. Vous pouvez décocher les lignes que vous ne voulez pas imprimer, ou modifier les quantités.</p>
+                
+                <div class="order-info">
+                    <h3 id="order-client"><i data-lucide="user"></i> Client : -</h3>
+                    <p id="order-id"><i data-lucide="file-text"></i> Commande : -</p>
+                </div>
+                
                 <div class="table-container">
                     <table id="products-table">
                         <thead>
                             <tr>
-                                <th width="40"><input type="checkbox" id="select-all" checked></th>
+                                <th width="50" title="Cocher/Décocher tout"><input type="checkbox" id="select-all" checked class="large-checkbox"></th>
                                 <th>Produit</th>
                                 <th width="120">DLC</th>
                                 <th width="150">Lot</th>
-                                <th width="80">Qté</th>
-                                <th width="40"></th>
+                                <th width="100">Quantité</th>
+                                <th width="60"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -119,27 +239,32 @@
                         </tbody>
                     </table>
                 </div>
+                
                 <div class="actions">
-                    <button type="button" id="print-all-btn" class="btn-primary" style="background: #3498db;">🚀 Tout imprimer</button>
-                    <button type="button" id="print-btn" class="btn-primary">🖨️ Imprimer la sélection</button>
-                    <button type="button" id="delete-selected-btn" class="btn-error" style="background: var(--error);">🗑️ Supprimer sélection</button>
-                    <button type="button" id="cancel-btn" class="btn-secondary">Fermer</button>
+                    <button type="button" id="print-all-btn" class="btn-primary"><i data-lucide="printer"></i> Tout imprimer</button>
+                    <button type="button" id="print-btn" class="btn-secondary"><i data-lucide="printer"></i> Imprimer seulement la sélection</button>
+                    <button type="button" id="cancel-btn" class="btn-error"><i data-lucide="x-circle"></i> Annuler le fichier</button>
                 </div>
             </section>
 
-            <section id="progress-container" style="display: none;">
+            <!-- En cours d'impression -->
+            <section id="progress-container" class="step-section" style="display: none;">
                 <div class="progress-header">
-                    <h3>Impression en cours...</h3>
-                    <button type="button" id="stop-btn" class="btn-error" style="background: var(--error); color: white; padding: 5px 15px; border-radius: 4px;">🛑 STOP</button>
+                    <h2><i data-lucide="loader-2" class="spin-icon"></i> Impression en cours...</h2>
+                    <button type="button" id="stop-btn" class="btn-error"><i data-lucide="alert-octagon"></i> ARRÊTER IMMEDIATEMENT</button>
                 </div>
+                <p class="help-text"><i data-lucide="info"></i> Veuillez patienter jusqu'à la fin de la jauge verte.</p>
                 <div class="progress-bar">
                     <div id="progress-fill" style="width: 0%;"></div>
                 </div>
-                <p id="progress-text">Préparation du job...</p>
+                <p id="progress-text" style="font-weight: bold; text-align: center;">Préparation du travail...</p>
             </section>
 
-            <section id="log-container">
-                <h3>Logs en temps réel</h3>
+            <section id="log-container" class="step-section">
+                <div class="step-header">
+                    <h2><i data-lucide="message-circle"></i> Historique des messages</h2>
+                </div>
+                <p class="help-text"><i data-lucide="info"></i> Ce cadre vous informe de ce que l'application est en train de faire.</p>
                 <div id="logs" class="log-box"></div>
             </section>
         </main>
@@ -148,12 +273,12 @@
     <!-- Modale personnalisée -->
     <div id="custom-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
-            <div id="modal-icon" class="modal-icon"></div>
+            <div id="modal-icon" class="modal-icon-container"></div>
             <h3 id="modal-title">Titre</h3>
             <p id="modal-message">Message ici...</p>
             <div class="modal-actions">
-                <button type="button" id="modal-cancel" class="btn-secondary">Annuler</button>
-                <button type="button" id="modal-confirm" class="btn-primary">OK</button>
+                <button type="button" id="modal-cancel" class="btn-secondary"><i data-lucide="x"></i> Annuler</button>
+                <button type="button" id="modal-confirm" class="btn-primary"><i data-lucide="check"></i> Confirmer</button>
             </div>
         </div>
     </div>
@@ -161,7 +286,8 @@
     <!-- Modale de gestion des imprimantes -->
     <div id="printer-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content large">
-            <h3>Configuration des Imprimantes</h3>
+            <h3><i data-lucide="settings"></i> Configuration des Imprimantes</h3>
+            <p style="margin-bottom: 20px;">Attention, ces réglages sont pour les techniciens.</p>
             <div class="table-container">
                 <table id="manage-printers-table">
                     <thead>
@@ -180,9 +306,81 @@
                 </table>
             </div>
             <div class="modal-actions">
-                <button type="button" id="add-printer-btn" class="btn-secondary">➕ Ajouter</button>
-                <button type="button" id="save-printers-btn" class="btn-primary">💾 Sauvegarder</button>
-                <button type="button" id="close-printer-modal" class="btn-error">Fermer</button>
+                <button type="button" id="add-printer-btn" class="btn-secondary"><i data-lucide="plus"></i> Ajouter une imprimante</button>
+                <button type="button" id="save-printers-btn" class="btn-primary"><i data-lucide="save"></i> Enregistrer les modifications</button>
+                <button type="button" id="close-printer-modal" class="btn-error"><i data-lucide="x"></i> Fermer sans sauvegarder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale d'Aide (Toshiba B-FV4D) -->
+    <div id="help-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content large" style="max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; display:flex; align-items:center; gap:10px;"><i data-lucide="life-buoy" class="icon-info"></i> Guide de Dépannage - Toshiba</h3>
+                <button type="button" id="close-help-modal" class="btn-icon" style="border:none; background:transparent;"><i data-lucide="x"></i></button>
+            </div>
+            
+            <p style="color: var(--text-muted);">Ce manuel technique vous aide à résoudre les problèmes de réseau (perte d'IP, vol d'IP) fréquents avec l'imprimante Toshiba B-FV4D.</p>
+
+            <div class="help-section-box">
+                <h4><i data-lucide="search"></i> Cas 1 : L'imprimante ne répond plus, comment retrouver son IP ?</h4>
+                <p>Si l'imprimante semble déconnectée, elle a peut-être perdu son adresse. Il faut la mettre en "Mode Dump" pour forcer l'impression de ses réglages.</p>
+                <ol class="custom-list">
+                    <li><strong>Éteignez</strong> l'imprimante.</li>
+                    <li>Restez appuyé sur le bouton <strong>FEED</strong> et rallumez l'imprimante <strong>SANS LÂCHER</strong> le bouton FEED. C'est très important.</li>
+                    <li>Les 2 voyants lumineux vont rester orange quelques secondes, puis se mettre à alterner de couleur.</li>
+                    <li>Attendez jusqu'à ce que les couleurs ne changent plus (normalement on a la couleur orange et vert). À ce moment là, <strong>relâchez le bouton FEED</strong>.</li>
+                    <li>Les voyants vont repasser au orange. Attendez quelques secondes. Si les étiquettes ne sortent pas, appuyez <strong>une seule fois</strong> sur FEED.</li>
+                    <li>L'imprimante va sortir ses paramètres. L'adresse IP s'y trouve et ressemble à <code>192.168...</code> (ou <code>200.200...</code> spécifiquement à la Ferme des Peupliers).</li>
+                    <li><strong style="color:var(--error);">TRÈS IMPORTANT :</strong> N'oubliez pas de remettre l'imprimante en mode impression normal. Pour cela, il suffit de l'éteindre et de la rallumer.</li>
+                    <li>Une fois l'IP trouvée, remettez-la dans les <strong>Réglages</strong> (en haut à droite de cet écran).</li>
+                </ol>
+            </div>
+
+            <div class="help-section-box" style="margin-top: 25px;">
+                <h4><i data-lucide="network"></i> Cas 2 : Comment changer manuellement l'IP de l'imprimante ?</h4>
+                <p>À faire uniquement si une autre machine a volé l'IP de l'imprimante sur le réseau local et qu'il faut la déplacer sur une "IP lointaine".</p>
+                
+                <div class="step-card">
+                    <h5>Étape 1 : Obtenir l'IP actuelle</h5>
+                    <p>Retrouvez l'IP actuelle via la méthode du <em>Cas 1</em> ou copiez-la depuis le menu <strong>Réglages</strong> (Configuration des Imprimantes).</p>
+                </div>
+                
+                <div class="step-card">
+                    <h5>Étape 2 : Connexion physique et Windows</h5>
+                    <p>Branchez le PC <strong>directement</strong> à l'imprimante avec un câble réseau.</p>
+                    <ul>
+                        <li>Faites <strong>Windows + R</strong> sur votre clavier, tapez <code>ncpa.cpl</code> et appuyez sur Entrée.</li>
+                        <li>Faites un clic droit sur la carte réseau concernée > <strong>Propriétés</strong>.</li>
+                        <li>Double-cliquez sur <strong>Protocole Internet version 4 (TCP/IPv4)</strong>.</li>
+                        <li>Mettez une adresse IP manuelle dans la même plage que l'imprimante. (Ex: Si l'imprimante est en <code>200.200.129.200</code>, mettez <code>200.200.129.201</code>). Validez.</li>
+                    </ul>
+                </div>
+                
+                <div class="step-card">
+                    <h5>Étape 3 : Interface Web Toshiba</h5>
+                    <ul>
+                        <li>Ouvrez votre navigateur (Chrome/Edge) et tapez l'IP de l'imprimante dans la barre d'adresse.</li>
+                        <li>Dans l'interface Toshiba, modifiez l'IP pour mettre la nouvelle adresse souhaitée. Enregistrez.</li>
+                        <li><i data-lucide="smile" style="width:16px;color:var(--secondary);"></i> <strong>Note :</strong> Si le site plante ou charge dans le vide après validation, c'est généralement une bonne nouvelle ! Cela signifie que l'IP a bien changé.</li>
+                    </ul>
+                </div>
+
+                <div class="step-card">
+                    <h5>Étape 4 : Remise en état naturel</h5>
+                    <ul>
+                        <li>Retournez dans <code>ncpa.cpl</code> > IPv4, et remettez la carte réseau sur <strong>Obtenir une adresse IP automatiquement</strong> (réseau naturel).</li>
+                        <li>Rebranchez l'ordinateur et l'imprimante au réseau local de la ferme.</li>
+                        <li>Mettez la nouvelle IP de l'imprimante dans les <strong>Réglages</strong> du tool.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="contact-box" style="margin-top: 30px; text-align: center; background: #fef2f2; border: 1px solid #fca5a5; padding: 15px; border-radius: 8px;">
+                <p style="margin:0; font-weight: 600; color: #991b1b;"><i data-lucide="phone-call" style="vertical-align:text-bottom;"></i> En cas de problème ou besoin d'assistance technique :</p>
+                <p style="margin:8px 0 0 0; color: #7f1d1d; font-size: 1.1rem;">Contactez <strong>Guillaume Pitois</strong> au <strong>07 77 77 06 67</strong></p>
+                <p style="margin:2px 0 0 0; color: #7f1d1d; font-size: 0.95rem;">ou par mail : <a>guillaume.pitois@proton.me</a></p>
             </div>
         </div>
     </div>
@@ -190,6 +388,6 @@
     <script>
         const printersData = {{ printers|tojson }};
     </script>
-    <script src="/static/script.js?v=4"></script>
+    <script src="/static/script.js?v=6"></script>
 </body>
 </html>

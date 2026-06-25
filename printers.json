@@ -1,34 +1,26 @@
 [
     {
-        "name": "Toshiba (Expédition)",
+        "name": "Toshiba (B-FV4D)",
         "ip": "200.200.129.200",
         "port": 9100,
         "dpi": 203,
         "language": "TPCL",
-        "sector": "commande"
+        "sector": "prepa_commande"
     },
     {
-        "name": "Zebra (Commande)",
+        "name": "Zebra Prépa commande",
         "ip": "192.168.1.101",
         "port": 9100,
         "dpi": 300,
         "language": "ZPL",
-        "sector": "commande"
+        "sector": "prepa_commande"
     },
     {
-        "name": "Zebra (Préparation)",
+        "name": "Zebra Conditionnement",
         "ip": "192.168.2.100",
         "port": 9100,
         "dpi": 300,
         "language": "ZPL",
-        "sector": "preparation"
-    },
-    {
-        "name": "Toshiba TEC B-EV4 (Yaourt)",
-        "ip": "",
-        "port": 9100,
-        "dpi": 203,
-        "language": "TPCL",
-        "sector": "production"
+        "sector": "conditionnement"
     }
 ]

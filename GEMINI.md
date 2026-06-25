@@ -54,3 +54,12 @@
     - Réduction de la taille de la police du Lot à 20 pour éviter l'écrasement.
     - Le texte du haut ("6 Yaourt entier...") a été rapproché de 15 points (Y=25) vers le code-barres.
     - Fix d'un comportement indésirable de l'UI Web : la Dropzone ne se vide plus automatiquement après une impression, permettant de garder sa commande à l'écran. Ajout d'un cache-buster `?v=2` pour forcer la mise à jour JS des navigateurs.
+
+### Session du 22 juin 2026 : Intégration du Format 4-up et Formulaire UI
+- **Implémentation du format 4-up** : Le rouleau 4-up est pris en charge avec succès. L'algorithme a été adapté pour générer un canevas de 100mm (800 dots) pour éviter les coupures sur le bord droit.
+- **Calage Millimétré** : L'espacement physique de 3mm entre les étiquettes a été parfaitement répliqué (sauts de 200 dots) avec un décalage global à gauche pour contrer l'alignement mécanique de l'imprimante. Résultat : Centrage absolu.
+- **Rendu graphique affiné** : Ajustement de la largeur des codes-barres (`module_width=0.40`), réduction de la police à 22 pour éviter les dépassements, et formatage standardisé du texte EAN-13 (avec les espaces) calculé manuellement sous les barres via Pillow.
+- **Création dynamique (UI)** : Ajout d'un formulaire pour créer de nouveaux parfums directement depuis l'interface Web avec un aperçu visuel en direct généré par le backend.
+
+## 5. PENSE-BÊTES & CONCEPTS CLÉS
+- **Hydration (State Injection)** : Injecter l'état initial depuis le backend directement dans le code source HTML (via `{{ variable|tojson }}` en Jinja2, ou `<%- JSON.stringify(var) %>` en EJS/Node.js). Cela permet d'éviter les requêtes `fetch()` asynchrones au premier chargement et d'obtenir un affichage instantané des données (excellent pour optimiser l'ouverture d'un SaaS).
