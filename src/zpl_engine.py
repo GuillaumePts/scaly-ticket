@@ -108,17 +108,21 @@ class ZPLEngine:
     TOSHIBA_CANVAS_H = 1200
     TOSHIBA_CHUNK_H  = 300
 
-    def _draw_toshiba_single_label(self, data: TicketData) -> Image.Image:
+    def _draw_toshiba_single_label(self, data: TicketData, styling: dict = None) -> Image.Image:
         """Dessine une étiquette individuelle (115x30mm) en paysage puis la pivote."""
+        styling = styling or {}
         img_w, img_h = 920, 240
         img = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(img)
         
         try:
-            # Polices plus fines et plus petites pour alléger le poids en mémoire (TOSHIBA_CHUNK_H)
-            font_title  = ImageFont.truetype("arial.ttf", 28)
-            font_normal = ImageFont.truetype("arial.ttf", 20)
-            font_small  = ImageFont.truetype("arial.ttf", 20)
+            t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
+            g_font = "arialbd.ttf" if styling.get("gs1_bold") else "arial.ttf"
+            l_font = "arialbd.ttf" if styling.get("lot_bold") else "arial.ttf"
+            
+            font_title  = ImageFont.truetype(t_font, max(10, 28 + styling.get("title_size", 0)))
+            font_small  = ImageFont.truetype(g_font, max(10, 20 + styling.get("gs1_size", 0)))
+            font_normal = ImageFont.truetype(l_font, max(10, 20 + styling.get("lot_size", 0)))
         except IOError:
             font_title  = ImageFont.load_default()
             font_normal = ImageFont.load_default()
@@ -172,18 +176,18 @@ class ZPLEngine:
         # On retourne l'étiquette orientée pour être collée dans la bande 3-up
         return img.transpose(Image.ROTATE_90)
 
-    def _render_toshiba_band(self, data_list: list) -> Image.Image:
+    def _render_toshiba_band(self, data_list: list, offset_x: int = 0, offset_y: int = 0, styling: dict = None) -> Image.Image:
         """Génère la bande complète 3-up (Canvas 800x1200)."""
         # Assemblage sur le canvas global 3-up
         main = Image.new('1', (self.TOSHIBA_CANVAS_W, self.TOSHIBA_CANVAS_H), color=1)
         
         x_offsets = [12, 268, 524]
         for i, data in enumerate(data_list[:3]):
-            lbl = self._draw_toshiba_single_label(data)
-            main.paste(lbl, (x_offsets[i], 0))
+            lbl = self._draw_toshiba_single_label(data, styling)
+            main.paste(lbl, (x_offsets[i] + offset_x, 0 + offset_y))
         return main
 
-    def _build_tpcl_job(self, image: Image.Image) -> bytes:
+    def _build_tpcl_job(self, image: Image.Image, quantity: int = 1) -> bytes:
         img_w, img_h = image.size
         w_bytes = img_w // 8
         
@@ -209,14 +213,14 @@ class ZPLEngine:
         clen = len(comp)
         sg += bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
         
-        footer = b"{XS;I,0001,0002C5000|}\r\n<xpml></page></xpml><xpml><end/></xpml>\r\n"
+        footer = f"{{XS;I,{quantity:04d},0002C5000|}}\r\n<xpml></page></xpml><xpml><end/></xpml>\r\n".encode('ascii')
         return header + sg + footer
 
-    def generate_ticket_tpcl(self, data: TicketData) -> str:
+    def generate_ticket_tpcl(self, data: TicketData, quantity: int = 1, offset_x: int = 0, offset_y: int = 0, styling: dict = None) -> str:
         """Génère le flux TPCL de production 3-up pour la Toshiba B-FV4D."""
         # On passe 3 fois la même donnée pour imprimer les 3 étiquettes de la rangée
-        image = self._render_toshiba_band([data, data, data])
-        job = self._build_tpcl_job(image)
+        image = self._render_toshiba_band([data, data, data], offset_x, offset_y, styling)
+        job = self._build_tpcl_job(image, quantity)
         return job.decode('latin-1')
  
     def generate_separator_tpcl(self, next_product_name: str) -> str:
@@ -426,20 +430,26 @@ class ZPLEngine:
             x_start = 0
         return f"^FO{x_start},{y}^A0N,{font_h},{font_h}^FB{width},1,0,C^FD{text}^FS"
 
-    def _draw_4up_toshiba_single_label(self, parfum_name: str, ean13: str) -> Image.Image:
+    def _draw_4up_toshiba_single_label(self, nom: str, ean13: str, styling: dict = None) -> Image.Image:
         """Dessine une étiquette 4-up (43x22mm -> 344x176 dots) et la pivote."""
+        styling = styling or {}
         img_w, img_h = 344, 176
         img = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(img)
         
         try:
-            font_title = ImageFont.truetype("arial.ttf", 22)
+            t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
+            g_font = "arialbd.ttf" if styling.get("gs1_bold") else "arial.ttf"
+            
+            font_title = ImageFont.truetype(t_font, max(10, 22 + styling.get("title_size", 0)))
+            font_ean   = ImageFont.truetype(g_font, max(10, 22 + styling.get("gs1_size", 0)))
         except IOError:
             font_title = ImageFont.load_default()
+            font_ean   = ImageFont.load_default()
 
         # Texte (Centré en haut, marge de 5)
-        title_w = draw.textlength(parfum_name, font=font_title)
-        draw.text(((img_w - title_w) // 2, 5), parfum_name, font=font_title, fill=0)
+        title_w = draw.textlength(nom, font=font_title)
+        draw.text(((img_w - title_w) // 2, 5), nom, font=font_title, fill=0)
 
         # Code-barres EAN-13
         stream = io.BytesIO()
@@ -465,40 +475,32 @@ class ZPLEngine:
         else:
             ean_spaced = ean13
             
-        try:
-            font_bc = ImageFont.truetype("arial.ttf", 20)
-        except IOError:
-            font_bc = ImageFont.load_default()
-            
-        tw = draw.textlength(ean_spaced, font=font_bc)
-        draw.text(((img_w - tw) // 2, 140), ean_spaced, font=font_bc, fill=0)
+        tw = draw.textlength(ean_spaced, font=font_ean)
+        draw.text(((img_w - tw) // 2, 140), ean_spaced, font=font_ean, fill=0)
         
         return img.transpose(Image.ROTATE_90)
 
-    def _render_4up_toshiba_band(self, parfum_name: str, ean13: str) -> Image.Image:
-        """Génère la bande 4-up complète de largeur 800 et de hauteur 344."""
-        canvas_h = 344 
-        main = Image.new('1', (800, canvas_h), color=1)
+    def _render_4up_toshiba_band(self, nom: str, ean13: str, offset_x: int = 0, offset_y: int = 0, styling: dict = None) -> Image.Image:
+        """Génère la bande de 4 étiquettes côte à côte pour la Toshiba."""
+        # Canvas 800x344
+        main = Image.new('1', (800, 344), color=1)
         
-        # 4 étiquettes de 176 dots de large (22mm) avec 24 dots (~3mm) d'espacement.
-        # On retire la marge gauche de 12 dots car l'imprimante a déjà un décalage physique.
         x_offsets = [0, 200, 400, 600]
-        for x in x_offsets:
-            lbl = self._draw_4up_toshiba_single_label(parfum_name, ean13)
-            main.paste(lbl, (x, 0))
+        for i in range(4):
+            lbl_rot = self._draw_4up_toshiba_single_label(nom, ean13, styling)
+            main.paste(lbl_rot, (x_offsets[i] + offset_x, 0 + offset_y))
             
         return main
 
-    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int) -> str:
-        """Génère le flux binaire TPCL (Raster Mode) pour l'impression 4-up."""
+    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None) -> str:
+        """Génère le flux TPCL de production 4-up pour la Toshiba B-FV4D."""
         # Nombre de lignes physiques (4 étiquettes par ligne)
         nb_rows = (quantity + 3) // 4
         
         parfum_name = parfum['nom']
         ean13 = parfum['ean13']
         
-        # On génère l'image de la ligne
-        image = self._render_4up_toshiba_band(parfum_name, ean13)
+        image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling)
         img_w, img_h = image.size
         w_bytes = img_w // 8
         
@@ -564,17 +566,21 @@ class ZPLEngine:
         )
         return zpl
 
-    def _draw_zebra_single_label_1up(self, data: TicketData) -> Image.Image:
-        """Dessine une étiquette individuelle pour Zebra 300 DPI (1144x352) puis la pivote."""
+    def _draw_zebra_single_label_1up(self, data: TicketData, styling: dict = None) -> Image.Image:
+        """Dessine une étiquette individuelle Zebra (115x30mm) en paysage puis la pivote."""
+        styling = styling or {}
         img_w, img_h = 1144, 352
         img = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(img)
         
         try:
-            # Polices plus grandes car on est en 300 DPI
-            font_title  = ImageFont.truetype("arial.ttf", 40)
-            font_normal = ImageFont.truetype("arial.ttf", 45) # Date/Lot
-            font_small  = ImageFont.truetype("arial.ttf", 30)
+            t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
+            g_font = "arialbd.ttf" if styling.get("gs1_bold") else "arial.ttf"
+            l_font = "arialbd.ttf" if styling.get("lot_bold") else "arial.ttf"
+            
+            font_title  = ImageFont.truetype(t_font, max(10, 45 + styling.get("title_size", 0)))
+            font_normal = ImageFont.truetype(l_font, max(10, 25 + styling.get("lot_size", 0)))
+            font_small  = ImageFont.truetype(g_font, max(10, 25 + styling.get("gs1_size", 0)))
         except IOError:
             font_title  = ImageFont.load_default()
             font_normal = ImageFont.load_default()
@@ -627,9 +633,9 @@ class ZPLEngine:
         # Zebra attend l'image pivotée (352 de large x 1144 de haut)
         return img.transpose(Image.ROTATE_90)
         
-    def generate_ticket_zebra_300(self, data: TicketData, offset_x: int = 800, offset_y: int = 18) -> str:
+    def generate_ticket_zebra_300(self, data: TicketData, offset_x: int = 800, offset_y: int = 18, styling: dict = None) -> str:
         """Génère le flux ZPL graphique complet pour la Zebra 300 DPI (Prépa Commande)"""
-        img = self._draw_zebra_single_label_1up(data)
+        img = self._draw_zebra_single_label_1up(data, styling)
         return self.image_to_zebra_gfa(img, offset_x, offset_y)
 
     def generate_separator_zebra_300(self, next_product_name: str, offset_x: int = 800, offset_y: int = 18) -> str:
@@ -655,9 +661,9 @@ class ZPLEngine:
         lbl_rot = lbl.transpose(Image.ROTATE_90)
         return self.image_to_zebra_gfa(lbl_rot, offset_x, offset_y)
 
-    def generate_zebra_1up_preview_png(self, data: TicketData) -> bytes:
-        """Génère l'aperçu PNG pour la calibration visuelle de la Zebra 1-up."""
-        img = self._draw_zebra_single_label_1up(data)
+    def generate_zebra_1up_preview_png(self, data: TicketData, styling: dict = None) -> bytes:
+        """Génère l'aperçu PNG de l'étiquette Zebra 1-up pour la calibration visuelle."""
+        img = self._draw_zebra_single_label_1up(data, styling)
         # L'image renvoyée est en portrait (352x1144) pour l'impression ZPL.
         # On la remet en mode paysage (1144x352) pour l'affichage web.
         img = img.transpose(Image.ROTATE_270)
@@ -677,5 +683,36 @@ class ZPLEngine:
         
         buf = io.BytesIO()
         img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def generate_3up_band_preview_png(self, data: TicketData, styling: dict = None) -> bytes:
+        """Génère l'aperçu PNG de la bande complète 3-up pour la calibration visuelle."""
+        img = self._render_toshiba_band([data, data, data], styling=styling)
+        img = img.transpose(Image.ROTATE_270)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def generate_4up_band_preview_png(self, parfum: dict, styling: dict = None) -> bytes:
+        """Génère l'aperçu PNG de la bande complète 4-up pour la calibration visuelle."""
+        img = self._render_4up_toshiba_band(parfum['nom'], parfum['ean13'], styling=styling)
+        img = img.transpose(Image.ROTATE_270)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def generate_zebra_2up_preview_png(self, parfum: dict, styling: dict = None) -> bytes:
+        """Génère l'aperçu PNG pour la calibration de la bobine 2-up Zebra (203dpi)."""
+        lbl_rot = self._draw_4up_toshiba_single_label(parfum.get('nom', 'Yaourt Fraise'), parfum.get('ean13', '3412345678918'), styling)
+        lbl_flat = lbl_rot.transpose(Image.ROTATE_270)
+        
+        gap = 24
+        w, h = lbl_flat.width, lbl_flat.height
+        canvas = Image.new('1', (w * 2 + gap, h), color=1)
+        canvas.paste(lbl_flat, (0, 0))
+        canvas.paste(lbl_flat, (w + gap, 0))
+        
+        buf = io.BytesIO()
+        canvas.save(buf, format="PNG")
         return buf.getvalue()
 

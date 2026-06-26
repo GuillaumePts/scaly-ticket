@@ -61,5 +61,12 @@
 - **Rendu graphique affiné** : Ajustement de la largeur des codes-barres (`module_width=0.40`), réduction de la police à 22 pour éviter les dépassements, et formatage standardisé du texte EAN-13 (avec les espaces) calculé manuellement sous les barres via Pillow.
 - **Création dynamique (UI)** : Ajout d'un formulaire pour créer de nouveaux parfums directement depuis l'interface Web avec un aperçu visuel en direct généré par le backend.
 
+### Session du 25 juin 2026 : Intégration Ligne 1 (Zebra 1-up) et Calibrage Visuel
+- **Intégration Zebra (1-up)** : Support total du format 1-up pour l'imprimante Zebra ZE511 (Ligne 1). Désactivation du séparateur `>>> PARFUM <<<` (spécifique à la Toshiba).
+- **Calibrage Pixel-Perfect (Interface)** : Création d'une interface de "Calibrage Visuel" directement dans le navigateur. L'utilisateur peut déplacer l'aperçu de l'étiquette pixel par pixel, traduisant le déplacement CSS (`left`/`top`) en offsets ZPL natifs (`offset_x`, `offset_y`). 
+- **Rotation de rendu (Orientation Web vs Hardware)** : Le moteur graphique ZPL de la Zebra retourne par défaut l'image en portrait matériel (352x1144). Pour l'afficher correctement en paysage sur l'interface Web (1144x352), une transposition `Image.ROTATE_270` a été ajoutée sur la route de prévisualisation API (`/api/preview-zebra-1up`).
+- **Pydantic Validation Fix** : La route de prévisualisation API a été sécurisée en injectant des "dummy variables" (`Client`, `Commande`, etc.) pour satisfaire la validation stricte de `TicketData` et éviter l'Erreur 500.
+- **Prochaines Étapes** : Étendre l'API pour la création personnalisée de formats d'étiquettes, et développer des options de calibrage encore plus poussées (orientations, marges avancées).
+
 ## 5. PENSE-BÊTES & CONCEPTS CLÉS
 - **Hydration (State Injection)** : Injecter l'état initial depuis le backend directement dans le code source HTML (via `{{ variable|tojson }}` en Jinja2, ou `<%- JSON.stringify(var) %>` en EJS/Node.js). Cela permet d'éviter les requêtes `fetch()` asynchrones au premier chargement et d'obtenir un affichage instantané des données (excellent pour optimiser l'ouverture d'un SaaS).

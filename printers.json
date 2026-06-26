@@ -6,12 +6,28 @@
         "dpi": 203,
         "language": "TPCL",
         "sector": "prepa_commande",
-        "offset_x": 0,
-        "offset_y": 0
+        "offset_x": -24,
+        "offset_y": 0,
+        "title_size": -1,
+        "title_bold": false,
+        "gs1_size": 3,
+        "gs1_bold": false,
+        "lot_size": 19,
+        "lot_bold": true
     },
     {
         "name": "Zebra Pr\u00e9pa commande",
         "ip": "200.200.129.164",
+        "port": 9100,
+        "dpi": 300,
+        "language": "ZPL",
+        "sector": "prepa_commande",
+        "offset_x": 803,
+        "offset_y": 104
+    },
+    {
+        "name": "Zebra Pr\u00e9pa commande x2",
+        "ip": "200.200.129.176",
         "port": 9100,
         "dpi": 300,
         "language": "ZPL",

@@ -60,6 +60,12 @@ class PrintJobRequest(BaseModel):
     printer_language: str = "ZPL"
     offset_x: int = 800
     offset_y: int = 18
+    title_size: int = 0
+    title_bold: bool = False
+    gs1_size: int = 0
+    gs1_bold: bool = False
+    lot_size: int = 0
+    lot_bold: bool = False
     items: List[TicketData]
 
 class PrintNatureRequest(BaseModel):
@@ -74,6 +80,14 @@ class Print4UpRequest(BaseModel):
     printer_language: str = "TPCL"
     parfum_id: str
     quantity: int
+    offset_x: int = 0
+    offset_y: int = 0
+    title_size: int = 0
+    title_bold: bool = False
+    gs1_size: int = 0
+    gs1_bold: bool = False
+    lot_size: int = 0
+    lot_bold: bool = False
 
 @app.post("/print-nature")
 async def print_nature(request: PrintNatureRequest):
@@ -181,7 +195,12 @@ async def print_4up(request: Print4UpRequest):
         printer = PrinterClient(host=request.printer_ip)
         
         if request.printer_language == "TPCL":
-            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity)
+            styling = {
+                "title_size": request.title_size, "title_bold": request.title_bold,
+                "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
+                "lot_size": request.lot_size, "lot_bold": request.lot_bold
+            }
+            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
         else:
             # Fallback ou autre imprimante, non implémenté pour l'instant
             raise HTTPException(status_code=400, detail="ZPL non supporté pour ce format")
@@ -225,27 +244,25 @@ async def print_json(request: PrintJobRequest):
             else:
                 nb_rows = ticket.quantite
                 
-            current_dlc = ticket.date_expiration
-
-            for i in range(nb_rows):
-                if is_cancelled:
-                    return {"message": "Impression interrompue."}
+            if is_cancelled:
+                return {"message": "Impression interrompue."}
                 
-                new_dlc = get_updated_dlc(days_offset)
-                if new_dlc != current_dlc:
-                    new_lot = get_updated_lot(ticket.lot)
-                    current_dlc = new_dlc
-                    ticket.date_expiration = new_dlc
-                    ticket.lot = new_lot
-                    ticket.num_lot_display = new_lot
+            styling = {
+                "title_size": request.title_size, "title_bold": request.title_bold,
+                "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
+                "lot_size": request.lot_size, "lot_bold": request.lot_bold
+            }
                 
-                if lang == "TPCL":
-                    flux = engine.generate_ticket_tpcl(ticket)
-                else:
-                    flux = engine.generate_ticket_zebra_300(ticket, offset_x=request.offset_x, offset_y=request.offset_y)
-                    
+            if lang == "TPCL":
+                # On génère l'image UNE SEULE FOIS pour le groupe avec la quantité matérielle
+                flux = engine.generate_ticket_tpcl(ticket, quantity=nb_rows, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
                 full_flux += flux
-        
+            else:
+                # Pour Zebra (ZPL), le texte est léger, on peut concaténer
+                for _ in range(nb_rows):
+                    flux = engine.generate_ticket_zebra_300(ticket, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
+                    full_flux += flux
+                    
         # Envoi d'un seul énorme bloc pour éviter la lenteur réseau et les temps morts
         if full_flux:
             printer.send_zpl(full_flux)
@@ -350,10 +367,13 @@ async def upload_csv(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/preview-zebra-1up")
-async def get_preview_zebra_1up():
+async def preview_zebra_1up(
+    title_size: int = 0, title_bold: str = "false",
+    gs1_size: int = 0, gs1_bold: str = "false",
+    lot_size: int = 0, lot_bold: str = "false"
+):
     try:
         engine = ZPLEngine(dpi=300)
-        # Billet fictif pour la visualisation
         ticket = TicketData(
             libelle="YAOURT NATURE", 
             gtin="12345678901234", 
@@ -365,16 +385,98 @@ async def get_preview_zebra_1up():
             DateLivraison="01/01/2026",
             Numlot="L123"
         )
-        img_bytes = engine.generate_zebra_1up_preview_png(ticket)
+        styling = {
+            "title_size": title_size, "title_bold": title_bold == "true",
+            "gs1_size": gs1_size, "gs1_bold": gs1_bold == "true",
+            "lot_size": lot_size, "lot_bold": lot_bold == "true"
+        }
+        img_bytes = engine.generate_zebra_1up_preview_png(ticket, styling)
         return Response(content=img_bytes, media_type="image/png")
     except Exception as e:
         logger.error(f"Erreur preview Zebra: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/preview-3up")
+async def preview_3up(
+    title_size: int = 0, title_bold: str = "false",
+    gs1_size: int = 0, gs1_bold: str = "false",
+    lot_size: int = 0, lot_bold: str = "false"
+):
+    try:
+        # Dummy data for preview
+        dummy_ticket = TicketData(
+            libelle="6 Yaourt entier Fraise",
+            gtin="03412345678901",
+            date_expiration="260630",
+            lot="L123456",
+            Numlot="Lot: L123456 - DLC: 30/06/2026",
+            Client="FERME",
+            Commande="CMD-PREVIEW",
+            DateLivraison="30/06/2026",
+            Quantite=1
+        )
+        engine = ZPLEngine(dpi=203)
+        styling = {
+            "title_size": title_size, "title_bold": title_bold == "true",
+            "gs1_size": gs1_size, "gs1_bold": gs1_bold == "true",
+            "lot_size": lot_size, "lot_bold": lot_bold == "true"
+        }
+        img_bytes = engine.generate_3up_band_preview_png(dummy_ticket, styling)
+        return Response(content=img_bytes, media_type="image/png")
+    except Exception as e:
+        logger.error(f"Erreur preview 3-up: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/preview-4up-demo")
+async def get_preview_4up_demo(
+    title_size: int = 0, title_bold: str = "false",
+    gs1_size: int = 0, gs1_bold: str = "false",
+    lot_size: int = 0, lot_bold: str = "false"
+):
+    try:
+        engine = ZPLEngine(dpi=203)
+        parfum = {"nom": "Yaourt Fraise", "ean13": "3412345678918"}
+        styling = {
+            "title_size": title_size, "title_bold": title_bold == "true",
+            "gs1_size": gs1_size, "gs1_bold": gs1_bold == "true",
+            "lot_size": lot_size, "lot_bold": lot_bold == "true"
+        }
+        img_bytes = engine.generate_4up_band_preview_png(parfum, styling)
+        return Response(content=img_bytes, media_type="image/png")
+    except Exception as e:
+        logger.error(f"Erreur preview 4-up demo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/preview-zebra-2up")
+async def get_preview_zebra_2up(
+    title_size: int = 0, title_bold: str = "false",
+    gs1_size: int = 0, gs1_bold: str = "false",
+    lot_size: int = 0, lot_bold: str = "false"
+):
+    try:
+        engine = ZPLEngine(dpi=203)
+        parfum = {"nom": "Yaourt Fraise", "ean13": "3412345678918"}
+        styling = {
+            "title_size": title_size, "title_bold": title_bold == "true",
+            "gs1_size": gs1_size, "gs1_bold": gs1_bold == "true",
+            "lot_size": lot_size, "lot_bold": lot_bold == "true"
+        }
+        img_bytes = engine.generate_zebra_2up_preview_png(parfum, styling)
+        return Response(content=img_bytes, media_type="image/png")
+    except Exception as e:
+        logger.error(f"Erreur preview zebra 2-up: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class PrinterOffsetsRequest(BaseModel):
     ip: str
     offset_x: int
     offset_y: int
+    title_size: int = 0
+    title_bold: bool = False
+    gs1_size: int = 0
+    gs1_bold: bool = False
+    lot_size: int = 0
+    lot_bold: bool = False
 
 @app.post("/api/update-printer-offsets")
 async def update_printer_offsets(req: PrinterOffsetsRequest):
@@ -390,6 +492,14 @@ async def update_printer_offsets(req: PrinterOffsetsRequest):
         if p.get("ip") == req.ip:
             p["offset_x"] = req.offset_x
             p["offset_y"] = req.offset_y
+            
+            p["title_size"] = req.title_size
+            p["title_bold"] = req.title_bold
+            p["gs1_size"] = req.gs1_size
+            p["gs1_bold"] = req.gs1_bold
+            p["lot_size"] = req.lot_size
+            p["lot_bold"] = req.lot_bold
+            
             updated = True
             break
             

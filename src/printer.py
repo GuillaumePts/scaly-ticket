@@ -22,13 +22,15 @@ class PrinterClient:
                 s.connect((self.host, self.port))
                 # Tentative de lecture statut standard Zebra
                 s.sendall(b"~HS")
-                try:
-                    response = s.recv(1024).decode("utf-8")
-                    return self._parse_hs_response(response)
-                except socket.timeout:
-                    # Si timeout sur Toshiba, on considère qu'elle est en ligne mais muette
-                    logger.info(f"L'imprimante {self.host} ne répond pas au statut (~HS), mais la connexion est OK.")
-                    return {"paper_out": False, "pause": False, "ribbon_out": False, "head_open": False, "status": "unknown"}
+                response = s.recv(1024).decode("utf-8")
+                return self._parse_hs_response(response)
+        except TimeoutError:
+            # Si timeout (connect, send, ou recv) sur Toshiba, on considère qu'elle est en ligne mais muette
+            logger.info(f"L'imprimante {self.host} a fait un timeout au statut (~HS), mais la connexion est OK.")
+            return {"paper_out": False, "pause": False, "ribbon_out": False, "head_open": False, "status": "unknown"}
+        except socket.timeout:
+            logger.info(f"L'imprimante {self.host} ne répond pas au statut (~HS), mais la connexion est OK.")
+            return {"paper_out": False, "pause": False, "ribbon_out": False, "head_open": False, "status": "unknown"}
         except Exception as e:
             logger.warning(f"Impossible de se connecter à {self.host}: {e}")
             return {"error": str(e)}

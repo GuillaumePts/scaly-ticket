@@ -442,15 +442,24 @@ if (print4UpBtn) {
         addLog(`Lancement impression 4-up (${qty} ex. - ${parfumName})`);
         
         try {
+            const opt = printerSelect.options[printerSelect.selectedIndex];
             const response = await fetch('/print-4up', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    printer_ip: printerSelect.value,
-                    printer_dpi: parseInt(printerSelect.options[printerSelect.selectedIndex].dataset.dpi),
-                    printer_language: printerSelect.options[printerSelect.selectedIndex].dataset.language,
+                    printer_ip: opt.value,
+                    printer_dpi: parseInt(opt.dataset.dpi),
+                    printer_language: opt.dataset.language,
                     parfum_id: parfumId,
-                    quantity: qty
+                    quantity: qty,
+                    offset_x: parseInt(opt.dataset.offsetX) || 0,
+                    offset_y: parseInt(opt.dataset.offsetY) || 0,
+                    title_size: parseInt(opt.dataset.titleSize) || 0,
+                    title_bold: opt.dataset.titleBold === "true",
+                    gs1_size: parseInt(opt.dataset.gs1Size) || 0,
+                    gs1_bold: opt.dataset.gs1Bold === "true",
+                    lot_size: parseInt(opt.dataset.lotSize) || 0,
+                    lot_bold: opt.dataset.lotBold === "true"
                 })
             });
 
@@ -570,8 +579,14 @@ function filterPrinters(sector) {
         opt.textContent = `${p.name} (${p.ip})`;
         opt.dataset.dpi = p.dpi;
         opt.dataset.language = p.language || 'ZPL';
-        opt.dataset.offsetX = p.offset_x || 800;
-        opt.dataset.offsetY = p.offset_y || 18;
+        opt.dataset.offsetX = p.offset_x !== undefined ? p.offset_x : (p.language === 'TPCL' ? 0 : 800);
+        opt.dataset.offsetY = p.offset_y !== undefined ? p.offset_y : (p.language === 'TPCL' ? 0 : 18);
+        opt.dataset.titleSize = p.title_size || 0;
+        opt.dataset.titleBold = !!p.title_bold;
+        opt.dataset.gs1Size = p.gs1_size || 0;
+        opt.dataset.gs1Bold = !!p.gs1_bold;
+        opt.dataset.lotSize = p.lot_size || 0;
+        opt.dataset.lotBold = !!p.lot_bold;
         printerSelect.appendChild(opt);
     });
     
@@ -580,9 +595,8 @@ function filterPrinters(sector) {
     const openCalibrationHeaderBtn = document.getElementById('open-calibration-header-btn');
     const toggleCalibrationBtn = () => {
         const opt = printerSelect.options[printerSelect.selectedIndex];
-        const isZpl = opt && opt.dataset.language === 'ZPL';
-        if (openCalibrationBtn) openCalibrationBtn.style.display = isZpl ? 'block' : 'none';
-        if (openCalibrationHeaderBtn) openCalibrationHeaderBtn.style.display = isZpl ? 'flex' : 'none';
+        if (openCalibrationBtn) openCalibrationBtn.style.display = 'block';
+        if (openCalibrationHeaderBtn) openCalibrationHeaderBtn.style.display = 'flex';
     };
     printerSelect.addEventListener('change', toggleCalibrationBtn);
     toggleCalibrationBtn();
@@ -599,29 +613,212 @@ const calibrationModal = document.getElementById('calibration-modal');
 const closeCalibrationModal = document.getElementById('close-calibration-modal');
 const openCalibrationBtn = document.getElementById('open-calibration-btn');
 const openCalibrationHeaderBtn = document.getElementById('open-calibration-header-btn');
-const calibValX = document.getElementById('calib-val-x'); // Gauche/Droite = offsetY en ZPL
-const calibValY = document.getElementById('calib-val-y'); // Haut/Bas = offsetX en ZPL
+const calibValX = document.getElementById('calib-val-x'); // Gauche/Droite
+const calibValY = document.getElementById('calib-val-y'); // Haut/Bas
 const calibImg = document.getElementById('calibration-preview-img');
 const saveCalibrationBtn = document.getElementById('save-calibration-btn');
+const calibContainer = calibImg.parentElement.parentElement;
+
+const titleSizeInput = document.getElementById('style-title-size');
+const titleBoldInput = document.getElementById('style-title-bold');
+const gs1SizeInput = document.getElementById('style-gs1-size');
+const gs1BoldInput = document.getElementById('style-gs1-bold');
+const lotSizeInput = document.getElementById('style-lot-size');
+const lotBoldInput = document.getElementById('style-lot-bold');
+
+function getStylingQuery() {
+    return `&title_size=${titleSizeInput.value}&title_bold=${titleBoldInput.checked}&gs1_size=${gs1SizeInput.value}&gs1_bold=${gs1BoldInput.checked}&lot_size=${lotSizeInput.value}&lot_bold=${lotBoldInput.checked}`;
+}
 
 function updateCalibrationVisual() {
     const zebraY = parseInt(calibValX.value) || 0;
     const zebraX = parseInt(calibValY.value) || 0;
     
-    calibImg.style.left = zebraY + 'px';
-    calibImg.style.top = (zebraX - 800) + 'px';
+    const opt = printerSelect.options[printerSelect.selectedIndex];
+    if (opt && opt.dataset.language === 'TPCL') {
+        calibImg.style.left = zebraY + 'px';
+        calibImg.style.top = zebraX + 'px';
+    } else {
+        calibImg.style.left = zebraY + 'px';
+        calibImg.style.top = (zebraX - 800) + 'px';
+    }
 }
+
+const calibFormatSelectorGroup = document.getElementById('calib-format-selector-group');
+const calibFormatSelector = document.getElementById('calib-format-selector');
+
+function updateCalibrationPreviewImage() {
+    const opt = printerSelect.options[printerSelect.selectedIndex];
+    if (!opt) return;
+    
+    const lang = opt.dataset.language;
+    const isLigne1 = opt.text.startsWith("Zebra Prépa commande");
+    
+    const calibBorders = document.getElementById('calib-physical-borders');
+    calibBorders.innerHTML = ''; // Réinitialiser
+    
+    calibContainer.style.opacity = '0.5';
+    calibImg.onload = () => {
+        calibContainer.style.opacity = '1';
+    };
+    
+    if (lang === 'TPCL') {
+        calibFormatSelectorGroup.style.display = 'block';
+        const format = calibFormatSelector.value;
+        
+        if (format === '4up') {
+            calibImg.src = `/api/preview-4up-demo?t=${new Date().getTime()}${getStylingQuery()}`;
+            calibContainer.style.width = '138px';
+            calibContainer.style.height = '320px';
+            calibImg.parentElement.style.transform = 'scale(0.4)';
+            calibImg.parentElement.style.left = '0px';
+            
+            // 4-up borders
+            const tops = [0, 80, 160, 240];
+            tops.forEach(t => {
+                const div = document.createElement('div');
+                div.style.position = 'absolute';
+                div.style.border = '1px dashed #ef4444';
+                div.style.left = '0px';
+                div.style.top = t + 'px';
+                div.style.width = '137.6px';
+                div.style.height = '70.4px';
+                calibBorders.appendChild(div);
+            });
+            
+        } else {
+            calibImg.src = `/api/preview-3up?t=${new Date().getTime()}${getStylingQuery()}`;
+            calibContainer.style.width = '368px'; // 920 * 0.4
+            calibContainer.style.height = '320px';
+            calibImg.parentElement.style.transform = 'scale(0.4)';
+            calibImg.parentElement.style.left = '-112px'; // Hide the 280-dots hardware gap (112px)
+            
+            // 3-up borders
+            const tops = [4.8, 107.2, 209.6];
+            tops.forEach(t => {
+                const div = document.createElement('div');
+                div.style.position = 'absolute';
+                div.style.border = '1px dashed #ef4444';
+                div.style.left = '0px'; // Cropped container, so left is 0
+                div.style.top = t + 'px';
+                div.style.width = '368px';
+                div.style.height = '96px';
+                calibBorders.appendChild(div);
+            });
+        }
+    } else if (isLigne1) {
+        calibFormatSelectorGroup.style.display = 'block';
+        const format = calibFormatSelector.value;
+        if (format === '2up') {
+            calibImg.src = `/api/preview-zebra-2up?t=${new Date().getTime()}${getStylingQuery()}`;
+            calibContainer.style.width = '292px';
+            calibContainer.style.height = '74px';
+            calibImg.parentElement.style.transform = 'scale(0.4)';
+            calibImg.parentElement.style.left = '0px';
+            
+            // 2-up borders
+            const lefts = [0, 150.4];
+            lefts.forEach(l => {
+                const div = document.createElement('div');
+                div.style.position = 'absolute';
+                div.style.border = '1px dashed #ef4444';
+                div.style.top = '0px';
+                div.style.left = l + 'px';
+                div.style.width = '140.8px';
+                div.style.height = '73.6px';
+                calibBorders.appendChild(div);
+            });
+        } else {
+            calibImg.src = `/api/preview-zebra-1up?t=${new Date().getTime()}${getStylingQuery()}`;
+            calibContainer.style.width = '286px';
+            calibContainer.style.height = '88px';
+            calibImg.parentElement.style.transform = 'scale(0.25)';
+            calibImg.parentElement.style.left = '0px';
+            
+            // 1-up borders
+            const div = document.createElement('div');
+            div.style.position = 'absolute';
+            div.style.border = '1px dashed #ef4444';
+            div.style.top = '0px';
+            div.style.left = '0px';
+            div.style.width = '286px';
+            div.style.height = '88px';
+            calibBorders.appendChild(div);
+        }
+    } else {
+        calibFormatSelectorGroup.style.display = 'none';
+        calibImg.src = `/api/preview-zebra-1up?t=${new Date().getTime()}${getStylingQuery()}`;
+        calibContainer.style.width = '286px';
+        calibContainer.style.height = '88px';
+        calibImg.parentElement.style.transform = 'scale(0.25)';
+        calibImg.parentElement.style.left = '0px';
+        
+        // 1-up borders
+        const div = document.createElement('div');
+        div.style.position = 'absolute';
+        div.style.border = '1px dashed #ef4444';
+        div.style.top = '0px';
+        div.style.left = '0px';
+        div.style.width = '286px';
+        div.style.height = '88px';
+        calibBorders.appendChild(div);
+    }
+}
+
+calibFormatSelector.onchange = (e) => {
+    const val = e.target.value;
+    const opt = printerSelect.options[printerSelect.selectedIndex];
+    if (opt && opt.text.startsWith('Zebra Prépa commande')) {
+        let targetOpt;
+        if (val === '2up') {
+            targetOpt = Array.from(printerSelect.options).find(o => o.text.includes('x2'));
+        } else {
+            targetOpt = Array.from(printerSelect.options).find(o => o.text.startsWith('Zebra Prépa commande') && !o.text.includes('x2'));
+        }
+        if (targetOpt && printerSelect.value !== targetOpt.value) {
+            printerSelect.value = targetOpt.value;
+            // Reload offsets for this new selected printer
+            calibValX.value = targetOpt.dataset.offsetY || 0;
+            calibValY.value = targetOpt.dataset.offsetX || 0;
+            titleSizeInput.value = targetOpt.dataset.titleSize || 0;
+            titleBoldInput.checked = targetOpt.dataset.titleBold === "true";
+            gs1SizeInput.value = targetOpt.dataset.gs1Size || 0;
+            gs1BoldInput.checked = targetOpt.dataset.gs1Bold === "true";
+            lotSizeInput.value = targetOpt.dataset.lotSize || 0;
+            lotBoldInput.checked = targetOpt.dataset.lotBold === "true";
+        }
+    }
+    updateCalibrationPreviewImage();
+    updateCalibrationVisual();
+};
 
 const openCalibrationModal = async () => {
     const opt = printerSelect.options[printerSelect.selectedIndex];
     if (!opt) return;
     
-    calibValX.value = opt.dataset.offsetY || 18;
-    calibValY.value = opt.dataset.offsetX || 800;
+    calibValX.value = opt.dataset.offsetY || 0;
+    calibValY.value = opt.dataset.offsetX || 0;
     
-    // Charger l'image de preview
-    calibImg.src = "/api/preview-zebra-1up?" + new Date().getTime(); // Anti-cache
+    titleSizeInput.value = opt.dataset.titleSize || 0;
+    titleBoldInput.checked = opt.dataset.titleBold === "true";
+    gs1SizeInput.value = opt.dataset.gs1Size || 0;
+    gs1BoldInput.checked = opt.dataset.gs1Bold === "true";
+    lotSizeInput.value = opt.dataset.lotSize || 0;
+    lotBoldInput.checked = opt.dataset.lotBold === "true";
     
+    // Auto-selection of format if it was previously clicked
+    if (opt.dataset.language === 'TPCL') {
+        const formatBtn = document.querySelector('.format-btn.active');
+        const format = formatBtn ? formatBtn.dataset.format : '3up';
+        calibFormatSelector.value = (format === '4up') ? '4up' : '3up';
+    } else if (opt.text.startsWith('Zebra Prépa commande')) {
+        if (opt.text.includes('x2')) {
+            calibFormatSelector.value = '2up';
+        } else {
+            calibFormatSelector.value = '1up';
+        }
+    }
+    updateCalibrationPreviewImage();
     updateCalibrationVisual();
     calibrationModal.style.display = 'flex';
 };
@@ -641,6 +838,18 @@ closeCalibrationModal.onclick = () => {
     calibValX.oninput = updateCalibrationVisual;
     calibValY.oninput = updateCalibrationVisual;
     
+    let previewDebounce;
+    const triggerPreviewUpdate = () => {
+        clearTimeout(previewDebounce);
+        previewDebounce = setTimeout(updateCalibrationPreviewImage, 500);
+    };
+    titleSizeInput.oninput = triggerPreviewUpdate;
+    titleBoldInput.onchange = triggerPreviewUpdate;
+    gs1SizeInput.oninput = triggerPreviewUpdate;
+    gs1BoldInput.onchange = triggerPreviewUpdate;
+    lotSizeInput.oninput = triggerPreviewUpdate;
+    lotBoldInput.onchange = triggerPreviewUpdate;
+    
     saveCalibrationBtn.onclick = async () => {
         const opt = printerSelect.options[printerSelect.selectedIndex];
         const newOffsetX = parseInt(calibValY.value);
@@ -653,19 +862,37 @@ closeCalibrationModal.onclick = () => {
                 body: JSON.stringify({
                     ip: opt.value,
                     offset_x: newOffsetX,
-                    offset_y: newOffsetY
+                    offset_y: newOffsetY,
+                    title_size: parseInt(titleSizeInput.value) || 0,
+                    title_bold: titleBoldInput.checked,
+                    gs1_size: parseInt(gs1SizeInput.value) || 0,
+                    gs1_bold: gs1BoldInput.checked,
+                    lot_size: parseInt(lotSizeInput.value) || 0,
+                    lot_bold: lotBoldInput.checked
                 })
             });
             if (res.ok) {
                 // Mettre à jour en local
                 opt.dataset.offsetX = newOffsetX;
                 opt.dataset.offsetY = newOffsetY;
+                opt.dataset.titleSize = titleSizeInput.value;
+                opt.dataset.titleBold = titleBoldInput.checked;
+                opt.dataset.gs1Size = gs1SizeInput.value;
+                opt.dataset.gs1Bold = gs1BoldInput.checked;
+                opt.dataset.lotSize = lotSizeInput.value;
+                opt.dataset.lotBold = lotBoldInput.checked;
                 
                 // Mettre à jour aussi dans printersData pour que ce soit persistant si on re-filtre
                 const pData = printersData.find(p => p.ip === opt.value);
                 if (pData) {
                     pData.offset_x = newOffsetX;
                     pData.offset_y = newOffsetY;
+                    pData.title_size = parseInt(titleSizeInput.value) || 0;
+                    pData.title_bold = titleBoldInput.checked;
+                    pData.gs1_size = parseInt(gs1SizeInput.value) || 0;
+                    pData.gs1_bold = gs1BoldInput.checked;
+                    pData.lot_size = parseInt(lotSizeInput.value) || 0;
+                    pData.lot_bold = lotBoldInput.checked;
                 }
                 
                 Modal.alert("Succès", "Calibrage enregistré !");
@@ -761,14 +988,41 @@ function displayEditSection() {
     orderId.innerHTML = `<i data-lucide="file-text"></i> Commande : ${currentData[0].Commande || 'Inconnue'}`;
     
     productsTableBody.innerHTML = '';
+    
+    const opt = printerSelect.options[printerSelect.selectedIndex];
+    const isLigne1 = opt && opt.text.startsWith("Zebra Prépa commande") && !opt.text.includes("x2");
+    
+    const thQuantite = document.getElementById('th-quantite');
+    const thQuantitePots = document.getElementById('th-quantite-pots');
+    
+    if (isLigne1) {
+        thQuantite.innerHTML = '<i data-lucide="box"></i> Qte Carton (300dpi)';
+        thQuantite.style.backgroundColor = '#e0e7ff';
+        thQuantite.style.color = '#3730a3';
+        thQuantitePots.style.display = '';
+    } else {
+        thQuantite.textContent = 'Quantité';
+        thQuantite.style.backgroundColor = '';
+        thQuantite.style.color = '';
+        thQuantitePots.style.display = 'none';
+    }
+    
     currentData.forEach((item, index) => {
+        if (isLigne1 && item.QuantitePots === undefined) {
+            item.QuantitePots = (parseInt(item.Quantite) || 0) * 6;
+        }
+        
+        let qteCartonCol = `<input type="number" value="${item.Quantite || 0}" style="${isLigne1 ? 'background-color: #eef2ff; border-color: #c7d2fe; font-weight: bold; color: #3730a3;' : ''}" oninput="updateRowData(${index}, 'Quantite', this.value)">`;
+        let extraCol = isLigne1 ? `<td style="background-color: #f0fdf4;"><input type="number" value="${item.QuantitePots || 0}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>` : '<td style="display:none;"></td>';
+        
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="row-select large-checkbox" ${item._selected ? 'checked' : ''} oninput="updateRowData(${index}, '_selected', this.checked)"></td>
             <td><strong>${item.Libelle}</strong></td>
             <td><input type="text" value="${item.DateLivraison || item.CodeBarre17 || ''}" oninput="updateRowData(${index}, 'DateLivraison', this.value)"></td>
             <td><input type="text" value="${item.Numlot || ''}" oninput="updateRowData(${index}, 'Numlot', this.value)"></td>
-            <td><input type="number" value="${item.Quantite || 0}" oninput="updateRowData(${index}, 'Quantite', this.value)"></td>
+            <td style="${isLigne1 ? 'background-color: #f5f8ff;' : ''}">${qteCartonCol}</td>
+            ${extraCol}
             <td><button class="btn-remove" onclick="removeLine(${index})" title="Retirer cette ligne"><i data-lucide="trash-2"></i></button></td>
         `;
         productsTableBody.appendChild(tr);
@@ -782,7 +1036,7 @@ function displayEditSection() {
 }
 
 window.updateRowData = (index, field, value) => {
-    if (field === 'Quantite') value = parseInt(value) || 0;
+    if (field === 'Quantite' || field === 'QuantitePots') value = parseInt(value) || 0;
     if (currentData[index]) currentData[index][field] = value;
 };
 
@@ -850,34 +1104,76 @@ async function startPrint(all = false) {
 
     try {
         const opt = printerSelect.options[printerSelect.selectedIndex];
-        const response = await fetch('/print-json', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                printer_ip: printerSelect.value,
-                printer_dpi: parseInt(opt.dataset.dpi),
-                printer_language: opt.dataset.language,
-                offset_x: parseInt(opt.dataset.offsetX) || 800,
-                offset_y: parseInt(opt.dataset.offsetY) || 18,
-                items: updatedData
-            })
+        const isLigne1 = opt && opt.text.startsWith("Zebra Prépa commande") && !opt.text.includes("x2");
+        
+        let payloads = [];
+        
+        payloads.push({
+            printer_ip: printerSelect.value,
+            printer_dpi: parseInt(opt.dataset.dpi),
+            printer_language: opt.dataset.language,
+            offset_x: parseInt(opt.dataset.offsetX) || 800,
+            offset_y: parseInt(opt.dataset.offsetY) || 18,
+            title_size: parseInt(opt.dataset.titleSize) || 0,
+            title_bold: opt.dataset.titleBold === "true",
+            gs1_size: parseInt(opt.dataset.gs1Size) || 0,
+            gs1_bold: opt.dataset.gs1Bold === "true",
+            lot_size: parseInt(opt.dataset.lotSize) || 0,
+            lot_bold: opt.dataset.lotBold === "true",
+            items: updatedData
         });
-
-        const result = await response.json();
-        if (response.ok) {
-            addLog(`Succès: ${result.message}`, "success");
-            progressFill.style.width = '100%';
-            progressText.textContent = 'Impression envoyée avec succès ! Vous pouvez regarder l\'imprimante.';
-            
-            setTimeout(() => {
-                progressContainer.style.display = 'none';
-                isPrinting = false;
-            }, 4000);
-        } else {
-            isPrinting = false;
-            Modal.error("Erreur d'impression", result.detail);
-            progressContainer.style.display = 'none';
+        
+        if (isLigne1) {
+            const opt2 = Array.from(printerSelect.options).find(o => o.text.startsWith("Zebra Prépa commande x2"));
+            if (opt2) {
+                let potsData = updatedData.map(item => {
+                    let clone = {...item};
+                    clone.Quantite = clone.QuantitePots;
+                    return clone;
+                }).filter(item => item.Quantite > 0);
+                
+                if (potsData.length > 0) {
+                    payloads.push({
+                        printer_ip: opt2.value,
+                        printer_dpi: parseInt(opt2.dataset.dpi),
+                        printer_language: opt2.dataset.language,
+                        offset_x: parseInt(opt2.dataset.offsetX) || 800,
+                        offset_y: parseInt(opt2.dataset.offsetY) || 18,
+                        title_size: parseInt(opt2.dataset.titleSize) || 0,
+                        title_bold: opt2.dataset.titleBold === "true",
+                        gs1_size: parseInt(opt2.dataset.gs1Size) || 0,
+                        gs1_bold: opt2.dataset.gs1Bold === "true",
+                        lot_size: parseInt(opt2.dataset.lotSize) || 0,
+                        lot_bold: opt2.dataset.lotBold === "true",
+                        items: potsData
+                    });
+                }
+            }
         }
+        
+        for (const payload of payloads) {
+            const response = await fetch('/print-json', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || "Erreur d'impression");
+            addLog(`Succès (${payload.printer_ip}): ${result.message}`, "success");
+        }
+        
+        progressFill.style.width = '100%';
+        progressText.textContent = 'Impression envoyée avec succès ! Vous pouvez regarder les imprimantes.';
+        
+        setTimeout(() => {
+            progressContainer.style.display = 'none';
+            isPrinting = false;
+            if (!all) {
+                currentData.forEach(item => item._selected = false);
+                selectAllCheckbox.checked = false;
+                displayEditSection();
+            }
+        }, 4000);
     } catch (e) {
         isPrinting = false;
         Modal.error("Problème réseau", e.message);

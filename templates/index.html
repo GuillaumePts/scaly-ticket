@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,23 +8,29 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
             <div class="header-main">
-                <img class="logo-peuplier" src="/static/img/logo-center.png" alt="Logo d'entreprise Ferme des Peupliers">
+                <img class="logo-peuplier" src="/static/img/logo-center.png"
+                    alt="Logo d'entreprise Ferme des Peupliers">
                 <p>Système d'impression d'étiquettes</p>
             </div>
             <div style="display: flex; gap: 15px;">
-                <button type="button" id="open-calibration-header-btn" class="btn-icon" style="display: none; color: var(--warning);" title="Calibrer l'imprimante Zebra">
-                    <i data-lucide="move"></i> Calibrage Zebra
+                <button type="button" id="open-calibration-header-btn" class="btn-icon"
+                    style="display: none; color: var(--warning);" title="Calibrer l'imprimante">
+                    <i data-lucide="move"></i> Calibrage Imprimante
                 </button>
-                <button type="button" id="help-modal-btn" class="btn-icon" style="display: none; color: var(--primary);" title="Mode d'emploi et dépannage Toshiba">
+                <button type="button" id="help-modal-btn" class="btn-icon" style="display: none; color: var(--primary);"
+                    title="Mode d'emploi et dépannage Toshiba">
                     <i data-lucide="life-buoy"></i> Aide Toshiba
                 </button>
                 <button type="button" id="manage-printers-btn" class="btn-icon" title="Paramètres techniques">
@@ -38,8 +45,9 @@
                 <div class="step-header">
                     <h2><i data-lucide="layout-grid"></i> Portail d'impression - Accueil</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Avant de commencer, veuillez confirmer votre atelier de travail pour éviter les erreurs d'imprimante.</p>
-                
+                <p class="help-text"><i data-lucide="info"></i> Avant de commencer, veuillez confirmer votre atelier de
+                    travail pour éviter les erreurs d'imprimante.</p>
+
                 <div class="sector-buttons">
                     <button type="button" class="hub-sector-btn" data-sector="prepa_commande">
                         <i data-lucide="package"></i> Prépa Commande
@@ -54,26 +62,31 @@
                 <div class="step-header">
                     <h2><i data-lucide="tool"></i> Outils disponibles pour votre atelier</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Cliquez sur la tâche que vous souhaitez accomplir. Une page dédiée s'ouvrira.</p>
-                
+                <p class="help-text"><i data-lucide="info"></i> Cliquez sur la tâche que vous souhaitez accomplir. Une
+                    page dédiée s'ouvrira.</p>
+
                 <div class="hub-grid">
-                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande" data-tool="toshiba_3up">
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande"
+                        data-tool="toshiba_3up">
                         <i data-lucide="file-spreadsheet" class="hub-icon text-blue"></i>
                         <h3>Commandes (Fichier TXT)</h3>
                         <p>Imprimante Toshiba - 3-up</p>
                     </a>
-                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande" data-tool="toshiba_4up">
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande"
+                        data-tool="toshiba_4up">
                         <i data-lucide="tags" class="hub-icon text-green"></i>
                         <h3>Ligne 2</h3>
                         <p>Parfums (Format 4-up)</p>
                     </a>
-                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement" data-tool="zebra">
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement"
+                        data-tool="zebra">
                         <i data-lucide="printer" class="hub-icon text-orange"></i>
                         <h3>Ligne 1</h3>
                         <p>Imprimante Zebra - 1-up</p>
                     </a>
                     <!-- Mode Expert caché à la demande de l'utilisateur -->
-                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement" data-tool="expert" style="display: none;">
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement"
+                        data-tool="expert" style="display: none;">
                         <i data-lucide="settings-2" class="hub-icon text-gray"></i>
                         <h3>Mode Expert / Technicien</h3>
                         <p>Toutes options débloquées</p>
@@ -88,8 +101,9 @@
                         <span class="step-number">1</span>
                         <h2>Où vous trouvez-vous ?</h2>
                     </div>
-                    <p class="help-text"><i data-lucide="info"></i> Cliquez sur le bouton correspondant à votre atelier de travail actuel.</p>
-                    
+                    <p class="help-text"><i data-lucide="info"></i> Cliquez sur le bouton correspondant à votre atelier
+                        de travail actuel.</p>
+
                     <div class="sector-buttons">
                         <button type="button" class="sector-btn" data-sector="prepa_commande">
                             <i data-lucide="package"></i> Prépa Commande
@@ -106,13 +120,15 @@
                         <span class="step-number">2</span>
                         <h2>Sur quelle machine voulez-vous imprimer ?</h2>
                     </div>
-                    <p class="help-text"><i data-lucide="info"></i> Choisissez l'imprimante qui va sortir vos étiquettes parmi celles disponibles dans votre atelier.</p>
-                    
+                    <p class="help-text"><i data-lucide="info"></i> Choisissez l'imprimante qui va sortir vos étiquettes
+                        parmi celles disponibles dans votre atelier.</p>
+
                     <div class="printer-selection-box">
                         <label for="printer" class="sr-only">Imprimante :</label>
                         <div style="display: flex; gap: 10px; width: 100%;">
                             <select id="printer" class="large-select" style="flex-grow: 1;"></select>
-                            <button type="button" id="open-calibration-btn" class="btn-secondary" style="display: none;" title="Ajuster l'impression au millimètre">
+                            <button type="button" id="open-calibration-btn" class="btn-secondary" style="display: none;"
+                                title="Ajuster l'impression au millimètre">
                                 <i data-lucide="move"></i> Calibrer
                             </button>
                         </div>
@@ -126,18 +142,19 @@
                         <span class="step-number">3</span>
                         <h2>Que voulez-vous imprimer ?</h2>
                     </div>
-                    <p class="help-text"><i data-lucide="info"></i> Sélectionnez le type d'étiquettes dont vous avez besoin aujourd'hui.</p>
-                    
+                    <p class="help-text"><i data-lucide="info"></i> Sélectionnez le type d'étiquettes dont vous avez
+                        besoin aujourd'hui.</p>
+
                     <div class="format-buttons">
                         <button type="button" class="format-btn active" data-format="3up">
-                            <i data-lucide="file-spreadsheet"></i> 
+                            <i data-lucide="file-spreadsheet"></i>
                             <div class="format-text">
                                 <strong>Fichier de commandes</strong>
                                 <span>Fichier de type .txt (Format 3-up)</span>
                             </div>
                         </button>
                         <button type="button" class="format-btn" data-format="4up">
-                            <i data-lucide="tags"></i> 
+                            <i data-lucide="tags"></i>
                             <div class="format-text">
                                 <strong>Etiquettes de Parfums</strong>
                                 <span>Pour les yaourts (Format 4-up)</span>
@@ -153,8 +170,9 @@
                     <span class="step-number">4</span>
                     <h2>Fournir le fichier de commandes</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Cliquez dans le grand cadre pointillé ci-dessous pour chercher votre fichier de commande sur cet ordinateur.</p>
-                
+                <p class="help-text"><i data-lucide="info"></i> Cliquez dans le grand cadre pointillé ci-dessous pour
+                    chercher votre fichier de commande sur cet ordinateur.</p>
+
                 <div class="upload-zone" id="drop-zone" tabindex="0">
                     <div class="upload-content">
                         <i data-lucide="file-up" class="icon-large"></i>
@@ -171,47 +189,53 @@
                     <span class="step-number">4</span>
                     <h2>Configurer vos étiquettes de parfums</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Choisissez le parfum désiré et indiquez combien d'étiquettes vous voulez imprimer au total.</p>
-                
+                <p class="help-text"><i data-lucide="info"></i> Choisissez le parfum désiré et indiquez combien
+                    d'étiquettes vous voulez imprimer au total.</p>
+
                 <div class="nature-body">
                     <div class="form-group">
                         <label for="parfum-select"><strong>1. Quel parfum imprimer ?</strong></label>
                         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                             <select id="parfum-select" class="large-select"></select>
-                            <button type="button" id="toggle-add-parfum-btn" class="btn-secondary" title="Créer un nouveau parfum">
+                            <button type="button" id="toggle-add-parfum-btn" class="btn-secondary"
+                                title="Créer un nouveau parfum">
                                 <i data-lucide="plus-circle"></i> Nouveau
                             </button>
                         </div>
-                        
+
                         <!-- Formulaire d'ajout caché par défaut -->
                         <div id="add-parfum-form" class="sub-form" style="display: none;">
                             <h4><i data-lucide="tag"></i> Créer un nouveau parfum</h4>
-                            
+
                             <label>Nom exact de l'étiquette :</label>
                             <input type="text" id="new-parfum-nom" placeholder="Ex: Yaourt fraise 4x125gr">
-                            
+
                             <label style="margin-top:10px;">Code barre (EAN-13) :</label>
                             <input type="text" id="new-parfum-ean" placeholder="Ex: 3374270030348" maxlength="14">
-                            
+
                             <div class="sub-form-actions">
-                                <button type="button" id="preview-new-parfum-btn" class="btn-secondary"><i data-lucide="eye"></i> Voir un aperçu</button>
-                                <button type="button" id="save-new-parfum-btn" class="btn-primary"><i data-lucide="save"></i> Enregistrer ce parfum</button>
+                                <button type="button" id="preview-new-parfum-btn" class="btn-secondary"><i
+                                        data-lucide="eye"></i> Voir un aperçu</button>
+                                <button type="button" id="save-new-parfum-btn" class="btn-primary"><i
+                                        data-lucide="save"></i> Enregistrer ce parfum</button>
                             </div>
                         </div>
 
                         <label for="parfum-qty"><strong>2. Combien d'étiquettes voulez-vous au total ?</strong></label>
                         <input type="number" id="parfum-qty" value="40" min="1" max="10000" class="large-input">
-                        
-                        <button type="button" id="print-4up-btn" class="btn-primary btn-massive" style="margin-top: 25px;">
+
+                        <button type="button" id="print-4up-btn" class="btn-primary btn-massive"
+                            style="margin-top: 25px;">
                             <i data-lucide="printer"></i> Lancer l'impression des parfums
                         </button>
                     </div>
-                    
+
                     <div class="preview-box">
                         <p class="preview-title"><i data-lucide="image"></i> Aperçu visuel de l'étiquette</p>
                         <div class="preview-image-container">
                             <img id="parfum-preview-img" style="display: none;" alt="Aperçu de l'étiquette" />
-                            <p id="parfum-preview-empty" style="color:var(--text-muted); margin: 40px 0;">Aucun parfum sélectionné</p>
+                            <p id="parfum-preview-empty" style="color:var(--text-muted); margin: 40px 0;">Aucun parfum
+                                sélectionné</p>
                         </div>
                     </div>
                 </div>
@@ -223,22 +247,25 @@
                     <span class="step-number">5</span>
                     <h2>Vérification avant impression</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Voici le contenu de votre fichier. Vous pouvez décocher les lignes que vous ne voulez pas imprimer, ou modifier les quantités.</p>
-                
+                <p class="help-text"><i data-lucide="info"></i> Voici le contenu de votre fichier. Vous pouvez décocher
+                    les lignes que vous ne voulez pas imprimer, ou modifier les quantités.</p>
+
                 <div class="order-info">
                     <h3 id="order-client"><i data-lucide="user"></i> Client : -</h3>
                     <p id="order-id"><i data-lucide="file-text"></i> Commande : -</p>
                 </div>
-                
+
                 <div class="table-container">
                     <table id="products-table">
                         <thead>
                             <tr>
-                                <th width="50" title="Cocher/Décocher tout"><input type="checkbox" id="select-all" checked class="large-checkbox"></th>
+                                <th width="50" title="Cocher/Décocher tout"><input type="checkbox" id="select-all"
+                                        checked class="large-checkbox"></th>
                                 <th>Produit</th>
                                 <th width="120">DLC</th>
                                 <th width="150">Lot</th>
-                                <th width="100">Quantité</th>
+                                <th width="130" id="th-quantite" style="background-color: #e0e7ff; color: #3730a3; border-radius: 4px 0 0 0;">Qte Carton</th>
+                                <th width="130" id="th-quantite-pots" style="display: none; background-color: #dcfce7; color: #166534; border-radius: 0 4px 0 0;">Qte Pots x2</th>
                                 <th width="60"></th>
                             </tr>
                         </thead>
@@ -247,11 +274,14 @@
                         </tbody>
                     </table>
                 </div>
-                
+
                 <div class="actions">
-                    <button type="button" id="print-all-btn" class="btn-primary"><i data-lucide="printer"></i> Tout imprimer</button>
-                    <button type="button" id="print-btn" class="btn-secondary"><i data-lucide="printer"></i> Imprimer seulement la sélection</button>
-                    <button type="button" id="cancel-btn" class="btn-error"><i data-lucide="x-circle"></i> Annuler le fichier</button>
+                    <button type="button" id="print-all-btn" class="btn-primary"><i data-lucide="printer"></i> Tout
+                        imprimer</button>
+                    <button type="button" id="print-btn" class="btn-secondary"><i data-lucide="printer"></i> Imprimer
+                        seulement la sélection</button>
+                    <button type="button" id="cancel-btn" class="btn-error"><i data-lucide="x-circle"></i> Annuler le
+                        fichier</button>
                 </div>
             </section>
 
@@ -259,7 +289,8 @@
             <section id="progress-container" class="step-section" style="display: none;">
                 <div class="progress-header">
                     <h2><i data-lucide="loader-2" class="spin-icon"></i> Impression en cours...</h2>
-                    <button type="button" id="stop-btn" class="btn-error"><i data-lucide="alert-octagon"></i> ARRÊTER IMMEDIATEMENT</button>
+                    <button type="button" id="stop-btn" class="btn-error"><i data-lucide="alert-octagon"></i> ARRÊTER
+                        IMMEDIATEMENT</button>
                 </div>
                 <p class="help-text"><i data-lucide="info"></i> Veuillez patienter jusqu'à la fin de la jauge verte.</p>
                 <div class="progress-bar">
@@ -272,7 +303,8 @@
                 <div class="step-header">
                     <h2><i data-lucide="message-circle"></i> Historique des messages</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Ce cadre vous informe de ce que l'application est en train de faire.</p>
+                <p class="help-text"><i data-lucide="info"></i> Ce cadre vous informe de ce que l'application est en
+                    train de faire.</p>
                 <div id="logs" class="log-box"></div>
             </section>
         </main>
@@ -286,7 +318,8 @@
             <p id="modal-message">Message ici...</p>
             <div class="modal-actions">
                 <button type="button" id="modal-cancel" class="btn-secondary"><i data-lucide="x"></i> Annuler</button>
-                <button type="button" id="modal-confirm" class="btn-primary"><i data-lucide="check"></i> Confirmer</button>
+                <button type="button" id="modal-confirm" class="btn-primary"><i data-lucide="check"></i>
+                    Confirmer</button>
             </div>
         </div>
     </div>
@@ -314,9 +347,12 @@
                 </table>
             </div>
             <div class="modal-actions">
-                <button type="button" id="add-printer-btn" class="btn-secondary"><i data-lucide="plus"></i> Ajouter une imprimante</button>
-                <button type="button" id="save-printers-btn" class="btn-primary"><i data-lucide="save"></i> Enregistrer les modifications</button>
-                <button type="button" id="close-printer-modal" class="btn-error"><i data-lucide="x"></i> Fermer sans sauvegarder</button>
+                <button type="button" id="add-printer-btn" class="btn-secondary"><i data-lucide="plus"></i> Ajouter une
+                    imprimante</button>
+                <button type="button" id="save-printers-btn" class="btn-primary"><i data-lucide="save"></i> Enregistrer
+                    les modifications</button>
+                <button type="button" id="close-printer-modal" class="btn-error"><i data-lucide="x"></i> Fermer sans
+                    sauvegarder</button>
             </div>
         </div>
     </div>
@@ -325,30 +361,109 @@
     <div id="calibration-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content large" style="max-width: 800px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="margin: 0; display:flex; align-items:center; gap:10px;"><i data-lucide="move" class="icon-info"></i> Calibrage Visuel - Impression</h3>
-                <button type="button" id="close-calibration-modal" class="btn-icon" style="border:none; background:transparent;"><i data-lucide="x"></i></button>
+                <h3 style="margin: 0; display:flex; align-items:center; gap:10px;"><i data-lucide="move"
+                        class="icon-info"></i> Calibrage Visuel - Impression</h3>
+                <button type="button" id="close-calibration-modal" class="btn-icon"
+                    style="border:none; background:transparent;"><i data-lucide="x"></i></button>
             </div>
-            
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Ajustez l'impression au millimètre (1 pixel = 1 point d'impression). L'image se déplace exactement comme elle s'imprimera.</p>
 
-            <div style="display: flex; gap: 30px;">
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Ajustez l'impression au millimètre (1 pixel = 1
+                point d'impression). L'image se déplace exactement comme elle s'imprimera.</p>
+
+            <div style="display: flex; gap: 30px; ">
                 <!-- Panneau de contrôle -->
-                <div style="display: flex; flex-direction: column; gap: 20px; min-width: 200px;">
-                    <div class="control-group">
-                        <label>Axe Horizontal (Gauche / Droite)</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <button type="button" class="btn-icon" id="calib-left" title="Décaler à gauche"><i data-lucide="arrow-left"></i></button>
-                            <input type="number" id="calib-val-x" style="width: 80px; text-align: center; font-weight: bold;" value="18">
-                            <button type="button" class="btn-icon" id="calib-right" title="Décaler à droite"><i data-lucide="arrow-right"></i></button>
-                        </div>
+                <div style="display: flex; flex-direction: column; gap: 20px; min-width: 280px;">
+                    <div style="display: flex; gap: 15px; flex-direction: column; align-items: center; justify-content: center;">
+                        <div class="input-group" id="calib-format-selector-group" style="display: none;">
+                        <label>Format</label>
+                        <select id="calib-format-selector" class="input">
+                            <option value="3up">3-up Toshiba</option>
+                            <option value="4up">4-up Toshiba</option>
+                            <option value="1up">1-up Cartons Zebra</option>
+                            <option value="2up">2-up Pots x2 Zebra</option>
+                        </select>
                     </div>
-                    
-                    <div class="control-group">
-                        <label>Axe Vertical (Haut / Bas)</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <button type="button" class="btn-icon" id="calib-up" title="Décaler en haut"><i data-lucide="arrow-up"></i></button>
-                            <input type="number" id="calib-val-y" style="width: 80px; text-align: center; font-weight: bold;" value="800">
-                            <button type="button" class="btn-icon" id="calib-down" title="Décaler en bas"><i data-lucide="arrow-down"></i></button>
+
+                        <div class="div-axe">
+                            <div class="control-group" style="flex: 1;">
+                                <label style="font-size: 11px;">Axe X</label>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <button type="button" class="btn-icon" id="calib-left" style="padding:4px;"><i
+                                            data-lucide="arrow-left" style="width:16px;"></i></button>
+                                    <input type="number" id="calib-val-x"
+                                        style="width: 65px; text-align: center; font-weight: bold;" value="18">
+                                    <button type="button" class="btn-icon" id="calib-right" style="padding:4px;"><i
+                                            data-lucide="arrow-right" style="width:16px;"></i></button>
+                                </div>
+                            </div>
+                            <div class="control-group" style="flex: 1;">
+                                <label style="font-size: 11px;">Axe Y</label>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <button type="button" class="btn-icon" id="calib-up" style="padding:4px;"><i
+                                            data-lucide="arrow-up" style="width:16px;"></i></button>
+                                    <input type="number" id="calib-val-y"
+                                        style="width: 65px; text-align: center; font-weight: bold;" value="800">
+                                    <button type="button" class="btn-icon" id="calib-down" style="padding:4px;"><i
+                                            data-lucide="arrow-down" style="width:16px;"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Text Styling Options -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 10px;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-main);">Taille et Gras du
+                            Texte</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+
+                            <!-- Libellé -->
+                            <div
+                                style="background: #f9fafb; padding: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 12px; font-weight: bold; width: 60px;">Nom</span>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <span style="font-size: 11px; color: var(--text-muted);">Taille</span>
+                                    <input type="number" id="style-title-size" value="0"
+                                        style="width: 40px; text-align: center; font-size: 12px; padding: 2px;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <label style="font-size: 11px; color: var(--text-muted); cursor: pointer;"><input
+                                            type="checkbox" id="style-title-bold" style="margin:0;"> Gras</label>
+                                </div>
+                            </div>
+
+                            <!-- GS1 -->
+                            <div
+                                style="background: #f9fafb; padding: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 12px; font-weight: bold; width: 60px;">N° Code</span>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <span style="font-size: 11px; color: var(--text-muted);">Taille</span>
+                                    <input type="number" id="style-gs1-size" value="0"
+                                        style="width: 40px; text-align: center; font-size: 12px; padding: 2px;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <label style="font-size: 11px; color: var(--text-muted); cursor: pointer;"><input
+                                            type="checkbox" id="style-gs1-bold" style="margin:0;"> Gras</label>
+                                </div>
+                            </div>
+
+                            <!-- Lot -->
+                            <div
+                                style="background: #f9fafb; padding: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 12px; font-weight: bold; width: 60px;">Lot/DLC</span>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <span style="font-size: 11px; color: var(--text-muted);">Taille</span>
+                                    <input type="number" id="style-lot-size" value="0"
+                                        style="width: 40px; text-align: center; font-size: 12px; padding: 2px;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <label style="font-size: 11px; color: var(--text-muted); cursor: pointer;"><input
+                                            type="checkbox" id="style-lot-bold" style="margin:0;"> Gras</label>
+                                </div>
+                            </div>
+                            <div style="text-align: center; margin-top: 5px; font-size: 0.75rem; color: #ef4444;">
+                                Appuyez sur "Calibrer" pour voir les changements de texte (Nécessite un rechargement
+                                backend)</div>
                         </div>
                     </div>
 
@@ -358,17 +473,27 @@
                 </div>
 
                 <!-- Visuel -->
-                <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; padding: 20px;">
-                    <!-- Représentation de l'étiquette 115x30 -->
-                    <!-- 1358x354 dots affiché à l'échelle 0.4 -->
-                    <div style="width: 543px; height: 141px; background: white; border: 1px dashed #ef4444; position: relative; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                        <div style="position: absolute; top: 0; left: 0; transform-origin: top left; transform: scale(0.4);">
-                            <img id="calibration-preview-img" src="" alt="Aperçu du ticket" style="position: absolute; transition: top 0.1s, left 0.1s;">
+                <div
+                    style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; padding: 20px;">
+                    <!-- Représentation de l'étiquette ou du rouleau -->
+                    <div id="calib-container"
+                        style="width: 543px; height: 141px; background: white; position: relative; overflow: visible; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+
+                        <!-- Conteneur des bordures physiques (rouges) -->
+                        <div id="calib-physical-borders"
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;">
+                        </div>
+
+                        <div
+                            style="position: absolute; top: 0; left: 0; transform-origin: top left; transform: scale(0.4);">
+                            <img id="calibration-preview-img" src="" alt="Aperçu du ticket"
+                                style="position: absolute; transition: top 0.1s, left 0.1s;">
                         </div>
                     </div>
                 </div>
             </div>
-            <div style="text-align: center; margin-top: 10px; font-size: 0.85rem; color: #ef4444;">Le cadre pointillé rouge représente le bord physique de l'étiquette.</div>
+            <div style="text-align: center; margin-top: 10px; font-size: 0.85rem; color: #ef4444;">Le cadre pointillé
+                rouge représente le bord physique de l'étiquette.</div>
         </div>
     </div>
 
@@ -376,77 +501,105 @@
     <div id="help-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content large" style="max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="margin: 0; display:flex; align-items:center; gap:10px;"><i data-lucide="life-buoy" class="icon-info"></i> Guide de Dépannage - Toshiba</h3>
-                <button type="button" id="close-help-modal" class="btn-icon" style="border:none; background:transparent;"><i data-lucide="x"></i></button>
+                <h3 style="margin: 0; display:flex; align-items:center; gap:10px;"><i data-lucide="life-buoy"
+                        class="icon-info"></i> Guide de Dépannage - Toshiba</h3>
+                <button type="button" id="close-help-modal" class="btn-icon"
+                    style="border:none; background:transparent;"><i data-lucide="x"></i></button>
             </div>
-            
-            <p style="color: var(--text-muted);">Ce manuel technique vous aide à résoudre les problèmes de réseau (perte d'IP, vol d'IP) fréquents avec l'imprimante Toshiba B-FV4D.</p>
+
+            <p style="color: var(--text-muted);">Ce manuel technique vous aide à résoudre les problèmes de réseau (perte
+                d'IP, vol d'IP) fréquents avec l'imprimante Toshiba B-FV4D.</p>
 
             <div class="help-section-box">
                 <h4><i data-lucide="search"></i> Cas 1 : L'imprimante ne répond plus, comment retrouver son IP ?</h4>
-                <p>Si l'imprimante semble déconnectée, elle a peut-être perdu son adresse. Il faut la mettre en "Mode Dump" pour forcer l'impression de ses réglages.</p>
+                <p>Si l'imprimante semble déconnectée, elle a peut-être perdu son adresse. Il faut la mettre en "Mode
+                    Dump" pour forcer l'impression de ses réglages.</p>
                 <ol class="custom-list">
                     <li><strong>Éteignez</strong> l'imprimante.</li>
-                    <li>Restez appuyé sur le bouton <strong>FEED</strong> et rallumez l'imprimante <strong>SANS LÂCHER</strong> le bouton FEED. C'est très important.</li>
-                    <li>Les 2 voyants lumineux vont rester orange quelques secondes, puis se mettre à alterner de couleur.</li>
-                    <li>Attendez jusqu'à ce que les couleurs ne changent plus (normalement on a la couleur orange et vert). À ce moment là, <strong>relâchez le bouton FEED</strong>.</li>
-                    <li>Les voyants vont repasser au orange. Attendez quelques secondes. Si les étiquettes ne sortent pas, appuyez <strong>une seule fois</strong> sur FEED.</li>
-                    <li>L'imprimante va sortir ses paramètres. L'adresse IP s'y trouve et ressemble à <code>192.168...</code> (ou <code>200.200...</code> spécifiquement à la Ferme des Peupliers).</li>
-                    <li><strong style="color:var(--error);">TRÈS IMPORTANT :</strong> N'oubliez pas de remettre l'imprimante en mode impression normal. Pour cela, il suffit de l'éteindre et de la rallumer.</li>
-                    <li>Une fois l'IP trouvée, remettez-la dans les <strong>Réglages</strong> (en haut à droite de cet écran).</li>
+                    <li>Restez appuyé sur le bouton <strong>FEED</strong> et rallumez l'imprimante <strong>SANS
+                            LÂCHER</strong> le bouton FEED. C'est très important.</li>
+                    <li>Les 2 voyants lumineux vont rester orange quelques secondes, puis se mettre à alterner de
+                        couleur.</li>
+                    <li>Attendez jusqu'à ce que les couleurs ne changent plus (normalement on a la couleur orange et
+                        vert). À ce moment là, <strong>relâchez le bouton FEED</strong>.</li>
+                    <li>Les voyants vont repasser au orange. Attendez quelques secondes. Si les étiquettes ne sortent
+                        pas, appuyez <strong>une seule fois</strong> sur FEED.</li>
+                    <li>L'imprimante va sortir ses paramètres. L'adresse IP s'y trouve et ressemble à
+                        <code>192.168...</code> (ou <code>200.200...</code> spécifiquement à la Ferme des Peupliers).
+                    </li>
+                    <li><strong style="color:var(--error);">TRÈS IMPORTANT :</strong> N'oubliez pas de remettre
+                        l'imprimante en mode impression normal. Pour cela, il suffit de l'éteindre et de la rallumer.
+                    </li>
+                    <li>Une fois l'IP trouvée, remettez-la dans les <strong>Réglages</strong> (en haut à droite de cet
+                        écran).</li>
                 </ol>
             </div>
 
             <div class="help-section-box" style="margin-top: 25px;">
                 <h4><i data-lucide="network"></i> Cas 2 : Comment changer manuellement l'IP de l'imprimante ?</h4>
-                <p>À faire uniquement si une autre machine a volé l'IP de l'imprimante sur le réseau local et qu'il faut la déplacer sur une "IP lointaine".</p>
-                
+                <p>À faire uniquement si une autre machine a volé l'IP de l'imprimante sur le réseau local et qu'il faut
+                    la déplacer sur une "IP lointaine".</p>
+
                 <div class="step-card">
                     <h5>Étape 1 : Obtenir l'IP actuelle</h5>
-                    <p>Retrouvez l'IP actuelle via la méthode du <em>Cas 1</em> ou copiez-la depuis le menu <strong>Réglages</strong> (Configuration des Imprimantes).</p>
+                    <p>Retrouvez l'IP actuelle via la méthode du <em>Cas 1</em> ou copiez-la depuis le menu
+                        <strong>Réglages</strong> (Configuration des Imprimantes).</p>
                 </div>
-                
+
                 <div class="step-card">
                     <h5>Étape 2 : Connexion physique et Windows</h5>
                     <p>Branchez le PC <strong>directement</strong> à l'imprimante avec un câble réseau.</p>
                     <ul>
-                        <li>Faites <strong>Windows + R</strong> sur votre clavier, tapez <code>ncpa.cpl</code> et appuyez sur Entrée.</li>
+                        <li>Faites <strong>Windows + R</strong> sur votre clavier, tapez <code>ncpa.cpl</code> et
+                            appuyez sur Entrée.</li>
                         <li>Faites un clic droit sur la carte réseau concernée > <strong>Propriétés</strong>.</li>
                         <li>Double-cliquez sur <strong>Protocole Internet version 4 (TCP/IPv4)</strong>.</li>
-                        <li>Mettez une adresse IP manuelle dans la même plage que l'imprimante. (Ex: Si l'imprimante est en <code>200.200.129.200</code>, mettez <code>200.200.129.201</code>). Validez.</li>
+                        <li>Mettez une adresse IP manuelle dans la même plage que l'imprimante. (Ex: Si l'imprimante est
+                            en <code>200.200.129.200</code>, mettez <code>200.200.129.201</code>). Validez.</li>
                     </ul>
                 </div>
-                
+
                 <div class="step-card">
                     <h5>Étape 3 : Interface Web Toshiba</h5>
                     <ul>
-                        <li>Ouvrez votre navigateur (Chrome/Edge) et tapez l'IP de l'imprimante dans la barre d'adresse.</li>
-                        <li>Dans l'interface Toshiba, modifiez l'IP pour mettre la nouvelle adresse souhaitée. Enregistrez.</li>
-                        <li><i data-lucide="smile" style="width:16px;color:var(--secondary);"></i> <strong>Note :</strong> Si le site plante ou charge dans le vide après validation, c'est généralement une bonne nouvelle ! Cela signifie que l'IP a bien changé.</li>
+                        <li>Ouvrez votre navigateur (Chrome/Edge) et tapez l'IP de l'imprimante dans la barre d'adresse.
+                        </li>
+                        <li>Dans l'interface Toshiba, modifiez l'IP pour mettre la nouvelle adresse souhaitée.
+                            Enregistrez.</li>
+                        <li><i data-lucide="smile" style="width:16px;color:var(--secondary);"></i> <strong>Note
+                                :</strong> Si le site plante ou charge dans le vide après validation, c'est généralement
+                            une bonne nouvelle ! Cela signifie que l'IP a bien changé.</li>
                     </ul>
                 </div>
 
                 <div class="step-card">
                     <h5>Étape 4 : Remise en état naturel</h5>
                     <ul>
-                        <li>Retournez dans <code>ncpa.cpl</code> > IPv4, et remettez la carte réseau sur <strong>Obtenir une adresse IP automatiquement</strong> (réseau naturel).</li>
+                        <li>Retournez dans <code>ncpa.cpl</code> > IPv4, et remettez la carte réseau sur <strong>Obtenir
+                                une adresse IP automatiquement</strong> (réseau naturel).</li>
                         <li>Rebranchez l'ordinateur et l'imprimante au réseau local de la ferme.</li>
                         <li>Mettez la nouvelle IP de l'imprimante dans les <strong>Réglages</strong> du tool.</li>
                     </ul>
                 </div>
             </div>
 
-            <div class="contact-box" style="margin-top: 30px; text-align: center; background: #fef2f2; border: 1px solid #fca5a5; padding: 15px; border-radius: 8px;">
-                <p style="margin:0; font-weight: 600; color: #991b1b;"><i data-lucide="phone-call" style="vertical-align:text-bottom;"></i> En cas de problème ou besoin d'assistance technique :</p>
-                <p style="margin:8px 0 0 0; color: #7f1d1d; font-size: 1.1rem;">Contactez <strong>Guillaume Pitois</strong> au <strong>07 77 77 06 67</strong></p>
-                <p style="margin:2px 0 0 0; color: #7f1d1d; font-size: 0.95rem;">ou par mail : <a>guillaume.pitois@proton.me</a></p>
+            <div class="contact-box"
+                style="margin-top: 30px; text-align: center; background: #fef2f2; border: 1px solid #fca5a5; padding: 15px; border-radius: 8px;">
+                <p style="margin:0; font-weight: 600; color: #991b1b;"><i data-lucide="phone-call"
+                        style="vertical-align:text-bottom;"></i> En cas de problème ou besoin d'assistance technique :
+                </p>
+                <p style="margin:8px 0 0 0; color: #7f1d1d; font-size: 1.1rem;">Contactez <strong>Guillaume
+                        Pitois</strong> au <strong>07 77 77 06 67</strong></p>
+                <p style="margin:2px 0 0 0; color: #7f1d1d; font-size: 0.95rem;">ou par mail :
+                    <a>guillaume.pitois@proton.me</a></p>
             </div>
         </div>
     </div>
 
     <script>
-        const printersData = {{ printers|tojson }};
+        const printersData = {{ printers| tojson }};
     </script>
-    <script src="/static/script.js?v=6"></script>
+    <script src="/static/script.js?v=11"></script>
 </body>
+
 </html>
