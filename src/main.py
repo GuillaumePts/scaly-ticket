@@ -3,11 +3,12 @@ import logging
 import io
 import shutil
 import sys
+import os
 import json
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException, Response, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -178,7 +179,7 @@ async def preview_4up(parfum_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/print-4up")
-async def print_4up(request: Print4UpRequest):
+async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks):
     global is_cancelled
     is_cancelled = False
     
@@ -209,15 +210,16 @@ async def print_4up(request: Print4UpRequest):
             # Fallback ou autre imprimante, non implémenté pour l'instant
             raise HTTPException(status_code=400, detail="ZPL non supporté pour ce format")
             
-        printer.send_zpl(flux)
-        return {"message": f"Impression 4-up de {request.quantity} étiquettes envoyée."}
+        sleep_time = max(2.0, request.quantity * 1.5)
+        background_tasks.add_task(printer.send_zpl, flux, sleep_time)
+        return {"message": f"Impression 4-up de {request.quantity} étiquettes envoyée en arrière-plan."}
 
     except Exception as e:
         logger.error(f"Erreur impression 4-up: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/print-json")
-async def print_json(request: PrintJobRequest):
+async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks):
     global is_cancelled
     is_cancelled = False
     engine = ZPLEngine(dpi=request.printer_dpi)
@@ -275,9 +277,11 @@ async def print_json(request: PrintJobRequest):
                     
         # Envoi d'un seul énorme bloc pour éviter la lenteur réseau et les temps morts
         if full_flux:
-            printer.send_zpl(full_flux)
+            total_rows = sum((t.quantite + 2) // 3 if lang == "TPCL" else t.quantite for t in request.items)
+            sleep_time = max(2.0, total_rows * 1.5)
+            background_tasks.add_task(printer.send_zpl, full_flux, sleep_time)
             
-        return {"message": f"Impression de {len(request.items)} produits terminée en rafale."}
+        return {"message": f"Impression de {len(request.items)} produits envoyée en arrière-plan."}
 
     except Exception as e:
         logger.error(f"Erreur impression: {e}")

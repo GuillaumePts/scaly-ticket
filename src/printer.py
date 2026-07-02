@@ -61,7 +61,7 @@ class PrinterClient:
             time.sleep(2)
         return True # On continue même après timeout pour ne pas bloquer la prod
 
-    def send_zpl(self, zpl: str):
+    def send_zpl(self, zpl: str, sleep_time: float = 2.0):
         """Envoie le flux (ZPL ou TPCL) à l'imprimante via Socket TCP."""
         if not self.host or self.host == "0.0.0.0":
             logger.error("Adresse IP de l'imprimante non configurée.")
@@ -77,9 +77,9 @@ class PrinterClient:
                 s.sendall(zpl.encode("latin-1")) # latin-1 ou utf-8 selon les besoins
                 
                 if is_tpcl:
-                    logger.info("Flux TPCL détecté. Fermeture propre (shutdown) et attente de 2.0s...")
+                    logger.info(f"Flux TPCL détecté. Fermeture propre (shutdown) et attente de {sleep_time}s...")
                     s.shutdown(socket.SHUT_WR)
-                    time.sleep(2.0)
+                    time.sleep(sleep_time)
                     
                 logger.info(f"Flux envoyé avec succès via TCP à {self.host}")
         except Exception as e:

@@ -111,7 +111,7 @@ class ZPLEngine:
     def _draw_toshiba_single_label(self, data: TicketData, styling: dict = None) -> Image.Image:
         """Dessine une étiquette individuelle (115x30mm) en paysage puis la pivote."""
         styling = styling or {}
-        img_w, img_h = 920, 240
+        img_w, img_h = 920, 224
         img = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(img)
         
@@ -180,8 +180,9 @@ class ZPLEngine:
         """Génère la bande complète 3-up (Canvas 800x1200)."""
         # Assemblage sur le canvas global 3-up
         main = Image.new('1', (self.TOSHIBA_CANVAS_W, self.TOSHIBA_CANVAS_H), color=1)
-        
-        x_offsets = [12, 268, 524]
+        # Pitch de 33mm (264 points) entre chaque étiquette pour éviter le décalage progressif
+        # On démarre à 12 pour éviter le bug firmware de la B-EV4 sur le pixel 0
+        x_offsets = [12, 276, 540]
         for i, data in enumerate(data_list[:3]):
             lbl = self._draw_toshiba_single_label(data, styling)
             main.paste(lbl, (x_offsets[i] + offset_x, 0 + offset_y))
@@ -240,8 +241,8 @@ class ZPLEngine:
         """Génère une étiquette de séparation 3-up graphique."""
         main = Image.new('1', (self.TOSHIBA_CANVAS_W, self.TOSHIBA_CANVAS_H), color=1)
         
-        # Etiquette de séparation individuelle (920x240)
-        img_w, img_h = 920, 240
+        # Etiquette de séparation individuelle (920x224)
+        img_w, img_h = 920, 224
         lbl = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(lbl)
 
@@ -262,7 +263,7 @@ class ZPLEngine:
         draw.text((max(0, (img_w - tw) // 2), max(0, (img_h - th) // 2)), text_to_draw, fill=0, font=font)
         lbl_rot = lbl.transpose(Image.ROTATE_90)
         
-        x_offsets = [12, 268, 524]
+        x_offsets = [12, 276, 540]
         for i in range(3):
             main.paste(lbl_rot, (x_offsets[i], 0))
 
