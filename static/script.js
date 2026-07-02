@@ -556,6 +556,7 @@ function renderManageTable() {
                 <select onchange="localPrinters[${index}].sector = this.value" style="padding: 8px;">
                     <option value="prepa_commande" ${p.sector === 'prepa_commande' ? 'selected' : ''}>Prépa Commande</option>
                     <option value="conditionnement" ${p.sector === 'conditionnement' ? 'selected' : ''}>Conditionnement</option>
+                    <option value="Gravigny" ${p.sector === 'Gravigny' ? 'selected' : ''}>Gravigny</option>
                 </select>
             </td>
             <td><button class="btn-remove" onclick="removePrinter(${index})"><i data-lucide="trash-2"></i></button></td>

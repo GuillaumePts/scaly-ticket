@@ -44,5 +44,21 @@
         "sector": "conditionnement",
         "offset_x": 800,
         "offset_y": 18
+    },
+    {
+        "name": "Toshiba Gravigny",
+        "ip": "200.200.129.201",
+        "port": 9100,
+        "dpi": 203,
+        "language": "TPCL",
+        "sector": "Gravigny",
+        "offset_x": -24,
+        "offset_y": 0,
+        "title_size": -1,
+        "title_bold": false,
+        "gs1_size": 3,
+        "gs1_bold": false,
+        "lot_size": 19,
+        "lot_bold": true
     }
 ]

@@ -193,14 +193,18 @@ async def print_4up(request: Print4UpRequest):
             
         engine = ZPLEngine(dpi=request.printer_dpi)
         printer = PrinterClient(host=request.printer_ip)
-        
+
+        # Même détection que /print-json : B-EV4 Gravigny sans pitch dans XPML
+        printer_info = next((p for p in settings.printers if p.get("ip") == request.printer_ip), {})
+        xpml_pitch = printer_info.get("sector", "") != "Gravigny"
+
         if request.printer_language == "TPCL":
             styling = {
                 "title_size": request.title_size, "title_bold": request.title_bold,
                 "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
                 "lot_size": request.lot_size, "lot_bold": request.lot_bold
             }
-            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
+            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling, xpml_pitch=xpml_pitch)
         else:
             # Fallback ou autre imprimante, non implémenté pour l'instant
             raise HTTPException(status_code=400, detail="ZPL non supporté pour ce format")
@@ -220,6 +224,12 @@ async def print_json(request: PrintJobRequest):
     printer = PrinterClient(host=request.printer_ip)
     lang = request.printer_language
 
+    # Détecter si l'imprimante est sur le secteur Gravigny (B-EV4) :
+    # La B-EV4 rejette l'attribut pitch='120.1 mm' dans les balises sentinelles XPML.
+    # (Validé par diagnostic juillet 2026 : variante E = OK, variante A avec pitch = voyant rouge)
+    printer_info = next((p for p in settings.printers if p.get("ip") == request.printer_ip), {})
+    xpml_pitch = printer_info.get("sector", "") != "Gravigny"
+
     try:
         first_job = True
         full_flux = ""
@@ -231,7 +241,7 @@ async def print_json(request: PrintJobRequest):
             # la machine va buffuriser le gros flux réseau d'un coup.
             if not first_job:
                 if lang == "TPCL":
-                    sep = engine.generate_separator_tpcl(ticket.libelle)
+                    sep = engine.generate_separator_tpcl(ticket.libelle, xpml_pitch=xpml_pitch)
                     full_flux += sep
             
             first_job = False
@@ -255,7 +265,7 @@ async def print_json(request: PrintJobRequest):
                 
             if lang == "TPCL":
                 # On génère l'image UNE SEULE FOIS pour le groupe avec la quantité matérielle
-                flux = engine.generate_ticket_tpcl(ticket, quantity=nb_rows, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
+                flux = engine.generate_ticket_tpcl(ticket, quantity=nb_rows, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling, xpml_pitch=xpml_pitch)
                 full_flux += flux
             else:
                 # Pour Zebra (ZPL), le texte est léger, on peut concaténer

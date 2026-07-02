@@ -187,43 +187,56 @@ class ZPLEngine:
             main.paste(lbl, (x_offsets[i] + offset_x, 0 + offset_y))
         return main
 
-    def _build_tpcl_job(self, image: Image.Image, quantity: int = 1) -> bytes:
+    def _build_tpcl_job(self, image: Image.Image, quantity: int = 1, xpml_pitch: bool = True) -> bytes:
+        """Construit le flux TPCL binaire complet.
+        
+        xpml_pitch=True  -> B-FV4D : balises <xpml><page pitch='120.1 mm'> (firmware standard)
+        xpml_pitch=False -> B-EV4 Gravigny : balises <xpml><page> SANS attribut pitch
+                           (le firmware B-EV4 rejette l'attribut pitch avec voyant rouge)
+        Dans les deux cas, le Saint Graal (H=0300 avec payload 1200 lignes) est utilisé.
+        """
         img_w, img_h = image.size
         w_bytes = img_w // 8
-        
-        header = (
-            b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>{D1221,0975,1201|}\r\n"
-            b"<xpml></page></xpml><xpml><page quantity='1' pitch='120.1 mm'></xpml>{C|}\r\n"
-        )
-        
+
+        if xpml_pitch:
+            # B-FV4D : balises XPML avec attribut pitch (comportement d'origine validé juin 2026)
+            header = (
+                b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>{D1221,0975,1201|}\r\n"
+                b"<xpml></page></xpml><xpml><page quantity='1' pitch='120.1 mm'></xpml>{C|}\r\n"
+            )
+        else:
+            # B-EV4 Gravigny : balises XPML SANS attribut pitch (validé juillet 2026)
+            header = (
+                b"<xpml><page quantity='0'></xpml>{D1221,0975,1201|}\r\n"
+                b"<xpml></page></xpml><xpml><page quantity='1'></xpml>{C|}\r\n"
+            )
+
         raw = image.tobytes()
         inv = bytes(b ^ 0xFF for b in raw)
-        
-        # Compression de la TOTALITÉ de l'image (1200 lignes)
+
+        # LE SAINT GRAAL (validé sur B-FV4D ET B-EV4) :
+        # On envoie UNE UNIQUE commande SG avec H=0300, mais le payload contient
+        # la totalité des 1200 lignes. Les deux imprimantes ignorent le H et
+        # affichent tout d'un bloc -> zéro coupure, zéro ligne blanche.
         comp = self.compress_topix(w_bytes, img_h, inv)
-        
-        # LE SAINT GRAAL :
-        # L'analyse binaire du driver officiel montre que la machine accepte d'imprimer
-        # bien plus que 300 lignes, à UNE SEULE condition : que le paramètre H de la 
-        # commande SG soit strictement <= 0300 (sinon l'analyseur de syntaxe plante = voyant rouge).
-        # On envoie donc UNE UNIQUE commande SG avec H=0300, mais on lui donne un payload
-        # qui contient nos 1200 lignes ! Le décompresseur de la machine ignorera le H=0300 
-        # et affichera tout d'un bloc. Résultat : zéro coupure !
         sg = f"{{SG;0000,0000,{img_w:04d},0300,3,".encode('ascii')
         clen = len(comp)
-        sg += bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
-        
+        sg = sg + bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
+
         footer = f"{{XS;I,{quantity:04d},0002C5000|}}\r\n<xpml></page></xpml><xpml><end/></xpml>\r\n".encode('ascii')
         return header + sg + footer
 
-    def generate_ticket_tpcl(self, data: TicketData, quantity: int = 1, offset_x: int = 0, offset_y: int = 0, styling: dict = None) -> str:
-        """Génère le flux TPCL de production 3-up pour la Toshiba B-FV4D."""
-        # On passe 3 fois la même donnée pour imprimer les 3 étiquettes de la rangée
+    def generate_ticket_tpcl(self, data: TicketData, quantity: int = 1, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True) -> str:
+        """Génère le flux TPCL de production 3-up.
+
+        xpml_pitch=True  -> B-FV4D (prépa commande)
+        xpml_pitch=False -> B-EV4 Gravigny
+        """
         image = self._render_toshiba_band([data, data, data], offset_x, offset_y, styling)
-        job = self._build_tpcl_job(image, quantity)
+        job = self._build_tpcl_job(image, quantity, xpml_pitch=xpml_pitch)
         return job.decode('latin-1')
  
-    def generate_separator_tpcl(self, next_product_name: str) -> str:
+    def generate_separator_tpcl(self, next_product_name: str, xpml_pitch: bool = True) -> str:
         """Génère une étiquette de séparation 3-up graphique."""
         main = Image.new('1', (self.TOSHIBA_CANVAS_W, self.TOSHIBA_CANVAS_H), color=1)
         
@@ -253,7 +266,7 @@ class ZPLEngine:
         for i in range(3):
             main.paste(lbl_rot, (x_offsets[i], 0))
 
-        job = self._build_tpcl_job(main)
+        job = self._build_tpcl_job(main, xpml_pitch=xpml_pitch)
         return job.decode('latin-1')
 
     def generate_ticket_zpl(self, data: TicketData) -> str:
@@ -492,8 +505,12 @@ class ZPLEngine:
             
         return main
 
-    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None) -> str:
-        """Génère le flux TPCL de production 4-up pour la Toshiba B-FV4D."""
+    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True) -> str:
+        """Génère le flux TPCL de production 4-up pour Toshiba.
+
+        xpml_pitch=True  -> B-FV4D (prépa commande)
+        xpml_pitch=False -> B-EV4 Gravigny (sans attribut pitch dans XPML)
+        """
         # Nombre de lignes physiques (4 étiquettes par ligne)
         nb_rows = (quantity + 3) // 4
         
@@ -501,33 +518,9 @@ class ZPLEngine:
         ean13 = parfum['ean13']
         
         image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling)
-        img_w, img_h = image.size
-        w_bytes = img_w // 8
         
-        # On utilise le même trick que le 3-up : D1221,0975,1201| car physiquement 
-        # le capteur de la machine reste calibré sur 120.1mm de hauteur.
-        # Mais le {C|} efface le buffer. 
-        header = (
-            b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>{D1221,0975,1201|}\r\n"
-            b"<xpml></page></xpml><xpml><page quantity='1' pitch='120.1 mm'></xpml>{C|}\r\n"
-        )
-        
-        raw = image.tobytes()
-        inv = bytes(b ^ 0xFF for b in raw)
-        
-        # On compresse 1 rangée (344 lignes)
-        comp = self.compress_topix(w_bytes, img_h, inv)
-        
-        # Commande SG : H=0300 (Fake height to bypass memory crash), payload = 344 lignes réelles.
-        sg = f"{{SG;0000,0000,{img_w:04d},0300,3,".encode('ascii')
-        
-        clen = len(comp)
-        sg += bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
-        
-        # On répète la rangée nb_rows fois avec XS;I,xxxx
-        footer = f"{{XS;I,{nb_rows:04d},0002C5000|}}\r\n<xpml></page></xpml><xpml><end/></xpml>\r\n".encode('ascii')
-        
-        job = header + sg + footer
+        # On répète la rangée nb_rows fois → on passe nb_rows comme quantity dans le XS
+        job = self._build_tpcl_job(image, quantity=nb_rows, xpml_pitch=xpml_pitch)
         return job.decode('latin-1')
 
     def image_to_zebra_gfa(self, image: Image.Image, x_pos: int, y_pos: int) -> str:
