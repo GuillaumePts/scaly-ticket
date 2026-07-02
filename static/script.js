@@ -899,7 +899,8 @@ closeCalibrationModal.onclick = () => {
                 Modal.alert("Succès", "Calibrage enregistré !");
                 calibrationModal.style.display = 'none';
             } else {
-                Modal.error("Erreur", "Impossible de sauvegarder le calibrage.");
+                const errData = await res.json().catch(() => ({}));
+                Modal.error("Erreur de calibrage", errData.detail || "Impossible de sauvegarder le calibrage.");
             }
         } catch (e) {
             Modal.error("Erreur", "Problème réseau lors de la sauvegarde.");
@@ -1113,8 +1114,8 @@ async function startPrint(all = false) {
             printer_ip: printerSelect.value,
             printer_dpi: parseInt(opt.dataset.dpi),
             printer_language: opt.dataset.language,
-            offset_x: parseInt(opt.dataset.offsetX) || 800,
-            offset_y: parseInt(opt.dataset.offsetY) || 18,
+            offset_x: !isNaN(parseInt(opt.dataset.offsetX)) ? parseInt(opt.dataset.offsetX) : (opt.dataset.language === 'TPCL' ? 0 : 800),
+            offset_y: !isNaN(parseInt(opt.dataset.offsetY)) ? parseInt(opt.dataset.offsetY) : (opt.dataset.language === 'TPCL' ? 0 : 18),
             title_size: parseInt(opt.dataset.titleSize) || 0,
             title_bold: opt.dataset.titleBold === "true",
             gs1_size: parseInt(opt.dataset.gs1Size) || 0,
@@ -1138,8 +1139,8 @@ async function startPrint(all = false) {
                         printer_ip: opt2.value,
                         printer_dpi: parseInt(opt2.dataset.dpi),
                         printer_language: opt2.dataset.language,
-                        offset_x: parseInt(opt2.dataset.offsetX) || 800,
-                        offset_y: parseInt(opt2.dataset.offsetY) || 18,
+                        offset_x: !isNaN(parseInt(opt2.dataset.offsetX)) ? parseInt(opt2.dataset.offsetX) : (opt2.dataset.language === 'TPCL' ? 0 : 800),
+                        offset_y: !isNaN(parseInt(opt2.dataset.offsetY)) ? parseInt(opt2.dataset.offsetY) : (opt2.dataset.language === 'TPCL' ? 0 : 18),
                         title_size: parseInt(opt2.dataset.titleSize) || 0,
                         title_bold: opt2.dataset.titleBold === "true",
                         gs1_size: parseInt(opt2.dataset.gs1Size) || 0,

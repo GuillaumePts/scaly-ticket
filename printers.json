@@ -16,7 +16,7 @@
         "lot_bold": true
     },
     {
-        "name": "Zebra Pr\u00e9pa commande",
+        "name": "Zebra Prépa commande",
         "ip": "200.200.129.164",
         "port": 9100,
         "dpi": 300,
@@ -26,7 +26,7 @@
         "offset_y": 104
     },
     {
-        "name": "Zebra Pr\u00e9pa commande x2",
+        "name": "Zebra Prépa commande x2",
         "ip": "200.200.129.176",
         "port": 9100,
         "dpi": 300,
@@ -52,13 +52,13 @@
         "dpi": 203,
         "language": "TPCL",
         "sector": "Gravigny",
-        "offset_x": -24,
+        "offset_x": -11,
         "offset_y": 0,
         "title_size": -1,
         "title_bold": false,
         "gs1_size": 3,
         "gs1_bold": false,
-        "lot_size": 19,
+        "lot_size": 7,
         "lot_bold": true
     }
 ]

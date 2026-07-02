@@ -490,6 +490,16 @@ class PrinterOffsetsRequest(BaseModel):
 
 @app.post("/api/update-printer-offsets")
 async def update_printer_offsets(req: PrinterOffsetsRequest):
+    # gs1_size et lot_size sont des DELTAS ajoutés à une taille de base (20pt ou 25pt).
+    # Formule dans le moteur : max(10, base + delta). Un delta en dehors de [-10, +40]
+    # est probablement une erreur de saisie.
+    for field, val in [("gs1_size", req.gs1_size), ("lot_size", req.lot_size)]:
+        if val != 0 and not (-10 <= val <= 40):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Valeur hors limites ({field}={val}). Delta attendu entre -10 et +40."
+            )
+
     path = base_path / settings.PRINTERS_FILE
     if not path.exists():
         raise HTTPException(status_code=404, detail="printers.json introuvable")
@@ -515,10 +525,7 @@ async def update_printer_offsets(req: PrinterOffsetsRequest):
             
     if updated:
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(printers, f, indent=4)
-        # Met à jour le cache en mémoire (optionnel)
-        settings.printers.clear()
-        settings.printers.extend(printers)
+            json.dump(printers, f, indent=4, ensure_ascii=False)
         return {"message": "Offsets sauvegardés"}
     else:
         raise HTTPException(status_code=404, detail="Imprimante non trouvée")
