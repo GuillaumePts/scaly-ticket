@@ -197,7 +197,7 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
 
         # Même détection que /print-json : B-EV4 Gravigny sans pitch dans XPML
         printer_info = next((p for p in settings.printers if p.get("ip") == request.printer_ip), {})
-        xpml_pitch = printer_info.get("sector", "") != "Gravigny"
+        xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
 
         if request.printer_language == "TPCL":
             styling = {
@@ -226,11 +226,11 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
     printer = PrinterClient(host=request.printer_ip)
     lang = request.printer_language
 
-    # Détecter si l'imprimante est sur le secteur Gravigny (B-EV4) :
+    # Détecter si l'imprimante est sur le secteur Gravigny (B-EV4) ou si c'est la nouvelle B-EV4 (FLIPOU) :
     # La B-EV4 rejette l'attribut pitch='120.1 mm' dans les balises sentinelles XPML.
     # (Validé par diagnostic juillet 2026 : variante E = OK, variante A avec pitch = voyant rouge)
     printer_info = next((p for p in settings.printers if p.get("ip") == request.printer_ip), {})
-    xpml_pitch = printer_info.get("sector", "") != "Gravigny"
+    xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
 
     try:
         first_job = True

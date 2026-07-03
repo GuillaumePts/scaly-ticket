@@ -215,7 +215,13 @@ window.addEventListener('DOMContentLoaded', () => {
 function activateDedicatedTool(tool, sector) {
     hubSectorChoice.style.display = 'none';
     hubToolsChoice.style.display = 'none';
-    wizardSection.style.display = 'none';
+    
+    // Au lieu de cacher tout le wizard, on l'affiche mais on cache ses enfants inutiles
+    wizardSection.style.display = 'block';
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+    document.getElementById('step2').style.display = 'none';
+
     logContainer.style.display = 'block';
 
     const helpBtn = document.getElementById('help-modal-btn');
@@ -236,21 +242,35 @@ function activateDedicatedTool(tool, sector) {
         if (helpBtn) helpBtn.style.display = 'block'; // Affiche l'aide Toshiba
         
         // Sélectionne l'imprimante TPCL parmi celles du secteur
-        const toshiba = Array.from(printerSelect.options).find(opt => opt.dataset.language === 'TPCL');
-        if (toshiba) {
-            printerSelect.value = toshiba.value;
+        const toshibas = Array.from(printerSelect.options).filter(opt => opt.dataset.language === 'TPCL');
+        if (toshibas.length > 0) {
+            printerSelect.value = toshibas[0].value;
             printerSelect.dispatchEvent(new Event('change'));
             updatePrinterStatus();
+            
+            // S'il y a plus d'une imprimante Toshiba, on affiche le sélecteur
+            if (toshibas.length > 1) {
+                document.getElementById('step2').style.display = 'block';
+                const stepNum = document.getElementById('step2').querySelector('.step-number');
+                if(stepNum) stepNum.style.display = 'none';
+            }
         } else {
             Modal.error("Imprimante introuvable", "Aucune imprimante Toshiba n'est configurée pour ce secteur !");
         }
     } else if (tool.startsWith('zebra')) {
         // Sélectionne l'imprimante ZPL parmi celles du secteur
-        const zebra = Array.from(printerSelect.options).find(opt => opt.dataset.language === 'ZPL');
-        if (zebra) {
-            printerSelect.value = zebra.value;
+        const zebras = Array.from(printerSelect.options).filter(opt => opt.dataset.language === 'ZPL');
+        if (zebras.length > 0) {
+            printerSelect.value = zebras[0].value;
             printerSelect.dispatchEvent(new Event('change'));
             updatePrinterStatus();
+            
+            // S'il y a plus d'une imprimante Zebra, on affiche le sélecteur
+            if (zebras.length > 1) {
+                document.getElementById('step2').style.display = 'block';
+                const stepNum = document.getElementById('step2').querySelector('.step-number');
+                if(stepNum) stepNum.style.display = 'none';
+            }
         } else {
             Modal.error("Imprimante introuvable", "Aucune imprimante Zebra n'est configurée pour ce secteur !");
         }

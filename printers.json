@@ -60,5 +60,21 @@
         "gs1_bold": false,
         "lot_size": 7,
         "lot_bold": true
+    },
+    {
+        "name": "TOSHIBA FLIPOU",
+        "ip": "200.200.129.204",
+        "port": 9100,
+        "dpi": 203,
+        "language": "TPCL",
+        "sector": "prepa_commande",
+        "offset_x": -11,
+        "offset_y": 0,
+        "title_size": -1,
+        "title_bold": false,
+        "gs1_size": 3,
+        "gs1_bold": false,
+        "lot_size": 7,
+        "lot_bold": true
     }
 ]
