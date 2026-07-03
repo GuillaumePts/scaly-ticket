@@ -195,9 +195,27 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
         engine = ZPLEngine(dpi=request.printer_dpi)
         printer = PrinterClient(host=request.printer_ip)
 
-        # Même détection que /print-json : B-EV4 Gravigny sans pitch dans XPML
+        # Détection B-EV4 : Gravigny ou TOSHIBA FLIPOU → pas de pitch dans XPML
         printer_info = next((p for p in settings.printers if p.get("ip") == request.printer_ip), {})
         xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
+        is_bev4 = not xpml_pitch
+
+        # Les offsets de calibrage sont FORMAT-DÉPENDANTS :
+        # - Les B-EV4 (FLIPOU/Gravigny) peuvent charger un rouleau 3-up OU 4-up
+        # - Les coordonnées de collage étant différentes selon le format, on stocke
+        #   "offset_x_4up" / "offset_y_4up" séparément dans printers.json.
+        # - Si ces champs n'existent pas, on retombe sur les offsets 3-up génériques.
+        if is_bev4:
+            offset_x = printer_info.get("offset_x_4up", request.offset_x)
+            offset_y = printer_info.get("offset_y_4up", request.offset_y)
+            # d_param_4up : dimensions {D} pour le rouleau 4-up B-EV4 (ex: "0460,0975,0450")
+            # La valeur par défaut None laisse le moteur utiliser le rouleau 3-up (1221,0975,1201),
+            # mais cela sera probablement faux sur un rouleau 4-up physiquement différent.
+            d_param = printer_info.get("d_param_4up", None)
+        else:
+            offset_x = request.offset_x
+            offset_y = request.offset_y
+            d_param = None
 
         if request.printer_language == "TPCL":
             styling = {
@@ -205,7 +223,8 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
                 "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
                 "lot_size": request.lot_size, "lot_bold": request.lot_bold
             }
-            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling, xpml_pitch=xpml_pitch)
+            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity, offset_x=offset_x, offset_y=offset_y, styling=styling, xpml_pitch=xpml_pitch, d_param=d_param)
+
         else:
             # Fallback ou autre imprimante, non implémenté pour l'instant
             raise HTTPException(status_code=400, detail="ZPL non supporté pour ce format")

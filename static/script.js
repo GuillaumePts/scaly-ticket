@@ -602,6 +602,10 @@ function filterPrinters(sector) {
         opt.dataset.language = p.language || 'ZPL';
         opt.dataset.offsetX = p.offset_x !== undefined ? p.offset_x : (p.language === 'TPCL' ? 0 : 800);
         opt.dataset.offsetY = p.offset_y !== undefined ? p.offset_y : (p.language === 'TPCL' ? 0 : 18);
+        // Offsets spécifiques au format 4-up (B-EV4 uniquement, configurés dans printers.json)
+        opt.dataset.offsetX4up = p.offset_x_4up !== undefined ? p.offset_x_4up : opt.dataset.offsetX;
+        opt.dataset.offsetY4up = p.offset_y_4up !== undefined ? p.offset_y_4up : opt.dataset.offsetY;
+
         opt.dataset.titleSize = p.title_size || 0;
         opt.dataset.titleBold = !!p.title_bold;
         opt.dataset.gs1Size = p.gs1_size || 0;

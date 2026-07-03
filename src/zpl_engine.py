@@ -188,36 +188,38 @@ class ZPLEngine:
             main.paste(lbl, (x_offsets[i] + offset_x, 0 + offset_y))
         return main
 
-    def _build_tpcl_job(self, image: Image.Image, quantity: int = 1, xpml_pitch: bool = True) -> bytes:
-        """Construit le flux TPCL binaire complet.
-        
-        xpml_pitch=True  -> B-FV4D : balises <xpml><page pitch='120.1 mm'> (firmware standard)
-        xpml_pitch=False -> B-EV4 Gravigny : balises <xpml><page> SANS attribut pitch
-                           (le firmware B-EV4 rejette l'attribut pitch avec voyant rouge)
-        Dans les deux cas, le Saint Graal (H=0300 avec payload 1200 lignes) est utilisé.
+    def _build_tpcl_job(self, image: Image.Image, quantity: int = 1, xpml_pitch: bool = True, d_param: str = None) -> bytes:
+        """Construit le flux TPCL binaire complet (header XPML + SG graphique + footer XS).
+
+        xpml_pitch=True  -> B-FV4D : balises avec attribut pitch='120.1 mm'
+        xpml_pitch=False -> B-EV4 Gravigny/FLIPOU : sans attribut pitch (firmware B-EV4 le rejette)
+        d_param : chaine 'PITCH,WIDTH,HEIGHT' en 1/10mm pour la commande {D}.
+                  Defaut : '1221,0975,1201' (rouleau 3-up standard).
+                  4-up B-EV4 : configurer dans printers.json via 'd_param_4up'.
         """
         img_w, img_h = image.size
         w_bytes = img_w // 8
+        d_bytes = (d_param or "1221,0975,1201").encode('ascii')
+        crlf = b"\r\n"
+
 
         if xpml_pitch:
             # B-FV4D : balises XPML avec attribut pitch (comportement d'origine validé juin 2026)
-            header = (
-                b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>{D1221,0975,1201|}\r\n"
-                b"<xpml></page></xpml><xpml><page quantity='1' pitch='120.1 mm'></xpml>{C|}\r\n"
-            )
+            page_open = b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>"
+            page_cont = b"<xpml></page></xpml><xpml><page quantity='1' pitch='120.1 mm'></xpml>"
         else:
-            # B-EV4 Gravigny : balises XPML SANS attribut pitch (validé juillet 2026)
-            header = (
-                b"<xpml><page quantity='0'></xpml>{D1221,0975,1201|}\r\n"
-                b"<xpml></page></xpml><xpml><page quantity='1'></xpml>{C|}\r\n"
-            )
+            # B-EV4 Gravigny/FLIPOU : balises XPML SANS attribut pitch (validé juillet 2026)
+            page_open = b"<xpml><page quantity='0'></xpml>"
+            page_cont = b"<xpml></page></xpml><xpml><page quantity='1'></xpml>"
+
+        header = page_open + b"{D" + d_bytes + b"|}" + crlf + page_cont + b"{C|}" + crlf
 
         raw = image.tobytes()
         inv = bytes(b ^ 0xFF for b in raw)
 
         # LE SAINT GRAAL (validé sur B-FV4D ET B-EV4) :
         # On envoie UNE UNIQUE commande SG avec H=0300, mais le payload contient
-        # la totalité des 1200 lignes. Les deux imprimantes ignorent le H et
+        # la totalité des lignes réelles. Les deux imprimantes ignorent le H et
         # affichent tout d'un bloc -> zéro coupure, zéro ligne blanche.
         comp = self.compress_topix(w_bytes, img_h, inv)
         sg = f"{{SG;0000,0000,{img_w:04d},0300,3,".encode('ascii')
@@ -444,10 +446,15 @@ class ZPLEngine:
             x_start = 0
         return f"^FO{x_start},{y}^A0N,{font_h},{font_h}^FB{width},1,0,C^FD{text}^FS"
 
-    def _draw_4up_toshiba_single_label(self, nom: str, ean13: str, styling: dict = None) -> Image.Image:
-        """Dessine une étiquette 4-up (43x22mm -> 344x176 dots) et la pivote."""
+    def _draw_4up_toshiba_single_label(self, nom: str, ean13: str, styling: dict = None, label_h: int = 176) -> Image.Image:
+        """Dessine une étiquette 4-up et la pivote.
+        
+        label_h=176 -> B-FV4D (canvas 800x344)
+        label_h=168 -> B-EV4 (canvas 768x360) : légèrement moins haute pour
+                       s'intégrer dans le pas plus court du rouleau 4-up B-EV4.
+        """
         styling = styling or {}
-        img_w, img_h = 344, 176
+        img_w, img_h = 344, label_h
         img = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(img)
         
@@ -490,38 +497,69 @@ class ZPLEngine:
             ean_spaced = ean13
             
         tw = draw.textlength(ean_spaced, font=font_ean)
-        draw.text(((img_w - tw) // 2, 140), ean_spaced, font=font_ean, fill=0)
+        # Position du texte EAN adaptée à label_h
+        ean_y = label_h - 36
+        draw.text(((img_w - tw) // 2, ean_y), ean_spaced, font=font_ean, fill=0)
         
         return img.transpose(Image.ROTATE_90)
 
-    def _render_4up_toshiba_band(self, nom: str, ean13: str, offset_x: int = 0, offset_y: int = 0, styling: dict = None) -> Image.Image:
-        """Génère la bande de 4 étiquettes côte à côte pour la Toshiba."""
-        # Canvas 800x344
-        main = Image.new('1', (800, 344), color=1)
-        
-        x_offsets = [0, 200, 400, 600]
+    def _render_4up_toshiba_band(self, nom: str, ean13: str, offset_x: int = 0, offset_y: int = 0, styling: dict = None, bev4: bool = False) -> Image.Image:
+        """Genere la bande de 4 etiquettes cote a cote pour la Toshiba.
+
+        bev4=False -> B-FV4D :
+            Canvas 800x344, x_offsets=[0, 200, 400, 600], label_h=176.
+            Pas de contrainte pixel-0 sur la B-FV4D.
+
+        bev4=True  -> B-EV4 (FLIPOU / Gravigny) :
+            Canvas 768x360, x_offsets=[18, 202, 386, 570], label_h=168.
+            - Canvas 768 (= 96mm) : meme largeur physique que le rouleau 3-up.
+            - Hauteur 360 dots = 45mm : pas du rouleau 4-up B-EV4.
+            - Debut a X=18 : securite pixel-0 du firmware B-EV4
+              (refus d'impression si pixel noir sur X=0).
+            (Valeurs issues de scratch/test_4up_render.py valide sur B-EV4 juillet 2026)
+        """
+        if bev4:
+            canvas_w, canvas_h = 768, 360
+            # Espacement 200 dots (25mm) = le même que la B-FV4D.
+            # Le décalage progressif (escalier) prouve que le gap physique est de 200.
+            # Avec [0, 200, 400, 600], la dernière étiquette finit à 600+168 = 768 (pile le canvas).
+            # Pas de risque de pixel-0 bug car le texte commence à Y=5 (donc X=5 après rotation).
+            x_offsets = [0, 200, 400, 600]
+            label_h = 168
+
+        else:
+            canvas_w, canvas_h = 800, 344
+            x_offsets = [0, 200, 400, 600]
+            label_h = 176
+
+        main = Image.new('1', (canvas_w, canvas_h), color=1)
+
         for i in range(4):
-            lbl_rot = self._draw_4up_toshiba_single_label(nom, ean13, styling)
-            main.paste(lbl_rot, (x_offsets[i] + offset_x, 0 + offset_y))
-            
+            lbl_rot = self._draw_4up_toshiba_single_label(nom, ean13, styling, label_h=label_h)
+            x = x_offsets[i] + offset_x
+            y = offset_y
+            # Securite : ne pas coller en dehors du canvas
+            if 0 <= x < canvas_w:
+                main.paste(lbl_rot, (x, y))
+
         return main
 
-    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True) -> str:
-        """Génère le flux TPCL de production 4-up pour Toshiba.
+    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True, d_param: str = None) -> str:
+        """Genere le flux TPCL de production 4-up pour Toshiba.
 
-        xpml_pitch=True  -> B-FV4D (prépa commande)
-        xpml_pitch=False -> B-EV4 Gravigny (sans attribut pitch dans XPML)
+        xpml_pitch=True  -> B-FV4D : canvas 800x344, x_offsets classiques, d_param par defaut
+        xpml_pitch=False -> B-EV4 (FLIPOU / Gravigny) : canvas 768x360, securite pixel-0,
+                            d_param specifique au rouleau 4-up B-EV4 (lu depuis printers.json).
         """
-        # Nombre de lignes physiques (4 étiquettes par ligne)
         nb_rows = (quantity + 3) // 4
-        
+
         parfum_name = parfum['nom']
         ean13 = parfum['ean13']
-        
-        image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling)
-        
-        # On répète la rangée nb_rows fois → on passe nb_rows comme quantity dans le XS
-        job = self._build_tpcl_job(image, quantity=nb_rows, xpml_pitch=xpml_pitch)
+
+        is_bev4 = not xpml_pitch
+        image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling, bev4=is_bev4)
+
+        job = self._build_tpcl_job(image, quantity=nb_rows, xpml_pitch=xpml_pitch, d_param=d_param)
         return job.decode('latin-1')
 
     def image_to_zebra_gfa(self, image: Image.Image, x_pos: int, y_pos: int) -> str:

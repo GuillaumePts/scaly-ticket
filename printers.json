@@ -59,7 +59,10 @@
         "gs1_size": 3,
         "gs1_bold": false,
         "lot_size": 7,
-        "lot_bold": true
+        "lot_bold": true,
+        "offset_x_4up": 0,
+        "offset_y_4up": 0,
+        "d_param_4up": "0460,0975,0450"
     },
     {
         "name": "TOSHIBA FLIPOU",
@@ -75,6 +78,9 @@
         "gs1_size": 3,
         "gs1_bold": false,
         "lot_size": 7,
-        "lot_bold": true
+        "lot_bold": true,
+        "offset_x_4up": 0,
+        "offset_y_4up": 0,
+        "d_param_4up": "0460,0975,0450"
     }
 ]
