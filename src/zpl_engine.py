@@ -477,7 +477,7 @@ class ZPLEngine:
         fp = barcode.get('ean13', ean13, writer=ImageWriter())
         fp.write(stream, options={
             'dpi': 203,
-            'module_width': 0.40,
+            'module_width': 0.375,
             'module_height': 12.0,
             'quiet_zone': 2.0,
             'write_text': False
