@@ -30,3 +30,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 base_path = get_base_path()
+
+# Le dossier data doit être persistant et situé à côté de l'EXE
+exe_directory = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(os.getcwd())
+data_path = exe_directory / "data"

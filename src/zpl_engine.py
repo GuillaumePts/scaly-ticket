@@ -544,15 +544,13 @@ class ZPLEngine:
 
         return main
 
-    def generate_4up_toshiba_tpcl(self, parfum: dict, quantity: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True, d_param: str = None) -> str:
+    def generate_4up_toshiba_tpcl(self, parfum: dict, nb_rows: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True, d_param: str = None) -> str:
         """Genere le flux TPCL de production 4-up pour Toshiba.
 
         xpml_pitch=True  -> B-FV4D : canvas 800x344, x_offsets classiques, d_param par defaut
         xpml_pitch=False -> B-EV4 (FLIPOU / Gravigny) : canvas 768x360, securite pixel-0,
                             d_param specifique au rouleau 4-up B-EV4 (lu depuis printers.json).
         """
-        nb_rows = (quantity + 3) // 4
-
         parfum_name = parfum['nom']
         ean13 = parfum['ean13']
 

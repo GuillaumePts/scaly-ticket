@@ -14,11 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from pydantic import BaseModel
-from src.config import settings, base_path
+from src.config import settings, base_path, data_path
 from src.models import TicketData
 from src.zpl_engine import ZPLEngine
 from src.printer import PrinterClient
 from src.utils import get_days_offset, get_updated_dlc, get_updated_lot
+from src.licence import check_licence, get_licence_status, LicenceError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -46,14 +47,6 @@ async def read_root(request: Request):
         context={"printers": settings.printers}
     )
 
-# Flag global d'annulation
-is_cancelled = False
-
-@app.post("/stop-print")
-async def stop_print():
-    global is_cancelled
-    is_cancelled = True
-    return {"message": "Demande d'arrêt envoyée."}
 
 class PrintJobRequest(BaseModel):
     printer_ip: str
@@ -96,6 +89,11 @@ async def print_nature(request: PrintNatureRequest):
     is_cancelled = False
     
     try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+        
+    try:
         engine = ZPLEngine(dpi=request.printer_dpi)
         printer = PrinterClient(host=request.printer_ip)
         
@@ -114,7 +112,7 @@ async def print_nature(request: PrintNatureRequest):
 @app.get("/api/parfums-4up")
 async def get_parfums_4up():
     try:
-        path = base_path / "data" / "parfums_4up.json"
+        path = data_path / "parfums_4up.json"
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
@@ -128,7 +126,7 @@ class Parfum4Up(BaseModel):
 @app.post("/api/parfums-4up")
 async def add_parfum_4up(parfum: Parfum4Up):
     try:
-        path = base_path / "data" / "parfums_4up.json"
+        path = data_path / "parfums_4up.json"
         with open(path, "r", encoding="utf-8") as f:
             parfums = json.load(f)
             
@@ -163,7 +161,7 @@ async def preview_4up_live(nom: str, ean13: str):
 @app.get("/api/preview-4up/{parfum_id}")
 async def preview_4up(parfum_id: str):
     try:
-        path = base_path / "data" / "parfums_4up.json"
+        path = data_path / "parfums_4up.json"
         with open(path, "r", encoding="utf-8") as f:
             parfums = json.load(f)
             
@@ -184,7 +182,12 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
     is_cancelled = False
     
     try:
-        path = base_path / "data" / "parfums_4up.json"
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+        
+    try:
+        path = data_path / "parfums_4up.json"
         with open(path, "r", encoding="utf-8") as f:
             parfums = json.load(f)
             
@@ -223,13 +226,25 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
                 "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
                 "lot_size": request.lot_size, "lot_bold": request.lot_bold
             }
-            flux = engine.generate_4up_toshiba_tpcl(parfum, request.quantity, offset_x=offset_x, offset_y=offset_y, styling=styling, xpml_pitch=xpml_pitch, d_param=d_param)
+            # L'utilisateur demande X étiquettes, on doit imprimer X/4 bandes
+            nb_bands = (request.quantity + 3) // 4
+            
+            # Chunking pour éviter le crash mémoire/parseur de l'imprimante Toshiba (limite XS quantité)
+            MAX_QTY_PER_JOB = 2000 # 2000 bandes maximum par commande TPCL
+            remaining = nb_bands
+            flux = ""
+            while remaining > 0:
+                chunk_qty = min(remaining, MAX_QTY_PER_JOB)
+                flux += engine.generate_4up_toshiba_tpcl(parfum, chunk_qty, offset_x=offset_x, offset_y=offset_y, styling=styling, xpml_pitch=xpml_pitch, d_param=d_param)
+                remaining -= chunk_qty
 
         else:
             # Fallback ou autre imprimante, non implémenté pour l'instant
             raise HTTPException(status_code=400, detail="ZPL non supporté pour ce format")
             
-        sleep_time = max(2.0, request.quantity * 1.5)
+        # Calcul réaliste : environ 0.5s par bande pour la B-EV4
+        nb_bands = (request.quantity + 3) // 4 if request.printer_language == "TPCL" else request.quantity
+        sleep_time = max(2.0, nb_bands * 0.5)
         background_tasks.add_task(printer.send_zpl, flux, sleep_time)
         return {"message": f"Impression 4-up de {request.quantity} étiquettes envoyée en arrière-plan."}
 
@@ -239,8 +254,14 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
 
 @app.post("/print-json")
 async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks):
-    global is_cancelled
-    is_cancelled = False
+    # La variable globale is_cancelled était dangereuse pour l'utilisation multi-utilisateur.
+    # Pour l'instant, l'impression s'envoie en une fois. Si besoin, une gestion par job_id sera ajoutée.
+    
+    try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+        
     engine = ZPLEngine(dpi=request.printer_dpi)
     printer = PrinterClient(host=request.printer_ip)
     lang = request.printer_language
@@ -275,9 +296,6 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
             else:
                 nb_rows = ticket.quantite
                 
-            if is_cancelled:
-                return {"message": "Impression interrompue."}
-                
             styling = {
                 "title_size": request.title_size, "title_bold": request.title_bold,
                 "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
@@ -285,9 +303,14 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
             }
                 
             if lang == "TPCL":
-                # On génère l'image UNE SEULE FOIS pour le groupe avec la quantité matérielle
-                flux = engine.generate_ticket_tpcl(ticket, quantity=nb_rows, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling, xpml_pitch=xpml_pitch)
-                full_flux += flux
+                # Chunking TPCL : limite de 2000 pour éviter le crash '{XS}'
+                MAX_QTY_PER_JOB = 2000
+                remaining = nb_rows
+                while remaining > 0:
+                    chunk_qty = min(remaining, MAX_QTY_PER_JOB)
+                    flux = engine.generate_ticket_tpcl(ticket, quantity=chunk_qty, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling, xpml_pitch=xpml_pitch)
+                    full_flux += flux
+                    remaining -= chunk_qty
             else:
                 # Pour Zebra (ZPL), le texte est léger, on peut concaténer
                 for _ in range(nb_rows):
@@ -336,6 +359,11 @@ async def upload_csv(
     printer_dpi: int = Form(...),
     printer_language: str = Form("ZPL")
 ):
+    try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Seuls les fichiers CSV sont acceptés.")
 
@@ -372,9 +400,6 @@ async def upload_csv(
             current_dlc = ticket.date_expiration
 
             for i in range(nb_rows):
-                if is_cancelled:
-                    return {"message": "Impression interrompue."}
-                
                 new_dlc = get_updated_dlc(days_offset)
                 if new_dlc != current_dlc:
                     new_lot = get_updated_lot(ticket.lot)
@@ -552,6 +577,44 @@ async def update_printer_offsets(req: PrinterOffsetsRequest):
         return {"message": "Offsets sauvegardés"}
     else:
         raise HTTPException(status_code=404, detail="Imprimante non trouvée")
+
+@app.get("/api/commande/{order_number}")
+async def fetch_commande(order_number: str):
+    """
+    Route simulée pour l'API Business Central.
+    Dans le futur, elle fera l'authentification OAuth et interrogera l'ERP.
+    """
+    check_licence() # Vérifie que le tool est autorisé
+    
+    # Données fictives pour simuler une réponse de l'ERP
+    mock_data = [
+        {
+            "Client": "FERME DES PEUPLIERS (TEST API)",
+            "Commande": order_number,
+            "Libelle": "Yaourt Fraise 4x125gr",
+            "DateLivraison": "16/07/2026",
+            "Numlot": "A001",
+            "Quantite": 10
+        },
+        {
+            "Client": "FERME DES PEUPLIERS (TEST API)",
+            "Commande": order_number,
+            "Libelle": "Yaourt Vanille 4x125gr",
+            "DateLivraison": "16/07/2026",
+            "Numlot": "A001",
+            "Quantite": 20
+        }
+    ]
+    
+    # Simuler un temps de latence réseau
+    import asyncio
+    await asyncio.sleep(1)
+    
+    return mock_data
+
+@app.get("/api/licence")
+async def api_licence():
+    return get_licence_status()
 
 if __name__ == "__main__":
     import uvicorn

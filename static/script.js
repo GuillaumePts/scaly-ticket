@@ -80,7 +80,6 @@ const orderId = document.getElementById('order-id');
 const printBtn = document.getElementById('print-btn');
 const printAllBtn = document.getElementById('print-all-btn');
 const cancelBtn = document.getElementById('cancel-btn');
-const stopBtn = document.getElementById('stop-btn');
 
 let currentData = [];
 let pollingInterval = null;
@@ -186,7 +185,21 @@ hubSectorBtns.forEach(btn => {
 });
 
 // Au chargement initial (Restore state from URL)
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+    // Vérification de la licence en premier lieu
+    try {
+        const res = await fetch('/api/licence');
+        const data = await res.json();
+        if (!data.valid) {
+            await Modal.error("Licence Invalide ou Expirée", data.error + "\n\nVotre Identifiant Machine : " + data.machine_id);
+            document.body.style.pointerEvents = 'none';
+            document.body.style.opacity = '0.4';
+            return; // Bloque le reste de l'initialisation
+        }
+    } catch(e) {
+        console.error("Erreur vérification licence", e);
+    }
+
     const params = new URLSearchParams(window.location.search);
     const tool = params.get('tool');
     const sector = params.get('sector');
@@ -241,8 +254,12 @@ function activateDedicatedTool(tool, sector) {
     if (tool === 'toshiba_3up' || tool === 'toshiba_4up') {
         if (helpBtn) helpBtn.style.display = 'block'; // Affiche l'aide Toshiba
         
+        Array.from(printerSelect.options).forEach(opt => {
+            if (opt.dataset.language !== 'TPCL') opt.remove();
+        });
+        
         // Sélectionne l'imprimante TPCL parmi celles du secteur
-        const toshibas = Array.from(printerSelect.options).filter(opt => opt.dataset.language === 'TPCL');
+        const toshibas = Array.from(printerSelect.options);
         if (toshibas.length > 0) {
             printerSelect.value = toshibas[0].value;
             printerSelect.dispatchEvent(new Event('change'));
@@ -258,8 +275,12 @@ function activateDedicatedTool(tool, sector) {
             Modal.error("Imprimante introuvable", "Aucune imprimante Toshiba n'est configurée pour ce secteur !");
         }
     } else if (tool.startsWith('zebra')) {
+        Array.from(printerSelect.options).forEach(opt => {
+            if (opt.dataset.language !== 'ZPL') opt.remove();
+        });
+
         // Sélectionne l'imprimante ZPL parmi celles du secteur
-        const zebras = Array.from(printerSelect.options).filter(opt => opt.dataset.language === 'ZPL');
+        const zebras = Array.from(printerSelect.options);
         if (zebras.length > 0) {
             printerSelect.value = zebras[0].value;
             printerSelect.dispatchEvent(new Event('change'));
@@ -973,6 +994,58 @@ fileInput.onchange = () => {
     fileInput.value = ''; 
 };
 
+// --- NOUVEAU : Logique API ERP ---
+const apiOrderInput = document.getElementById('api-order-number');
+const apiFetchBtn = document.getElementById('api-fetch-btn');
+
+if (apiFetchBtn) {
+    apiFetchBtn.onclick = async () => {
+        const orderNumber = apiOrderInput.value.trim();
+        if (!orderNumber) {
+            Modal.error("Numéro manquant", "Veuillez taper un numéro de commande valide.");
+            return;
+        }
+
+        const originalText = apiFetchBtn.innerHTML;
+        apiFetchBtn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Recherche...';
+        apiFetchBtn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/commande/${encodeURIComponent(orderNumber)}`);
+            if (res.ok) {
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    Modal.error("Introuvable", `La commande ${orderNumber} n'existe pas ou ne contient aucun produit dans l'ERP.`);
+                } else {
+                    // On ajoute le statut coché par défaut comme pour le CSV
+                    data.forEach(item => item._selected = true);
+                    currentData = data;
+                    displayEditSection();
+                }
+            } else if (res.status === 403) {
+                 Modal.error("Licence bloquée", "Vous n'avez pas les droits de licence pour utiliser l'API.");
+            } else {
+                Modal.error("Erreur API", `Impossible de récupérer la commande (Erreur ${res.status}).`);
+            }
+        } catch (e) {
+            Modal.error("Erreur Réseau", e.message);
+        } finally {
+            apiFetchBtn.innerHTML = originalText;
+            apiFetchBtn.disabled = false;
+            lucide.createIcons();
+        }
+    };
+    
+    // Permettre la validation avec la touche Entrée
+    apiOrderInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            apiFetchBtn.click();
+        }
+    });
+}
+// ---------------------------------
+
 function handleFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -1022,9 +1095,15 @@ function displayEditSection() {
     const thQuantitePots = document.getElementById('th-quantite-pots');
     
     if (isLigne1) {
-        thQuantite.innerHTML = '<i data-lucide="box"></i> Qte Carton (300dpi)';
+        // Préserver l'état des cases à cocher lors des rechargements (ex: suppression de ligne)
+        const cartonWasChecked = document.getElementById('enable-carton') ? document.getElementById('enable-carton').checked : true;
+        const potsWasChecked = document.getElementById('enable-pots') ? document.getElementById('enable-pots').checked : true;
+        
+        thQuantite.innerHTML = `<div style="display:flex; align-items:center; gap:5px; justify-content:flex-start;"><input type="checkbox" id="enable-carton" ${cartonWasChecked ? 'checked' : ''} class="large-checkbox" title="Activer/Désactiver l'impression Carton"> <i data-lucide="box"></i> Qte Carton</div>`;
         thQuantite.style.backgroundColor = '#e0e7ff';
         thQuantite.style.color = '#3730a3';
+        
+        thQuantitePots.innerHTML = `<div style="display:flex; align-items:center; gap:5px; justify-content:flex-start;"><input type="checkbox" id="enable-pots" ${potsWasChecked ? 'checked' : ''} class="large-checkbox" title="Activer/Désactiver l'impression Pots x2"> <i data-lucide="box"></i> Qte Pots x2</div>`;
         thQuantitePots.style.display = '';
     } else {
         thQuantite.textContent = 'Quantité';
@@ -1134,22 +1213,27 @@ async function startPrint(all = false) {
         
         let payloads = [];
         
-        payloads.push({
-            printer_ip: printerSelect.value,
-            printer_dpi: parseInt(opt.dataset.dpi),
-            printer_language: opt.dataset.language,
-            offset_x: !isNaN(parseInt(opt.dataset.offsetX)) ? parseInt(opt.dataset.offsetX) : (opt.dataset.language === 'TPCL' ? 0 : 800),
-            offset_y: !isNaN(parseInt(opt.dataset.offsetY)) ? parseInt(opt.dataset.offsetY) : (opt.dataset.language === 'TPCL' ? 0 : 18),
-            title_size: parseInt(opt.dataset.titleSize) || 0,
-            title_bold: opt.dataset.titleBold === "true",
-            gs1_size: parseInt(opt.dataset.gs1Size) || 0,
-            gs1_bold: opt.dataset.gs1Bold === "true",
-            lot_size: parseInt(opt.dataset.lotSize) || 0,
-            lot_bold: opt.dataset.lotBold === "true",
-            items: updatedData
-        });
+        const cartonEnabled = !isLigne1 || (document.getElementById('enable-carton') && document.getElementById('enable-carton').checked);
+        const potsEnabled = isLigne1 && (document.getElementById('enable-pots') && document.getElementById('enable-pots').checked);
         
-        if (isLigne1) {
+        if (cartonEnabled) {
+            payloads.push({
+                printer_ip: printerSelect.value,
+                printer_dpi: parseInt(opt.dataset.dpi),
+                printer_language: opt.dataset.language,
+                offset_x: !isNaN(parseInt(opt.dataset.offsetX)) ? parseInt(opt.dataset.offsetX) : (opt.dataset.language === 'TPCL' ? 0 : 800),
+                offset_y: !isNaN(parseInt(opt.dataset.offsetY)) ? parseInt(opt.dataset.offsetY) : (opt.dataset.language === 'TPCL' ? 0 : 18),
+                title_size: parseInt(opt.dataset.titleSize) || 0,
+                title_bold: opt.dataset.titleBold === "true",
+                gs1_size: parseInt(opt.dataset.gs1Size) || 0,
+                gs1_bold: opt.dataset.gs1Bold === "true",
+                lot_size: parseInt(opt.dataset.lotSize) || 0,
+                lot_bold: opt.dataset.lotBold === "true",
+                items: updatedData
+            });
+        }
+        
+        if (potsEnabled) {
             const opt2 = Array.from(printerSelect.options).find(o => o.text.startsWith("Zebra Prépa commande x2"));
             if (opt2) {
                 let potsData = updatedData.map(item => {
@@ -1175,6 +1259,13 @@ async function startPrint(all = false) {
                     });
                 }
             }
+        }
+        
+        if (payloads.length === 0) {
+            Modal.error("Erreur", "Aucune imprimante sélectionnée. Veuillez cocher au moins une colonne.");
+            isPrinting = false;
+            progressContainer.style.display = 'none';
+            return;
         }
         
         for (const payload of payloads) {
@@ -1207,19 +1298,6 @@ async function startPrint(all = false) {
     }
 }
 
-stopBtn.onclick = async () => {
-    const ok = await Modal.confirm("ARRÊT D'URGENCE", "Êtes-vous sûr de vouloir bloquer l'impression en cours ?", 'alert-octagon', 'icon-error');
-    if (ok) {
-        try {
-            await fetch('/stop-print', { method: 'POST' });
-            addLog("STOP envoyé. L'imprimante s'arrêtera après l'étiquette en cours.", "warning");
-            progressText.textContent = 'ARRÊT DEMANDÉ...';
-            progressFill.style.background = 'var(--error)';
-        } catch (e) {
-            addLog("Impossible d'envoyer le STOP", "error");
-        }
-    }
-};
 
 function addLog(message, type = "") {
     const wrapper = document.createElement('div');

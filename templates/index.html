@@ -170,21 +170,35 @@
                 </section>
             </div>
 
-            <!-- ETAPE 4 (CSV) -->
+            <!-- ETAPE 4 (Source de données) -->
             <section class="step-section" id="upload-section" style="display: none;">
                 <div class="step-header">
                     <span class="step-number">4</span>
-                    <h2>Fournir le fichier de commandes</h2>
+                    <h2>Fournir les données de la commande</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Cliquez dans le grand cadre pointillé ci-dessous pour
-                    chercher votre fichier de commande sur cet ordinateur.</p>
+                <p class="help-text"><i data-lucide="info"></i> Choisissez comment importer la commande : via l'ERP (Automatique) ou avec un fichier CSV manuel.</p>
 
-                <div class="upload-zone" id="drop-zone" tabindex="0">
-                    <div class="upload-content">
-                        <i data-lucide="file-up" class="icon-large"></i>
-                        <p class="upload-main-text">Cliquez ici pour choisir votre fichier</p>
-                        <p class="upload-sub-text">Format accepté : .txt</p>
-                        <input type="file" id="file-input" accept=".csv,.txt,.tsv,text/plain" hidden>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 15px;">
+                    <!-- Option 1 : API ERP -->
+                    <div style="flex: 1; min-width: 300px; background: #f8fafc; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
+                        <h3 style="margin-top:0; display:flex; align-items:center; gap:8px; color:#0f172a; font-size: 1.1rem;"><i data-lucide="cloud-download" style="color:var(--primary);"></i> Depuis l'ERP</h3>
+                        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:15px; flex-grow: 1;">Téléchargement direct depuis Business Central.</p>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="api-order-number" class="large-input" placeholder="N° de commande (Ex: CDE-12345)" style="flex:1;">
+                            <button type="button" id="api-fetch-btn" class="btn-primary" style="padding: 0 15px;"><i data-lucide="search"></i> Chercher</button>
+                        </div>
+                    </div>
+
+                    <!-- Option 2 : Fichier manuel -->
+                    <div style="flex: 1; min-width: 300px;">
+                        <div class="upload-zone" id="drop-zone" tabindex="0" style="height: 100%; min-height: 140px; margin-top: 0; display: flex; flex-direction: column; justify-content: center;">
+                            <div class="upload-content">
+                                <i data-lucide="file-up" class="icon-large"></i>
+                                <p class="upload-main-text">Fichier Manuel (CSV/TXT)</p>
+                                <p class="upload-sub-text">Cliquez ou glissez-déposez ici</p>
+                                <input type="file" id="file-input" accept=".csv,.txt,.tsv,text/plain" hidden>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -295,8 +309,6 @@
             <section id="progress-container" class="step-section" style="display: none;">
                 <div class="progress-header">
                     <h2><i data-lucide="loader-2" class="spin-icon"></i> Impression en cours...</h2>
-                    <button type="button" id="stop-btn" class="btn-error"><i data-lucide="alert-octagon"></i> ARRÊTER
-                        IMMEDIATEMENT</button>
                 </div>
                 <p class="help-text"><i data-lucide="info"></i> Veuillez patienter jusqu'à la fin de la jauge verte.</p>
                 <div class="progress-bar">

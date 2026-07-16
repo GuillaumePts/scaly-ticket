@@ -1,0 +1,61 @@
+=== GUIDE D'INTÉGRATION SÉCURISÉE : SCALY-TICKET <-> BUSINESS CENTRAL ===
+
+Ce guide détaille les étapes pour créer un accès API (Service-to-Service) 
+et comment le brider formellement en LECTURE SEULE pour ne prendre 
+absolument aucun risque sur la base de données de l'ERP.
+
+-------------------------------------------------------------------------
+PARTIE 1 : CRÉATION DU "PASSEPORT" SUR LE PORTAIL MICROSOFT (ENTRA ID)
+-------------------------------------------------------------------------
+1. Allez sur : https://entra.microsoft.com (Connectez-vous en Admin)
+2. Dans le menu de gauche, allez sur "Identité" -> "Applications" -> "Inscriptions d'applications".
+3. Cliquez sur "Nouvelle inscription".
+   - Nom : ScalyTicket-API
+   - Laissez les autres réglages par défaut et cliquez sur "S'inscrire".
+4. Sur la page d'accueil de l'application, COPIEZ ces 2 informations dans un bloc-notes :
+   - ID d'application (client) : ________________________ (Le fameux Client ID)
+   - ID de l'annuaire (locataire) : ________________________ (Le fameux Tenant ID)
+5. Allez dans "Certificats et secrets" (menu de gauche).
+   - Cliquez sur "Nouveau secret client".
+   - Mettez une description et une durée (ex: 24 mois).
+   - COPIEZ LA COLONNE "VALEUR" (Attention, elle disparaît après ! C'est votre Client Secret).
+6. Allez dans "Autorisations de l'API".
+   - Cliquez sur "Ajouter une autorisation" -> "Dynamics 365 Business Central".
+   - Choisissez "Autorisations de l'application" (très important).
+   - Cochez "API.ReadWrite.All" puis cliquez sur Ajouter.
+   - /!\ CRITIQUE : Cliquez sur le bouton "Accorder le consentement d'administrateur pour [Nom de la ferme]" (L'icône avec le bouclier orange). Si le statut ne passe pas au vert, l'API ne marchera pas.
+
+À ce stade, l'accès technique est créé, mais l'application n'a encore aucun droit à l'intérieur de l'ERP.
+
+-------------------------------------------------------------------------
+PARTIE 2 : BRIDAGE EN LECTURE SEULE (DANS BUSINESS CENTRAL)
+-------------------------------------------------------------------------
+C'est ici qu'on s'assure que le logiciel ne pourra JAMAIS modifier ou effacer une commande.
+
+1. Connectez-vous à l'ERP Business Central avec le compte administrateur.
+2. Cliquez sur la loupe (Rechercher) en haut à droite, et tapez : "Applications Microsoft Entra" (ou Microsoft Entra Applications). Ouvrez la page correspondante.
+3. Cliquez sur "Nouveau" pour ajouter une ligne.
+4. Remplissez les champs de l'en-tête :
+   - ID client : (Collez le "ID d'application (client)" récupéré à l'étape 1.4)
+   - Description : ScalyTicket API
+5. /!\ SÉCURITÉ : C'est maintenant qu'on bloque l'écriture.
+   Allez dans la partie basse de l'écran ("Ensembles d'autorisations d'utilisateur" / Permission Sets).
+   Ajoutez SEULEMENT les ensembles suivants :
+   - "D365 READ" (Donne l'accès en lecture à toutes les tables standards).
+   - "D365 BASIC" (Donne le droit de se connecter au système de base).
+   
+   NE METTEZ SURTOUT PAS les ensembles "SUPER" ou "D365 BUS FULL ACCESS".
+   Avec la permission "D365 READ", même si le développeur fait une erreur et envoie une requête de suppression (DELETE), l'ERP la bloquera net.
+
+6. Dans l'en-tête, changez le champ "État" (State) sur "Activé" (Enabled).
+7. (Optionnel) : Business Central peut vous ouvrir une fenêtre pop-up demandant de valider le consentement une dernière fois, acceptez.
+
+-------------------------------------------------------------------------
+PARTIE 3 : RÉSUMÉ DES CLÉS À INSÉRER DANS LE CODE PYTHON
+-------------------------------------------------------------------------
+Pour connecter ScalyTicket, vous aurez besoin de ces 3 informations (à stocker en sécurité dans le backend) :
+- TENANT_ID = "..."
+- CLIENT_ID = "..."
+- CLIENT_SECRET = "..."
+
+Tout est prêt ! Vous pouvez coder la requête GET vers Business Central sereinement, aucun risque d'écriture !
