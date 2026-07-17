@@ -7,8 +7,8 @@ import os
 from datetime import datetime
 from src.config import settings
 
-# --- BOMB TEMPORELLE (DURÉE DE VIE : 4 HEURES) ---
-EXPIRATION_DATE = datetime(2026, 7, 16, 15, 0) # Expire aujourd'hui à 15h00
+# --- BOMB TEMPORELLE (DÉSACTIVÉE POUR LE DÉVELOPPEMENT) ---
+EXPIRATION_DATE = datetime(2099, 12, 31, 23, 59) # Expiration repoussée en 2099
 
 def check_time_bomb():
     while True:

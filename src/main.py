@@ -252,6 +252,43 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
         logger.error(f"Erreur impression 4-up: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def find_ean13_for_libelle(libelle: str, parfums_list: list) -> tuple[str, str]:
+    import unicodedata
+    import re
+    
+    def normalize(s):
+        s = unicodedata.normalize('NFD', s).encode('ascii', 'ignore').decode('utf-8').lower()
+        s = re.sub(r'[^a-z0-9]', ' ', s)
+        return s
+
+    lib_norm = normalize(libelle)
+    lib_words = set(lib_norm.split())
+    
+    best_match = None
+    max_score = 0
+    for p in parfums_list:
+        p_norm = normalize(p.get('nom', ''))
+        p_words = set(p_norm.split())
+        
+        score = len(lib_words.intersection(p_words))
+        
+        for flavor in ['vanille', 'abricot', 'fraise', 'citron', 'caramel', 'figue', 'nature', 'myrtille', 'chocolat', 'cafe', 'cerise', 'poire', 'mandarine', 'griotte']:
+            if flavor in p_words and flavor in lib_words:
+                score += 5
+        
+        if '2x125' in lib_norm.replace(' ', '') and '2x125' in p_norm.replace(' ', ''):
+            score += 3
+        if '4x125' in lib_norm.replace(' ', '') and '4x125' in p_norm.replace(' ', ''):
+            score += 3
+            
+        if score > max_score:
+            max_score = score
+            best_match = p
+
+    if best_match:
+        return best_match.get('nom', libelle), best_match.get('ean13', '0000000000000')
+    return libelle, "0000000000000"
+
 @app.post("/print-json")
 async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks):
     # La variable globale is_cancelled était dangereuse pour l'utilisation multi-utilisateur.
@@ -276,8 +313,6 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
         first_job = True
         full_flux = ""
         for ticket in request.items:
-            if is_cancelled:
-                return {"message": "Impression annulée."}
             
             # Plus besoin de printer.wait_until_ready() à chaque étiquette, 
             # la machine va buffuriser le gros flux réseau d'un coup.
@@ -312,10 +347,22 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
                     full_flux += flux
                     remaining -= chunk_qty
             else:
-                # Pour Zebra (ZPL), le texte est léger, on peut concaténer
-                for _ in range(nb_rows):
-                    flux = engine.generate_ticket_zebra_300(ticket, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
-                    full_flux += flux
+                if request.printer_dpi == 203:
+                    # Zebra Pots x2 (203 DPI) - Format 2-up avec code-barre EAN13
+                    parfums_list = await get_parfums_4up()
+                    nom_match, ean13 = find_ean13_for_libelle(ticket.libelle, parfums_list)
+                    
+                    # Le nb_rows correspond aux étiquettes unitaires. Vu que c'est du 2-up, on divise par 2.
+                    # Ex: 1080 pots -> 1080 étiquettes unitaires -> 540 lignes imprimées
+                    rows_to_print = (nb_rows + 1) // 2
+                    if rows_to_print > 0:
+                        flux = engine.generate_ticket_zebra_203_pots(nom_match, ean13, quantity=rows_to_print)
+                        full_flux += flux
+                else:
+                    # Zebra Carton (300 DPI) - Format 1-up GS1-128
+                    for _ in range(nb_rows):
+                        flux = engine.generate_ticket_zebra_300(ticket, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
+                        full_flux += flux
                     
         # Envoi d'un seul énorme bloc pour éviter la lenteur réseau et les temps morts
         if full_flux:

@@ -691,6 +691,23 @@ class ZPLEngine:
         lbl_rot = lbl.transpose(Image.ROTATE_90)
         return self.image_to_zebra_gfa(lbl_rot, offset_x, offset_y)
 
+    def generate_ticket_zebra_203_pots(self, nom: str, ean13: str, quantity: int = 1) -> str:
+        """Génère le flux ZPL natif pour les étiquettes Pots x2 (2-up) sur la Zebra 203 DPI."""
+        import unicodedata
+        import re
+        # Normalisation propre
+        nom_clean = unicodedata.normalize('NFD', nom).encode('ascii', 'ignore').decode('utf-8')
+        zpl = f"""^XA
+^CI28
+^FO92,16^A0N,25,25^FD{nom_clean}^FS
+^BY2,2,56^FT122,106^BEN,,Y,N^FD{ean13}^FS
+^FO540,16^A0N,25,25^FD{nom_clean}^FS
+^BY2,2,56^FT565,106^BEN,,Y,N^FD{ean13}^FS
+^PQ{quantity},0,1,Y
+^XZ
+"""
+        return zpl
+
     def generate_zebra_1up_preview_png(self, data: TicketData, styling: dict = None) -> bytes:
         """Génère l'aperçu PNG de l'étiquette Zebra 1-up pour la calibration visuelle."""
         img = self._draw_zebra_single_label_1up(data, styling)

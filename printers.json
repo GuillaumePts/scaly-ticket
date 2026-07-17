@@ -29,7 +29,7 @@
         "name": "Zebra Prépa commande x2",
         "ip": "200.200.129.176",
         "port": 9100,
-        "dpi": 300,
+        "dpi": 203,
         "language": "ZPL",
         "sector": "prepa_commande",
         "offset_x": 803,
