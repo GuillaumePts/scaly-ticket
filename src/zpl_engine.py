@@ -468,38 +468,93 @@ class ZPLEngine:
             font_title = ImageFont.load_default()
             font_ean   = ImageFont.load_default()
 
-        # Texte (Centré en haut, marge de 5)
-        title_w = draw.textlength(nom, font=font_title)
-        draw.text(((img_w - title_w) // 2, 5), nom, font=font_title, fill=0)
-
-        # Code-barres EAN-13
-        stream = io.BytesIO()
-        fp = barcode.get('ean13', ean13, writer=ImageWriter())
-        fp.write(stream, options={
-            'dpi': 203,
-            'module_width': 0.375,
-            'module_height': 12.0,
-            'quiet_zone': 2.0,
-            'write_text': False
-        })
-        stream.seek(0)
-        bc_img = Image.open(stream).convert('1')
-        
-        # Le code-barres généré a une taille naturelle qui rentre sans redimensionnement
-        bc_img = bc_img.point(lambda p: p > 128 and 255)
-        # On le place à y=32 pour ne pas écraser le texte
-        img.paste(bc_img, ((img_w - bc_img.width)//2, 32))
-        
-        # Texte manuel du code-barre formaté avec espaces
-        if len(ean13) == 13:
-            ean_spaced = f"{ean13[0]} {ean13[1:7]} {ean13[7:13]}"
-        else:
-            ean_spaced = ean13
+        # Nom de l'étiquette (Gestion RGF via extraction du graphique du .prn)
+        is_rgf = "RGF" in nom.upper()
+        if is_rgf:
+            import re, zlib, base64
+            from pathlib import Path
+            from src.config import base_path
             
-        tw = draw.textlength(ean_spaced, font=font_ean)
-        # Position du texte EAN adaptée à label_h
-        ean_y = label_h - 36
-        draw.text(((img_w - tw) // 2, ean_y), ean_spaced, font=font_ean, fill=0)
+            prn_name = nom.upper().replace("RGF", "").strip().lower() + ".prn"
+            prn_path = base_path / "fichierprn" / prn_name
+            prn_graphic_pasted = False
+            
+            if prn_path.exists():
+                with open(prn_path, "rb") as f:
+                    data = f.read()
+                match = re.search(b'\^GFA,(\d+),(\d+),(\d+),:Z64:(.*?)\^FS', data, re.DOTALL)
+                if match:
+                    uncomp = int(match.group(2))
+                    row = int(match.group(3))
+                    b64 = match.group(4).replace(b'\r', b'').replace(b'\n', b'')
+                    if b64[-4:].isalnum(): b64 = b64[:-4]
+                    compressed = base64.b64decode(b64)
+                    uncompressed = zlib.decompress(compressed)
+                    
+                    inverted = bytes(~b & 255 for b in uncompressed)
+                    prn_img = Image.frombytes('1', (row*8, uncomp//row), inverted)
+                    bbox = prn_img.getbbox()
+                    if bbox: prn_img = prn_img.crop(bbox)
+                    
+                    # On s'assure qu'elle ne dépasse pas (au cas où)
+                    if prn_img.width > img_w - 4:
+                        prn_img = prn_img.resize((img_w - 4, int(prn_img.height * ((img_w - 4)/prn_img.width))), Image.NEAREST)
+                        
+                    img.paste(prn_img, ((img_w - prn_img.width) // 2, 5))
+                    prn_graphic_pasted = True
+                    
+            if not prn_graphic_pasted:
+                # Fallback
+                display_nom = nom.upper().replace(" RGF", "").replace("RGF", "").strip() + " X2"
+                title_w = draw.textlength(display_nom, font=font_title)
+                draw.text(((img_w - title_w) // 2, 5), display_nom, font=font_title, fill=0)
+        else:
+            # Parfum classique
+            title_w = draw.textlength(nom, font=font_title)
+            draw.text(((img_w - title_w) // 2, 5), nom, font=font_title, fill=0)
+
+        # Code-barres ou QR Code
+        # Détection spéciale pour la Figue RGF (qui utilise un QR Code GS1 Digital Link)
+        if ean13 == "3374270040521":
+            import qrcode
+            qr = qrcode.QRCode(version=2, box_size=3, border=0)
+            qr.add_data(f"qrrelai.fr/01/0{ean13}")
+            qr.make(fit=True)
+            bc_img = qr.make_image(fill_color="black", back_color="white").convert('1')
+            
+            # Positionnement du QR code (un peu plus bas pour éviter le texte)
+            img.paste(bc_img, ((img_w - bc_img.width)//2, 35))
+            
+            # Texte sous le QR
+            ean_spaced = f"01/0{ean13}"
+            tw = draw.textlength(ean_spaced, font=font_ean)
+            ean_y = label_h - 36
+            draw.text(((img_w - tw) // 2, ean_y), ean_spaced, font=font_ean, fill=0)
+        else:
+            # Code-barres EAN-13 standard
+            stream = io.BytesIO()
+            fp = barcode.get('ean13', ean13, writer=ImageWriter())
+            fp.write(stream, options={
+                'dpi': 203,
+                'module_width': 0.375,
+                'module_height': 12.0,
+                'quiet_zone': 2.0,
+                'write_text': False
+            })
+            stream.seek(0)
+            bc_img = Image.open(stream).convert('1')
+            
+            bc_img = bc_img.point(lambda p: p > 128 and 255)
+            img.paste(bc_img, ((img_w - bc_img.width)//2, 32))
+            
+            if len(ean13) == 13:
+                ean_spaced = f"{ean13[0]} {ean13[1:7]} {ean13[7:13]}"
+            else:
+                ean_spaced = ean13
+                
+            tw = draw.textlength(ean_spaced, font=font_ean)
+            ean_y = label_h - 36
+            draw.text(((img_w - tw) // 2, ean_y), ean_spaced, font=font_ean, fill=0)
         
         return img.transpose(Image.ROTATE_90)
 
@@ -695,7 +750,26 @@ class ZPLEngine:
         """Génère le flux ZPL natif pour les étiquettes Pots x2 (2-up) sur la Zebra 203 DPI."""
         import unicodedata
         import re
-        # Normalisation propre
+        from pathlib import Path
+        from src.config import base_path
+        
+        # GESTION SPECIALE POUR "RGF" (Utilisation des PRN bruts fournis par le client)
+        if "RGF" in nom.upper():
+            # Ex: "Vanille RGF" -> "vanille.prn"
+            prn_name = nom.upper().replace("RGF", "").strip().lower() + ".prn"
+            prn_path = base_path / "fichierprn" / prn_name
+            if prn_path.exists():
+                with open(prn_path, "rb") as f:
+                    # Lecture en latin-1 pour préserver les éventuels octets binaires du spooler Windows (\x1b...)
+                    raw_prn = f.read().decode("latin-1")
+                # Remplacer la quantité ^PQ1 (ou autre) par la quantité désirée
+                flux = re.sub(r'\^PQ\d+', f'^PQ{quantity}', raw_prn)
+                return flux
+            else:
+                import logging
+                logging.getLogger(__name__).warning(f"Fichier PRN introuvable pour {nom} ({prn_path}). Fallback sur le moteur ZPL classique.")
+
+        # Normalisation propre pour le texte classique
         nom_clean = unicodedata.normalize('NFD', nom).encode('ascii', 'ignore').decode('utf-8')
         zpl = f"""^XA
 ^CI28

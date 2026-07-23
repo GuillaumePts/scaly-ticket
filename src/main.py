@@ -5,16 +5,18 @@ import shutil
 import sys
 import os
 import json
+import asyncio
 from pathlib import Path
-from typing import List
+from typing import List, Dict
+from dataclasses import dataclass
 
-from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException, Response, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException, Response, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from pydantic import BaseModel
-from src.config import settings, base_path, data_path
+from src.config import settings, base_path, data_path, db
 from src.models import TicketData
 from src.zpl_engine import ZPLEngine
 from src.printer import PrinterClient
@@ -35,6 +37,95 @@ templates = Jinja2Templates(directory=templates_dir)
 
 from fastapi.responses import HTMLResponse, FileResponse
 
+# --- WEBSOCKET & SPOOLER ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except:
+                self.disconnect(connection)
+
+ws_manager = ConnectionManager()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+
+@dataclass
+class PrintJob:
+    printer_ip: str
+    printer_dpi: int
+    lang: str
+    flux: str
+    sleep_time: float
+
+print_queues: Dict[str, asyncio.Queue] = {}
+
+async def spooler_worker(ip: str):
+    queue = print_queues[ip]
+    while True:
+        job: PrintJob = await queue.get()
+        printer = PrinterClient(host=ip)
+        try:
+            if job.lang == "ZPL":
+                # Vérification de statut Zebra (Ping & Erreurs matérielles)
+                while True:
+                    status = await asyncio.to_thread(printer.get_status)
+                    if "error" in status:
+                        await ws_manager.broadcast({"type": "status", "ip": ip, "level": "error", "message": f"Zebra injoignable ({status['error']}). Nouvel essai dans 5s..."})
+                        await asyncio.sleep(5)
+                        continue
+                    if status.get("paper_out"):
+                        await ws_manager.broadcast({"type": "status", "ip": ip, "level": "error", "message": "Zebra : Plus de papier ! En attente..."})
+                        await asyncio.sleep(5)
+                        continue
+                    if status.get("head_open"):
+                        await ws_manager.broadcast({"type": "status", "ip": ip, "level": "error", "message": "Zebra : Capot ouvert ! En attente..."})
+                        await asyncio.sleep(5)
+                        continue
+                    if status.get("pause"):
+                        await ws_manager.broadcast({"type": "status", "ip": ip, "level": "warning", "message": "Zebra en pause..."})
+                        await asyncio.sleep(5)
+                        continue
+                    
+                    await ws_manager.broadcast({"type": "status", "ip": ip, "level": "success", "message": "Zebra prête, envoi du job..."})
+                    break
+            else:
+                # Toshiba : Juste un ping réseau (fire & forget avec fallback erreur)
+                await ws_manager.broadcast({"type": "status", "ip": ip, "level": "success", "message": "Envoi vers Toshiba en cours..."})
+                    
+            await asyncio.to_thread(printer.send_zpl, job.flux, job.sleep_time)
+            await ws_manager.broadcast({"type": "status", "ip": ip, "level": "success", "message": "Job envoyé avec succès !"})
+            
+        except Exception as e:
+            await ws_manager.broadcast({"type": "status", "ip": ip, "level": "error", "message": f"Échec fatal de l'envoi: {e}"})
+        finally:
+            queue.task_done()
+
+def enqueue_job(ip: str, dpi: int, lang: str, flux: str, sleep_time: float = 2.0):
+    if ip not in print_queues:
+        print_queues[ip] = asyncio.Queue()
+        asyncio.create_task(spooler_worker(ip))
+    print_queues[ip].put_nowait(PrintJob(ip, dpi, lang, flux, sleep_time))
+# ---------------------------
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse("static/favicon.ico")
@@ -44,7 +135,7 @@ async def read_root(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html", 
-        context={"printers": settings.printers}
+        context={"printers": db.get_printers()}
     )
 
 
@@ -102,8 +193,8 @@ async def print_nature(request: PrintNatureRequest):
         else:
             flux = engine.generate_4up_nature_zpl(request.quantity)
         
-        printer.send_zpl(flux)
-        return {"message": f"Impression réseau ({request.printer_language}) envoyée."}
+        enqueue_job(request.printer_ip, request.printer_dpi, request.printer_language, flux, 2.0)
+        return {"message": f"Impression réseau ({request.printer_language}) ajoutée à la file d'attente."}
 
     except Exception as e:
         logger.error(f"Erreur impression Nature: {e}")
@@ -112,9 +203,7 @@ async def print_nature(request: PrintNatureRequest):
 @app.get("/api/parfums-4up")
 async def get_parfums_4up():
     try:
-        path = data_path / "parfums_4up.json"
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        return db.get_parfums()
     except Exception as e:
         logger.error(f"Erreur chargement parfums: {e}")
         return []
@@ -126,22 +215,7 @@ class Parfum4Up(BaseModel):
 @app.post("/api/parfums-4up")
 async def add_parfum_4up(parfum: Parfum4Up):
     try:
-        path = data_path / "parfums_4up.json"
-        with open(path, "r", encoding="utf-8") as f:
-            parfums = json.load(f)
-            
-        import uuid
-        new_id = str(uuid.uuid4())
-        new_parfum = {
-            "id": new_id,
-            "nom": parfum.nom,
-            "ean13": parfum.ean13
-        }
-        parfums.append(new_parfum)
-        
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(parfums, f, indent=4, ensure_ascii=False)
-            
+        new_parfum = db.add_parfum(parfum.nom, parfum.ean13)
         return {"message": "Parfum ajouté", "parfum": new_parfum}
     except Exception as e:
         logger.error(f"Erreur ajout parfum: {e}")
@@ -161,11 +235,7 @@ async def preview_4up_live(nom: str, ean13: str):
 @app.get("/api/preview-4up/{parfum_id}")
 async def preview_4up(parfum_id: str):
     try:
-        path = data_path / "parfums_4up.json"
-        with open(path, "r", encoding="utf-8") as f:
-            parfums = json.load(f)
-            
-        parfum = next((p for p in parfums if p["id"] == parfum_id), None)
+        parfum = db.get_parfum(parfum_id)
         if not parfum:
             raise HTTPException(status_code=404, detail="Parfum non trouvé")
             
@@ -187,11 +257,7 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
         raise HTTPException(status_code=403, detail=str(e))
         
     try:
-        path = data_path / "parfums_4up.json"
-        with open(path, "r", encoding="utf-8") as f:
-            parfums = json.load(f)
-            
-        parfum = next((p for p in parfums if p["id"] == request.parfum_id), None)
+        parfum = db.get_parfum(request.parfum_id)
         if not parfum:
             raise HTTPException(status_code=404, detail="Parfum non trouvé")
             
@@ -199,7 +265,7 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
         printer = PrinterClient(host=request.printer_ip)
 
         # Détection B-EV4 : Gravigny ou TOSHIBA FLIPOU → pas de pitch dans XPML
-        printer_info = next((p for p in settings.printers if p.get("ip") == request.printer_ip), {})
+        printer_info = next((p for p in db.get_printers() if p.get("ip") == request.printer_ip), {})
         xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
         is_bev4 = not xpml_pitch
 
@@ -245,8 +311,9 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
         # Calcul réaliste : environ 0.5s par bande pour la B-EV4
         nb_bands = (request.quantity + 3) // 4 if request.printer_language == "TPCL" else request.quantity
         sleep_time = max(2.0, nb_bands * 0.5)
-        background_tasks.add_task(printer.send_zpl, flux, sleep_time)
-        return {"message": f"Impression 4-up de {request.quantity} étiquettes envoyée en arrière-plan."}
+        
+        enqueue_job(request.printer_ip, request.printer_dpi, request.printer_language, flux, sleep_time)
+        return {"message": f"Impression 4-up de {request.quantity} étiquettes ajoutée à la file d'attente."}
 
     except Exception as e:
         logger.error(f"Erreur impression 4-up: {e}")
@@ -306,7 +373,7 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
     # Détecter si l'imprimante est sur le secteur Gravigny (B-EV4) ou si c'est la nouvelle B-EV4 (FLIPOU) :
     # La B-EV4 rejette l'attribut pitch='120.1 mm' dans les balises sentinelles XPML.
     # (Validé par diagnostic juillet 2026 : variante E = OK, variante A avec pitch = voyant rouge)
-    printer_info = next((p for p in settings.printers if p.get("ip") == request.printer_ip), {})
+    printer_info = next((p for p in db.get_printers() if p.get("ip") == request.printer_ip), {})
     xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
 
     try:
@@ -368,9 +435,9 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
         if full_flux:
             total_rows = sum((t.quantite + 2) // 3 if lang == "TPCL" else t.quantite for t in request.items)
             sleep_time = max(2.0, total_rows * 1.5)
-            background_tasks.add_task(printer.send_zpl, full_flux, sleep_time)
+            enqueue_job(request.printer_ip, request.printer_dpi, lang, full_flux, sleep_time)
             
-        return {"message": f"Impression de {len(request.items)} produits envoyée en arrière-plan."}
+        return {"message": f"Impression de {len(request.items)} produits ajoutée à la file d'attente."}
 
     except Exception as e:
         logger.error(f"Erreur impression: {e}")
@@ -389,14 +456,11 @@ async def get_printer_status(ip: str):
 
 @app.get("/api/printers")
 async def get_printers():
-    return settings.printers
+    return db.get_printers()
 
 @app.post("/api/printers")
 async def save_printers(printers: List[dict]):
-    exe_dir = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(os.getcwd())
-    path = exe_dir / settings.PRINTERS_FILE
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(printers, f, indent=4)
+    db.save_printers(printers)
     return {"message": "Configuration sauvegardée."}
 
 @app.post("/upload-csv")
@@ -585,9 +649,6 @@ class PrinterOffsetsRequest(BaseModel):
 
 @app.post("/api/update-printer-offsets")
 async def update_printer_offsets(req: PrinterOffsetsRequest):
-    # gs1_size et lot_size sont des DELTAS ajoutés à une taille de base (20pt ou 25pt).
-    # Formule dans le moteur : max(10, base + delta). Un delta en dehors de [-10, +40]
-    # est probablement une erreur de saisie.
     for field, val in [("gs1_size", req.gs1_size), ("lot_size", req.lot_size)]:
         if val != 0 and not (-10 <= val <= 40):
             raise HTTPException(
@@ -595,32 +656,18 @@ async def update_printer_offsets(req: PrinterOffsetsRequest):
                 detail=f"Valeur hors limites ({field}={val}). Delta attendu entre -10 et +40."
             )
 
-    path = base_path / settings.PRINTERS_FILE
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="printers.json introuvable")
-    
-    with open(path, "r", encoding="utf-8") as f:
-        printers = json.load(f)
-        
-    updated = False
-    for p in printers:
-        if p.get("ip") == req.ip:
-            p["offset_x"] = req.offset_x
-            p["offset_y"] = req.offset_y
-            
-            p["title_size"] = req.title_size
-            p["title_bold"] = req.title_bold
-            p["gs1_size"] = req.gs1_size
-            p["gs1_bold"] = req.gs1_bold
-            p["lot_size"] = req.lot_size
-            p["lot_bold"] = req.lot_bold
-            
-            updated = True
-            break
+    updated = db.update_printer_offsets(req.ip, {
+        "offset_x": req.offset_x,
+        "offset_y": req.offset_y,
+        "title_size": req.title_size,
+        "title_bold": req.title_bold,
+        "gs1_size": req.gs1_size,
+        "gs1_bold": req.gs1_bold,
+        "lot_size": req.lot_size,
+        "lot_bold": req.lot_bold
+    })
             
     if updated:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(printers, f, indent=4, ensure_ascii=False)
         return {"message": "Offsets sauvegardés"}
     else:
         raise HTTPException(status_code=404, detail="Imprimante non trouvée")

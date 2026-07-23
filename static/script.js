@@ -235,6 +235,16 @@ function activateDedicatedTool(tool, sector) {
     document.getElementById('step3').style.display = 'none';
     document.getElementById('step2').style.display = 'none';
 
+    // Reset Step 2 DOM defaults in case it was modified by Ligne 1
+    const printerSelectBox = document.querySelector('.printer-selection-box > div');
+    if (printerSelectBox) printerSelectBox.style.display = 'flex';
+    const step2H2 = document.getElementById('step2').querySelector('h2');
+    if (step2H2) step2H2.textContent = "Sur quelle machine voulez-vous imprimer ?";
+    const step2Help = document.getElementById('step2').querySelector('.help-text');
+    if (step2Help) step2Help.innerHTML = "<i data-lucide='info'></i> Choisissez l'imprimante qui va sortir vos étiquettes parmi celles disponibles dans votre atelier.";
+    const ligne1Details = document.getElementById('ligne1-printer-details');
+    if (ligne1Details) ligne1Details.style.display = 'none';
+
     logContainer.style.display = 'block';
 
     const helpBtn = document.getElementById('help-modal-btn');
@@ -291,6 +301,40 @@ function activateDedicatedTool(tool, sector) {
                 document.getElementById('step2').style.display = 'block';
                 const stepNum = document.getElementById('step2').querySelector('.step-number');
                 if(stepNum) stepNum.style.display = 'none';
+
+                if (tool === 'zebra') {
+                    // Customisation Ligne 1
+                    document.querySelector('.printer-selection-box > div').style.display = 'none';
+                    document.getElementById('step2').querySelector('h2').textContent = "Imprimantes Ligne 1 (Automatique)";
+                    document.getElementById('step2').querySelector('.help-text').innerHTML = "<i data-lucide='check-circle'></i> L'impression sera répartie automatiquement sur ces deux machines :";
+                    
+                    let staticBlock = document.getElementById('ligne1-printer-details');
+                    if (!staticBlock) {
+                        staticBlock = document.createElement('div');
+                        staticBlock.id = 'ligne1-printer-details';
+                        staticBlock.className = 'hub-grid';
+                        staticBlock.style.marginTop = '15px';
+                        document.querySelector('.printer-selection-box').appendChild(staticBlock);
+                    }
+                    staticBlock.style.display = 'grid';
+                    
+                    const cartonPrinter = zebras.find(o => o.text.startsWith("Zebra Prépa commande") && !o.text.includes("x2"));
+                    const potsPrinter = zebras.find(o => o.text.includes("x2"));
+                    
+                    staticBlock.innerHTML = `
+                        <div class="hub-card tool-card" style="display:flex; flex-direction:column; align-items:center; cursor:default; pointer-events:none;">
+                            <i data-lucide="box" class="hub-icon text-orange"></i>
+                            <h3 style="margin: 10px 0 5px 0;">${cartonPrinter ? cartonPrinter.text : 'Zebra (Cartons)'}</h3>
+                            <p style="margin: 0; font-size: 14px; opacity: 0.8;">${cartonPrinter ? cartonPrinter.value : 'IP introuvable'}</p>
+                        </div>
+                        <div class="hub-card tool-card" style="display:flex; flex-direction:column; align-items:center; cursor:default; pointer-events:none;">
+                            <i data-lucide="tags" class="hub-icon text-green"></i>
+                            <h3 style="margin: 10px 0 5px 0;">${potsPrinter ? potsPrinter.text : 'Zebra (Pots x2)'}</h3>
+                            <p style="margin: 0; font-size: 14px; opacity: 0.8;">${potsPrinter ? potsPrinter.value : 'IP introuvable'}</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                }
             }
         } else {
             Modal.error("Imprimante introuvable", "Aucune imprimante Zebra n'est configurée pour ce secteur !");
@@ -1118,7 +1162,7 @@ function displayEditSection() {
         }
         
         let qteCartonCol = `<input type="number" value="${item.Quantite || 0}" style="${isLigne1 ? 'background-color: #eef2ff; border-color: #c7d2fe; font-weight: bold; color: #3730a3;' : ''}" oninput="updateRowData(${index}, 'Quantite', this.value)">`;
-        let extraCol = isLigne1 ? `<td style="background-color: #f0fdf4;"><input type="number" value="${item.QuantitePots || 0}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>` : '<td style="display:none;"></td>';
+        let extraCol = isLigne1 ? `<td style="background-color: #f0fdf4;"><input type="number" id="qte-pots-${index}" value="${item.QuantitePots || 0}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>` : '<td style="display:none;"></td>';
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1142,7 +1186,17 @@ function displayEditSection() {
 
 window.updateRowData = (index, field, value) => {
     if (field === 'Quantite' || field === 'QuantitePots') value = parseInt(value) || 0;
-    if (currentData[index]) currentData[index][field] = value;
+    if (currentData[index]) {
+        currentData[index][field] = value;
+        if (field === 'Quantite') {
+            const potsInput = document.getElementById(`qte-pots-${index}`);
+            if (potsInput) {
+                const newPots = value * 6;
+                currentData[index]['QuantitePots'] = newPots;
+                potsInput.value = newPots;
+            }
+        }
+    }
 };
 
 selectAllCheckbox.onchange = () => {
@@ -1328,3 +1382,46 @@ function addLog(message, type = "") {
     
     lucide.createIcons();
 }
+
+// ==========================================
+// WebSocket pour le Spooler d'impression
+// ==========================================
+let ws = null;
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === "status") {
+                if (data.level === "error") {
+                    addLog(`[${data.ip}] ${data.message}`, "error");
+                    if (printerStatus) {
+                        printerStatus.innerHTML = `<span style="color:var(--error-color)"><i data-lucide="alert-triangle"></i> ${data.message}</span>`;
+                        lucide.createIcons();
+                    }
+                } else if (data.level === "warning") {
+                    addLog(`[${data.ip}] ${data.message}`, "warning");
+                    if (printerStatus) {
+                        printerStatus.innerHTML = `<span style="color:var(--warning-color, orange)"><i data-lucide="alert-circle"></i> ${data.message}</span>`;
+                        lucide.createIcons();
+                    }
+                } else {
+                    addLog(`[${data.ip}] ${data.message}`, "success");
+                    if (printerStatus) {
+                        printerStatus.innerHTML = `<span style="color:var(--success-color)"><i data-lucide="check-circle"></i> ${data.message}</span>`;
+                        lucide.createIcons();
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Erreur parsing WS:", e);
+        }
+    };
+    
+    ws.onclose = () => {
+        setTimeout(connectWebSocket, 5000); // Reconnexion auto
+    };
+}
+connectWebSocket();
