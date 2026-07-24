@@ -446,17 +446,14 @@ class ZPLEngine:
             x_start = 0
         return f"^FO{x_start},{y}^A0N,{font_h},{font_h}^FB{width},1,0,C^FD{text}^FS"
 
-    def _draw_4up_toshiba_single_label(self, nom: str, ean13: str, styling: dict = None, label_h: int = 176) -> Image.Image:
-        """Dessine une étiquette 4-up et la pivote.
-        
-        label_h=176 -> B-FV4D (canvas 800x344)
-        label_h=168 -> B-EV4 (canvas 768x360) : légèrement moins haute pour
-                       s'intégrer dans le pas plus court du rouleau 4-up B-EV4.
-        """
+    def _draw_4up_toshiba_single_label(self, nom: str, ean13: str, styling: dict = None, label_h: int = 176, nom_impression: str = None) -> Image.Image:
+        """Dessine une étiquette 4-up et la pivote."""
         styling = styling or {}
         img_w, img_h = 344, label_h
         img = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(img)
+        
+        nom_imp = nom_impression if nom_impression else nom
         
         try:
             t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
@@ -469,13 +466,15 @@ class ZPLEngine:
             font_ean   = ImageFont.load_default()
 
         # Nom de l'étiquette (Gestion RGF via extraction du graphique du .prn)
-        is_rgf = "RGF" in nom.upper()
-        if is_rgf:
+        is_rgf = "RGF" in nom_imp.upper()
+        is_figue_rgf = (ean13 == "3374270040521")  # La Figue a un rendu complètement custom
+        
+        if is_rgf and not is_figue_rgf:
             import re, zlib, base64
             from pathlib import Path
             from src.config import base_path
             
-            prn_name = nom.upper().replace("RGF", "").strip().lower() + ".prn"
+            prn_name = nom_imp.upper().replace("RGF", "").strip().lower() + ".prn"
             prn_path = base_path / "fichierprn" / prn_name
             prn_graphic_pasted = False
             
@@ -505,31 +504,39 @@ class ZPLEngine:
                     
             if not prn_graphic_pasted:
                 # Fallback
-                display_nom = nom.upper().replace(" RGF", "").replace("RGF", "").strip() + " X2"
-                title_w = draw.textlength(display_nom, font=font_title)
-                draw.text(((img_w - title_w) // 2, 5), display_nom, font=font_title, fill=0)
-        else:
+                title_w = draw.textlength(nom_imp, font=font_title)
+                draw.text(((img_w - title_w) // 2, 5), nom_imp, font=font_title, fill=0)
+        elif not is_figue_rgf:
             # Parfum classique
-            title_w = draw.textlength(nom, font=font_title)
-            draw.text(((img_w - title_w) // 2, 5), nom, font=font_title, fill=0)
+            title_w = draw.textlength(nom_imp, font=font_title)
+            draw.text(((img_w - title_w) // 2, 5), nom_imp, font=font_title, fill=0)
 
         # Code-barres ou QR Code
         # Détection spéciale pour la Figue RGF (qui utilise un QR Code GS1 Digital Link)
         if ean13 == "3374270040521":
+            # --- Figue RGF : libellé en haut, QR code au centre, EAN en bas ---
+            header_text = "RGF FIGUE 2x125g"
+            tw = draw.textlength(header_text, font=font_title)
+            draw.text(((img_w - tw) // 2, 5), header_text, font=font_title, fill=0)
+            
             import qrcode
             qr = qrcode.QRCode(version=2, box_size=3, border=0)
             qr.add_data(f"qrrelai.fr/01/0{ean13}")
             qr.make(fit=True)
             bc_img = qr.make_image(fill_color="black", back_color="white").convert('1')
             
-            # Positionnement du QR code (un peu plus bas pour éviter le texte)
-            img.paste(bc_img, ((img_w - bc_img.width)//2, 35))
+            # QR code centré entre le texte du haut et le texte du bas
+            qr_y = (label_h - bc_img.height) // 2
+            img.paste(bc_img, ((img_w - bc_img.width)//2, max(30, qr_y)))
             
-            # Texte sous le QR
-            ean_spaced = f"01/0{ean13}"
+            # EAN numérique en bas (on garde le numéro court, pas celui qui commence par 01/)
+            if len(ean13) == 13:
+                ean_spaced = f"{ean13[0]} {ean13[1:7]} {ean13[7:13]}"
+            else:
+                ean_spaced = ean13
+                
             tw = draw.textlength(ean_spaced, font=font_ean)
-            ean_y = label_h - 36
-            draw.text(((img_w - tw) // 2, ean_y), ean_spaced, font=font_ean, fill=0)
+            draw.text(((img_w - tw) // 2, label_h - 30), ean_spaced, font=font_ean, fill=0)
         else:
             # Code-barres EAN-13 standard
             stream = io.BytesIO()
@@ -558,30 +565,12 @@ class ZPLEngine:
         
         return img.transpose(Image.ROTATE_90)
 
-    def _render_4up_toshiba_band(self, nom: str, ean13: str, offset_x: int = 0, offset_y: int = 0, styling: dict = None, bev4: bool = False) -> Image.Image:
-        """Genere la bande de 4 etiquettes cote a cote pour la Toshiba.
-
-        bev4=False -> B-FV4D :
-            Canvas 800x344, x_offsets=[0, 200, 400, 600], label_h=176.
-            Pas de contrainte pixel-0 sur la B-FV4D.
-
-        bev4=True  -> B-EV4 (FLIPOU / Gravigny) :
-            Canvas 768x360, x_offsets=[18, 202, 386, 570], label_h=168.
-            - Canvas 768 (= 96mm) : meme largeur physique que le rouleau 3-up.
-            - Hauteur 360 dots = 45mm : pas du rouleau 4-up B-EV4.
-            - Debut a X=18 : securite pixel-0 du firmware B-EV4
-              (refus d'impression si pixel noir sur X=0).
-            (Valeurs issues de scratch/test_4up_render.py valide sur B-EV4 juillet 2026)
-        """
+    def _render_4up_toshiba_band(self, nom: str, ean13: str, offset_x: int = 0, offset_y: int = 0, styling: dict = None, bev4: bool = False, nom_impression: str = None) -> Image.Image:
+        """Genere la bande de 4 etiquettes cote a cote pour la Toshiba."""
         if bev4:
             canvas_w, canvas_h = 768, 360
-            # Espacement 200 dots (25mm) = le même que la B-FV4D.
-            # Le décalage progressif (escalier) prouve que le gap physique est de 200.
-            # Avec [0, 200, 400, 600], la dernière étiquette finit à 600+168 = 768 (pile le canvas).
-            # Pas de risque de pixel-0 bug car le texte commence à Y=5 (donc X=5 après rotation).
             x_offsets = [0, 200, 400, 600]
             label_h = 168
-
         else:
             canvas_w, canvas_h = 800, 344
             x_offsets = [0, 200, 400, 600]
@@ -590,7 +579,7 @@ class ZPLEngine:
         main = Image.new('1', (canvas_w, canvas_h), color=1)
 
         for i in range(4):
-            lbl_rot = self._draw_4up_toshiba_single_label(nom, ean13, styling, label_h=label_h)
+            lbl_rot = self._draw_4up_toshiba_single_label(nom, ean13, styling, label_h=label_h, nom_impression=nom_impression)
             x = x_offsets[i] + offset_x
             y = offset_y
             # Securite : ne pas coller en dehors du canvas
@@ -600,19 +589,55 @@ class ZPLEngine:
         return main
 
     def generate_4up_toshiba_tpcl(self, parfum: dict, nb_rows: int, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True, d_param: str = None) -> str:
-        """Genere le flux TPCL de production 4-up pour Toshiba.
-
-        xpml_pitch=True  -> B-FV4D : canvas 800x344, x_offsets classiques, d_param par defaut
-        xpml_pitch=False -> B-EV4 (FLIPOU / Gravigny) : canvas 768x360, securite pixel-0,
-                            d_param specifique au rouleau 4-up B-EV4 (lu depuis printers.json).
-        """
+        """Genere le flux TPCL de production 4-up pour Toshiba."""
         parfum_name = parfum['nom']
         ean13 = parfum['ean13']
+        nom_impression = parfum.get('nom_impression')
 
         is_bev4 = not xpml_pitch
-        image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling, bev4=is_bev4)
+        image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling, bev4=is_bev4, nom_impression=nom_impression)
 
         job = self._build_tpcl_job(image, quantity=nb_rows, xpml_pitch=xpml_pitch, d_param=d_param)
+        return job.decode('latin-1')
+
+    def _render_4up_separator_band(self, next_product_name: str, bev4: bool = False) -> Image.Image:
+        """Dessine une bande de séparation graphique pour le rouleau 4-up (Toshiba)."""
+        if bev4:
+            canvas_w, canvas_h = 768, 360
+        else:
+            canvas_w, canvas_h = 800, 344
+
+        img = Image.new('1', (canvas_w, canvas_h), color=1)
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            font = ImageFont.truetype("arialbd.ttf", 60)
+        except IOError:
+            font = ImageFont.load_default()
+            
+        text_to_draw = f">>> {next_product_name} <<<"
+        
+        try:
+            bbox = draw.textbbox((0, 0), text_to_draw, font=font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+        except AttributeError:
+            tw, th = draw.textsize(text_to_draw, font=font)
+            
+        draw.text((max(0, (canvas_w - tw) // 2), max(0, (canvas_h - th) // 2)), text_to_draw, fill=0, font=font)
+        
+        # Lignes horizontales pour bien délimiter
+        line_thick = 4
+        draw.rectangle([0, 20, canvas_w, 20 + line_thick], fill=0)
+        draw.rectangle([0, canvas_h - 20 - line_thick, canvas_w, canvas_h - 20], fill=0)
+        
+        return img
+
+    def generate_separator_4up_tpcl(self, next_product_name: str, xpml_pitch: bool = True, d_param: str = None) -> str:
+        """Génère le flux TPCL de séparation pour la ligne 4-up Toshiba."""
+        is_bev4 = not xpml_pitch
+        image = self._render_4up_separator_band(next_product_name, bev4=is_bev4)
+        job = self._build_tpcl_job(image, quantity=1, xpml_pitch=xpml_pitch, d_param=d_param)
         return job.decode('latin-1')
 
     def image_to_zebra_gfa(self, image: Image.Image, x_pos: int, y_pos: int) -> str:
@@ -794,7 +819,7 @@ class ZPLEngine:
 
     def generate_4up_preview_png(self, parfum: dict) -> bytes:
         """Génère l'aperçu PNG pour l'interface Web d'une seule étiquette 4-up."""
-        lbl_rot = self._draw_4up_toshiba_single_label(parfum['nom'], parfum['ean13'])
+        lbl_rot = self._draw_4up_toshiba_single_label(parfum['nom'], parfum['ean13'], nom_impression=parfum.get('nom_impression'))
         # L'image est retournée à 90° (176x344) pour l'imprimante.
         # On la remet en mode paysage (344x176) pour l'aperçu Web.
         img = lbl_rot.transpose(Image.ROTATE_270)
@@ -816,7 +841,7 @@ class ZPLEngine:
 
     def generate_4up_band_preview_png(self, parfum: dict, styling: dict = None) -> bytes:
         """Génère l'aperçu PNG de la bande complète 4-up pour la calibration visuelle."""
-        img = self._render_4up_toshiba_band(parfum['nom'], parfum['ean13'], styling=styling)
+        img = self._render_4up_toshiba_band(parfum['nom'], parfum['ean13'], styling=styling, nom_impression=parfum.get('nom_impression'))
         img = img.transpose(Image.ROTATE_270)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -824,7 +849,7 @@ class ZPLEngine:
 
     def generate_zebra_2up_preview_png(self, parfum: dict, styling: dict = None) -> bytes:
         """Génère l'aperçu PNG pour la calibration de la bobine 2-up Zebra (203dpi)."""
-        lbl_rot = self._draw_4up_toshiba_single_label(parfum.get('nom', 'Yaourt Fraise'), parfum.get('ean13', '3412345678918'), styling)
+        lbl_rot = self._draw_4up_toshiba_single_label(parfum.get('nom', 'Yaourt Fraise'), parfum.get('ean13', '3412345678918'), styling, nom_impression=parfum.get('nom_impression'))
         lbl_flat = lbl_rot.transpose(Image.ROTATE_270)
         
         gap = 24

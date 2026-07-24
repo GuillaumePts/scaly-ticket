@@ -160,10 +160,36 @@ class DatabaseManager:
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def add_parfum(self, nom: str, ean13: str) -> Dict:
+    def add_parfum(self, nom: str, ean13: str, nom_impression: str = None) -> Dict:
         new_id = str(uuid.uuid4())
+        if nom_impression is None:
+            nom_impression = nom
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO parfums (id, nom, ean13) VALUES (?, ?, ?)", (new_id, nom, ean13))
+            # on handle s'il manque la colonne au cas où
+            try:
+                cursor.execute("INSERT INTO parfums (id, nom, ean13, nom_impression) VALUES (?, ?, ?, ?)", (new_id, nom, ean13, nom_impression))
+            except sqlite3.OperationalError:
+                # fallback for older schemas, should not happen since we migrated
+                cursor.execute("INSERT INTO parfums (id, nom, ean13) VALUES (?, ?, ?)", (new_id, nom, ean13))
             conn.commit()
-        return {"id": new_id, "nom": nom, "ean13": ean13}
+        return {"id": new_id, "nom": nom, "ean13": ean13, "nom_impression": nom_impression}
+
+    def update_parfum(self, parfum_id: str, nom: str, ean13: str, nom_impression: str = None) -> bool:
+        if nom_impression is None:
+            nom_impression = nom
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("UPDATE parfums SET nom=?, ean13=?, nom_impression=? WHERE id=?", (nom, ean13, nom_impression, parfum_id))
+            except sqlite3.OperationalError:
+                cursor.execute("UPDATE parfums SET nom=?, ean13=? WHERE id=?", (nom, ean13, parfum_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_parfum(self, parfum_id: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM parfums WHERE id=?", (parfum_id,))
+            conn.commit()
+            return cursor.rowcount > 0

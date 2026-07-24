@@ -1,0 +1,1108 @@
+{
+    "contraintes_globales": {
+        "hauteur_max_palette_cm": 220,
+        "poids_max_palette_kg": null,
+        "clients_speciaux": {
+            "cremlog": {
+                "un_parfum_par_palette": true
+            },
+            "cremcentre": {
+                "un_parfum_par_palette": true
+            }
+        },
+        "epaisseur_palette_vide_cm": 14.5,
+        "familles": {
+            "A": "125g (Cartons normaux)",
+            "B": "140g (Brassés) + Skyr",
+            "C": "Pots Paraffinés (Fragile)"
+        }
+    },
+    "regles_empilement": {
+        "carton 48 pots": {
+            "colis_par_couche": 9,
+            "couches_max": 8,
+            "total_colis": 72
+        },
+        "carton 6x140g": {
+            "colis_par_couche": 36,
+            "couches_max": 10,
+            "total_colis": 360
+        },
+        "carton x24": {
+            "colis_par_couche": 9,
+            "couches_max": 15,
+            "total_colis": 135
+        },
+        "carton x12": {
+            "colis_par_couche": 18,
+            "couches_max": 10,
+            "total_colis": 180
+        },
+        "skyr": {
+            "colis_par_couche": 13,
+            "couches_max": 10,
+            "total_colis": 130,
+            "fragile_top_only": true
+        },
+        "pot paraffine": {
+            "colis_par_couche": 0,
+            "couches_max": 0,
+            "total_colis": 0,
+            "fragile_top_only": true
+        }
+    },
+    "articles": [
+        {
+            "reference": "PF1010",
+            "description": "Yaourt nature verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF1020",
+            "description": "Yaourt nature maigre verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF1030",
+            "description": "Yaourt nat. part.écrémé carton",
+            "unite_base": "POT",
+            "poids_unitaire_g": 135.3
+        },
+        {
+            "reference": "PF1040",
+            "description": "Yaourt nature carton",
+            "unite_base": "POT",
+            "poids_unitaire_g": 135.3
+        },
+        {
+            "reference": "PF1045",
+            "description": "Yaourt vanille carton",
+            "unite_base": "POT",
+            "poids_unitaire_g": 135.3
+        },
+        {
+            "reference": "PF1050",
+            "description": "Seau yaourt étuvé nature 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF1051",
+            "description": "Seau yaourt étuvé nature sucré 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF1061",
+            "description": "Y nature CARTON sucré 5%",
+            "unite_base": "POT",
+            "poids_unitaire_g": 131.0
+        },
+        {
+            "reference": "PF1070MDDGF",
+            "description": "Yaourt Etuvé Nature 500G MDD",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF2010",
+            "description": "Yaourt entier abricot verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2030",
+            "description": "Yaourt entier citron verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2031MDDGF",
+            "description": "Yaourt Etuvé Citron 500G MDD",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF2040",
+            "description": "Yaourt entier poire verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2050",
+            "description": "Yaourt entier fraise verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2060",
+            "description": "Yaourt entier framboise verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2070",
+            "description": "Yaourt entier myrtille verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2080",
+            "description": "Yaourt entier F des bois verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2090",
+            "description": "Yaourt entier cerise verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2110",
+            "description": "Yaourt entier Mandarine",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2111",
+            "description": "Yaourt Entier PECHE",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2112",
+            "description": "L'INEDIT",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2113",
+            "description": "Yaourt Entier sur lit de Figue",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2200",
+            "description": "Yaourt entier groseille cassis",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2300",
+            "description": "Yaourt entier Nature RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2310",
+            "description": "Yaourt entier Abricot RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2320",
+            "description": "Yaourt entier Fraise RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2330",
+            "description": "Yaourt entier Framboise RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2340",
+            "description": "Yaourt entier Myrtille RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF2350",
+            "description": "Yaourt entier Vanille RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF3010",
+            "description": "Yaourt maigre mandarine verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF3030",
+            "description": "Yaourt maigre griotte verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF3050",
+            "description": "Yaourt maigre fraise verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF3060",
+            "description": "Yaourt maigre citron verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF3040",
+            "description": "Yaourt maigre pêche verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4010",
+            "description": "Yaourt entier vanille verre",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4020MDDGF",
+            "description": "Yaourt Etuvé Vanille 500G MDD",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF4030",
+            "description": "yaourt entier aromatisé citron",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4110",
+            "description": "Lait gélifié chocolat",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4120",
+            "description": "Lait gélifié café",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4130",
+            "description": "Lait gélifié caramel",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4140",
+            "description": "Lait gélifié coco",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4210",
+            "description": "Oeufs au lait vanille",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4220",
+            "description": "Oeufs au lait caramel",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4310",
+            "description": "Caramba",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4320",
+            "description": "Gâteau de semoule citron",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4330",
+            "description": "Gâteau de semoule poire",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4340",
+            "description": "Gâteau de semoule pruneau",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF4410",
+            "description": "Crème chocolat 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF4410MDD",
+            "description": "Creme chocolat 140G MONOPRIX",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF4510",
+            "description": "Riz au lait 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF4510MDD",
+            "description": "Riz au lait 140G MONOPRIX",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF4511",
+            "description": "RIZ AU LAIT CITRON MPX 140g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF5010",
+            "description": "Crème 190G 45% MG mini",
+            "unite_base": "POT",
+            "poids_unitaire_g": 329.03999999999996
+        },
+        {
+            "reference": "PF5020",
+            "description": "Crème 380G 45% MG mini",
+            "unite_base": "POT",
+            "poids_unitaire_g": 589.04
+        },
+        {
+            "reference": "PF5030",
+            "description": "Crème seau 5 L 45% MG mini",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF5032",
+            "description": "Crème liquide 35% MG poche 10L",
+            "unite_base": "L",
+            "poids_unitaire_g": 1034.7
+        },
+        {
+            "reference": "PF5040",
+            "description": "Lait ENTIER Peupliers 1L",
+            "unite_base": "L",
+            "poids_unitaire_g": 1034.7
+        },
+        {
+            "reference": "PF5041",
+            "description": "Lait 1/2 ECREME Peupliers 1L",
+            "unite_base": "L",
+            "poids_unitaire_g": 1034.7
+        },
+        {
+            "reference": "PF5045",
+            "description": "Lait ENTIER poche10L",
+            "unite_base": "B.I.B",
+            "poids_unitaire_g": 10347.0
+        },
+        {
+            "reference": "PF5046",
+            "description": "Lait 1/2 ECREME poche 10L",
+            "unite_base": "L",
+            "poids_unitaire_g": 1034.7
+        },
+        {
+            "reference": "PF5050",
+            "description": "Ffrais CAMPAGNE Peupliers 500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF5060",
+            "description": "Ffrais CAMPAGNE Peupliers 5Kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF5065",
+            "description": "Ffrais FAISSELLE Peupliers500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF5070",
+            "description": "Ffrais LISSE Peupliers 5Kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF5075",
+            "description": "Ffrais LISSE Peupliers 500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF5080",
+            "description": "Ffrais LISSE SUCRE Peup 500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF5085",
+            "description": "Ffrais LISSE SUCRE Peuplier5Kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF5090",
+            "description": "Ffrais LISSE VANILLE Peup 5Kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF5090B",
+            "description": "Ffrais LISSE VANILLE Peup 500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF5210",
+            "description": "SKYR nature 0% 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF5211",
+            "description": "SKYR NATURE 0% 480G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 500.2
+        },
+        {
+            "reference": "PF6010",
+            "description": "Seau yaourt abricot",
+            "unite_base": "KG",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6020",
+            "description": "Seau yaourt fraise",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6030",
+            "description": "Seau yaourt vanille",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6040",
+            "description": "Seau yaourt maigre",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6041",
+            "description": "Seau yaourt brassé nature",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6042",
+            "description": "Seau YB Abricot 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6043",
+            "description": "Seau YB Fraise 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6044",
+            "description": "Seau YB Nature sucré 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6045",
+            "description": "Seau YB aromatisé vanille 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6050",
+            "description": "Seau YB Myrtille 5kg",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF6060",
+            "description": "Seau Y. Brassé Caramel B.Salé",
+            "unite_base": "SEAU",
+            "poids_unitaire_g": 5186.8
+        },
+        {
+            "reference": "PF7100",
+            "description": "Yaourt Brassé Nature 500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF7100MDDGF",
+            "description": "Yaourt Brassé Nature 500G MDD",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF7101",
+            "description": "Yaourt Brassé Fraise 500G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF7103",
+            "description": "Yaourt Brassé Framboise 500G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF7104",
+            "description": "YB Aromatisé Vanille 500G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF7105",
+            "description": "Yaourt Brassé Citron 500G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF7200",
+            "description": "Yaourt Brassé Nature 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7201",
+            "description": "Yaourt Brassé Lit Abricot 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7202",
+            "description": "Yaourt Brassé Lit Fraise 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7203",
+            "description": "Yaourt Brassé Lit FDB 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7204",
+            "description": "Yaourt Brassé Myrtille 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7205",
+            "description": "Yaourt Brassé Citron 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7206",
+            "description": "Yaourt Brassé Vanille 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7207",
+            "description": "Yaourt Brassé Caramel 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7208",
+            "description": "Yaourt Brassé Noisette 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7209",
+            "description": "Yaourt Brassé Abricot 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7210",
+            "description": "Yaourt Brassé Fraise 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7211",
+            "description": "Yaourt Brassé Coco 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7212",
+            "description": "Yaourt Brassé Framboise 140G",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7300",
+            "description": "Yaourt Brassé Nature 140G RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7305",
+            "description": "Yaourt Brassé Citron 140G RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7306",
+            "description": "Yaourt Brassé Vanille 140G RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7307",
+            "description": "Yaourt Brassé Caramel 140G RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7308",
+            "description": "Yaourt Brassé Nois 140G RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7309",
+            "description": "Yaourt Brassé Coco 140G RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7310",
+            "description": "Yaourt Brassé Litchi Rose 140G RGF",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8041MDD",
+            "description": "Y.B. MONOPRIX Café",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8039MDD",
+            "description": "Y.B MONOPRIX Banane Cacao",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7400",
+            "description": "Y.B. Nature 125g BBC",
+            "unite_base": "POT",
+            "poids_unitaire_g": 131.0
+        },
+        {
+            "reference": "PF7401",
+            "description": "Y.B. Nature Sucré 125g BBC",
+            "unite_base": "POT",
+            "poids_unitaire_g": 131.0
+        },
+        {
+            "reference": "PF7402",
+            "description": "Y.B. Vanille 125g BBC",
+            "unite_base": "POT",
+            "poids_unitaire_g": 131.0
+        },
+        {
+            "reference": "PF7403",
+            "description": "Y.B. Fraise 125g BBC",
+            "unite_base": "POT",
+            "poids_unitaire_g": 131.0
+        },
+        {
+            "reference": "PF7404",
+            "description": "Y.B. Citron 125g BBC",
+            "unite_base": "POT",
+            "poids_unitaire_g": 131.0
+        },
+        {
+            "reference": "PF8004MDD",
+            "description": "Y. B. MONOPRIX lit  abricot",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8007MDD",
+            "description": "Y.B. MONOPRIX lit F. Rouge",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8023MDD",
+            "description": "Y.B. MONOPRIX Myrtille",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8024MDD",
+            "description": "Y.B. MONOPRIX Citron",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8025MDD",
+            "description": "Y.B. MONOPRIX Vanille",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8026MDD",
+            "description": "Y.B. MONOPRIX Caramel BS",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8027MDD",
+            "description": "Y.B. MONOPRIX Miel",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8028MDD",
+            "description": "Y.B. MONOPRIX lit Poire",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8029MDD",
+            "description": "Y.B. MONOPRIX lit Mandarine",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8030MDD",
+            "description": "Y.B. MONOPRIX Châtaigne",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8031MDD",
+            "description": "Y.B. MONOPRIX lit Cerise",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8032MDD",
+            "description": "Y.B. MONOPRIX lit Pêche",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8033MDD",
+            "description": "Y.B. MONOPRIX Framboise",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8034MDD",
+            "description": "Y.B. MONOPRIX Fraise Menthe",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8035MDD",
+            "description": "Y.B. MONOPRIX lit de figue",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8036MDD",
+            "description": "Y.B. MONOPRIX pommes tatin",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8037MDD",
+            "description": "Y.B MONOPRIX fraise rhubarbe",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8038MDD",
+            "description": "Y.B MONOPRIX lt peche verveine",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8040MDD",
+            "description": "Y.B. MONOPRIX Noisette",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8044MDD",
+            "description": "Y.B MONOPRIX Nature",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8045MDD",
+            "description": "Y.B MONOPRIX lit de Litchi",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF8500MPG",
+            "description": "YB MPX GT lit Framboise 125g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF8501MPG",
+            "description": "YB MPX GT lit Figue Miel 125g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF8502MPG",
+            "description": "YB MPX GT lit Citron M 125g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF8550MPG",
+            "description": "Y.B. MONOPRIX Vanille 500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF8551MPG",
+            "description": "Y.B. MONOPRIX Noisette 500g",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF8042MDD",
+            "description": "Y.B. MONOPRIX Coco",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "PF8043MDD",
+            "description": "Y.B MONOPRIX Poire Vanille",
+            "unite_base": "POT",
+            "poids_unitaire_g": 520.2
+        },
+        {
+            "reference": "NEG0050",
+            "description": "Beurre salé 5% plaquette 250 g",
+            "unite_base": "PLAQUETTE",
+            "poids_unitaire_g": 250.0
+        },
+        {
+            "reference": "NEG0040",
+            "description": "Beurre demisel plaquette 250 g",
+            "unite_base": "PLAQUETTE",
+            "poids_unitaire_g": 250.0
+        },
+        {
+            "reference": "NEG0010",
+            "description": "Beurre doux plaquette 250 g",
+            "unite_base": "PLAQUETTE",
+            "poids_unitaire_g": 250.0
+        },
+        {
+            "reference": "NEG0041",
+            "description": "Beurre demisel truffe 125G",
+            "unite_base": "PLAQUETTE",
+            "poids_unitaire_g": 125.0
+        },
+        {
+            "reference": "NEG0042",
+            "description": "Beurre demisel ail/persil 125G",
+            "unite_base": "PLAQUETTE",
+            "poids_unitaire_g": 125.0
+        },
+        {
+            "reference": "NEG0043",
+            "description": "Beurre demisel espelette 125G",
+            "unite_base": "PLAQUETTE",
+            "poids_unitaire_g": 125.0
+        },
+        {
+            "reference": "NEG0044",
+            "description": "Beurre demisel algues 125G",
+            "unite_base": "PLAQUETTE",
+            "poids_unitaire_g": 125.0
+        },
+        {
+            "reference": "PF7508",
+            "description": "Gâteau de semoule Poire EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF7507",
+            "description": "Oeufs au lait Vanille EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 198.5
+        },
+        {
+            "reference": "PF7506",
+            "description": "YB Noisette EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7505",
+            "description": "YB Caramel EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7504",
+            "description": "YB Vanille EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7503",
+            "description": "YB Myrtille EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7502",
+            "description": "YB Fraise EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        },
+        {
+            "reference": "PF7501",
+            "description": "YB Abricot EXP",
+            "unite_base": "POT",
+            "poids_unitaire_g": 225.5
+        }
+    ],
+    "emballages": [
+        {
+            "nom": "Carton x24",
+            "poids_g": 110.0,
+            "dimensions_cm": "36,2x24,5x7,0",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Carton x12",
+            "poids_g": 38.0,
+            "dimensions_cm": "23,9x18,2x7,0",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Carton 6x125G",
+            "poids_g": 25.5,
+            "dimensions_cm": "17,7x11,8x7,2",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Carton x48",
+            "poids_g": 185.0,
+            "dimensions_cm": "36,2x24,7x14,0",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Carton 6x140G",
+            "poids_g": 26.0,
+            "dimensions_cm": "18.9*12.7*7.0",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Carton Fromage Frais/ Faisselle 4*500g )",
+            "poids_g": 150.0,
+            "dimensions_cm": null,
+            "caracteristiques": "Carton ondulé avec impression du logo Ferme Les Peupliers"
+        },
+        {
+            "nom": "Carton Lait 6*1L",
+            "poids_g": 176.0,
+            "dimensions_cm": "Dim. intérieures : 24,7x16,7x25,8",
+            "caracteristiques": "Carton ondulé avec impression du logo  Ferme du Beffroi ou Les Peuplies"
+        },
+        {
+            "nom": "Coiffe de regroupement x2 - Pot Verre",
+            "poids_g": 3.0,
+            "dimensions_cm": "long : 12 x larg : 6 x haut : 1,3",
+            "caracteristiques": "PET cristal recyclé"
+        },
+        {
+            "nom": "Coiffe de regroupement x4",
+            "poids_g": 5.5,
+            "dimensions_cm": "long : 12,3xlarg : 12,3 x prof : 1,1",
+            "caracteristiques": "PET cristal recyclé"
+        },
+        {
+            "nom": "Sachet x4",
+            "poids_g": 2.5,
+            "dimensions_cm": "larg : 19,0 x haut : 26,2",
+            "caracteristiques": "Polyethylène basse densité"
+        },
+        {
+            "nom": "Emballages tertiaires",
+            "poids_g": null,
+            "dimensions_cm": null,
+            "caracteristiques": null
+        },
+        {
+            "nom": "Plateau découpé (48pots)",
+            "poids_g": null,
+            "dimensions_cm": "Dim. intérieures : 36,2x24,7x14",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Demi-caisse (Caisse amércaine rabats normaux)",
+            "poids_g": 346.0,
+            "dimensions_cm": "Dim. intérieures : 38,5x30x23,5 Dim. Extérieures : 39,3x30,8x25,1",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Grande intercalaire",
+            "poids_g": 26.0,
+            "dimensions_cm": "24,2x36,0x7,3",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Petite intercalaire",
+            "poids_g": 17.0,
+            "dimensions_cm": "24,2x18,5x7,3",
+            "caracteristiques": "Carton ondulé"
+        },
+        {
+            "nom": "Palette perdue",
+            "poids_g": 10000.0,
+            "dimensions_cm": "74,0x80,0x12,6",
+            "caracteristiques": "Bois"
+        },
+        {
+            "nom": "Palette Europe",
+            "poids_g": 25000.0,
+            "dimensions_cm": "80,0x120,0x15",
+            "caracteristiques": "Bois"
+        }
+    ]
+}

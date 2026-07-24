@@ -126,12 +126,21 @@ function activateSector(sector, saveState = true) {
 
 function resetToHome(saveState = true) {
     sectorBtns.forEach(b => b.classList.remove('active'));
+    const allHubBtns = document.querySelectorAll('.hub-sector-btn');
+    if(allHubBtns) allHubBtns.forEach(b => b.classList.remove('active'));
+    
+    const hubTools = document.getElementById('hub-tools-choice');
+    if(hubTools) hubTools.style.display = 'none';
+
     step2.style.display = 'none';
     step3.style.display = 'none';
     uploadSection.style.display = 'none';
     parfumSection.style.display = 'none';
     editSection.style.display = 'none';
     progressContainer.style.display = 'none';
+    
+    const techSection = document.getElementById('technician-section');
+    if (techSection) techSection.style.display = 'none';
     
     if (saveState) {
         history.pushState(null, "", window.location.pathname);
@@ -159,7 +168,7 @@ const wizardSection = document.getElementById('wizard-section');
 const logContainer = document.getElementById('log-container');
 
 // Mode Hub : Choix du secteur
-const hubSectorBtns = document.querySelectorAll('.hub-sector-btn');
+const hubSectorBtns = document.querySelectorAll('.hub-sector-btn:not(#tech-mode-btn)');
 const toolCards = document.querySelectorAll('.tool-card');
 
 hubSectorBtns.forEach(btn => {
@@ -183,6 +192,31 @@ hubSectorBtns.forEach(btn => {
         });
     };
 });
+
+const techModeBtn = document.getElementById('tech-mode-btn');
+if (techModeBtn) {
+    techModeBtn.addEventListener('click', () => {
+        hubToolsChoice.style.display = 'none';
+        wizardSection.style.display = 'block';
+        
+        document.getElementById('step1').style.display = 'none';
+        step2.style.display = 'none';
+        step3.style.display = 'none';
+        uploadSection.style.display = 'none';
+        parfumSection.style.display = 'none';
+        
+        const techSection = document.getElementById('technician-section');
+        if (techSection) techSection.style.display = 'block';
+        
+        localPrinters = [...printersData];
+        renderManageTable();
+        
+        hubSectorBtns.forEach(b => b.classList.remove('active'));
+        techModeBtn.classList.add('active');
+        
+        history.pushState({ sector: 'expert' }, "", "?tool=expert");
+    });
+}
 
 // Au chargement initial (Restore state from URL)
 window.addEventListener('DOMContentLoaded', async () => {
@@ -249,14 +283,6 @@ function activateDedicatedTool(tool, sector) {
 
     const helpBtn = document.getElementById('help-modal-btn');
     if (helpBtn) helpBtn.style.display = 'none';
-
-    if (tool === 'expert') {
-        wizardSection.style.display = 'block';
-        uploadSection.style.display = 'none';
-        parfumSection.style.display = 'none';
-        activateSector(sector, false);
-        return;
-    }
 
     // Configurer l'imprimante (en fond) pour le secteur
     filterPrinters(sector);
@@ -409,6 +435,8 @@ fetch('/api/parfums-4up')
             const opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = `${p.nom}`;
+            opt.dataset.ean = p.ean13;
+            opt.dataset.nomImpression = p.nom_impression || p.nom;
             parfumSelect.appendChild(opt);
         });
         if (parfums.length > 0) {
@@ -420,40 +448,95 @@ fetch('/api/parfums-4up')
         console.error(err);
     });
 
-// Gestion du formulaire "Nouveau Parfum"
+// Gestion du formulaire "Nouveau/Edition Parfum"
 const toggleAddParfumBtn = document.getElementById('toggle-add-parfum-btn');
+const editParfumBtn = document.getElementById('edit-parfum-btn');
+const deleteParfumBtn = document.getElementById('delete-parfum-btn');
 const addParfumForm = document.getElementById('add-parfum-form');
+const parfumFormTitle = document.getElementById('parfum-form-title');
+const editParfumId = document.getElementById('edit-parfum-id');
 const newParfumNom = document.getElementById('new-parfum-nom');
+const newParfumNomImpression = document.getElementById('new-parfum-nom-impression');
 const newParfumEan = document.getElementById('new-parfum-ean');
 const previewNewParfumBtn = document.getElementById('preview-new-parfum-btn');
 const saveNewParfumBtn = document.getElementById('save-new-parfum-btn');
+const cancelParfumBtn = document.getElementById('cancel-parfum-btn');
 
-toggleAddParfumBtn.onclick = () => {
-    if (addParfumForm.style.display === 'none') {
-        addParfumForm.style.display = 'block';
-        toggleAddParfumBtn.innerHTML = '<i data-lucide="x"></i> Fermer ce menu';
+function showParfumForm(isEdit = false) {
+    addParfumForm.style.display = 'block';
+    if (isEdit) {
+        parfumFormTitle.innerHTML = '<i data-lucide="edit"></i> Modifier le parfum';
+        const opt = parfumSelect.options[parfumSelect.selectedIndex];
+        newParfumNom.value = opt.text;
+        newParfumNomImpression.value = opt.dataset.nomImpression || opt.text;
+        newParfumEan.value = opt.dataset.ean || "";
+        editParfumId.value = opt.value;
     } else {
-        addParfumForm.style.display = 'none';
-        toggleAddParfumBtn.innerHTML = '<i data-lucide="plus-circle"></i> Nouveau';
+        parfumFormTitle.innerHTML = '<i data-lucide="tag"></i> Créer un nouveau parfum';
+        newParfumNom.value = '';
+        newParfumNomImpression.value = '';
+        newParfumEan.value = '';
+        editParfumId.value = '';
     }
+    toggleAddParfumBtn.style.display = 'none';
+    editParfumBtn.style.display = 'none';
+    deleteParfumBtn.style.display = 'none';
     lucide.createIcons();
+}
+
+function hideParfumForm() {
+    addParfumForm.style.display = 'none';
+    toggleAddParfumBtn.style.display = 'inline-flex';
+    editParfumBtn.style.display = 'inline-flex';
+    deleteParfumBtn.style.display = 'inline-flex';
+}
+
+toggleAddParfumBtn.onclick = () => showParfumForm(false);
+editParfumBtn.onclick = () => {
+    if (!parfumSelect.value) return;
+    showParfumForm(true);
+};
+cancelParfumBtn.onclick = hideParfumForm;
+
+deleteParfumBtn.onclick = async () => {
+    const parfumId = parfumSelect.value;
+    if (!parfumId) return;
+    const opt = parfumSelect.options[parfumSelect.selectedIndex];
+    
+    const ok = await Modal.confirm("Supprimer le parfum", `Voulez-vous vraiment supprimer le parfum "${opt.text}" ?`, 'trash-2', 'icon-warning');
+    if (!ok) return;
+
+    try {
+        const response = await fetch(`/api/parfums-4up/${parfumId}`, { method: 'DELETE' });
+        if (response.ok) {
+            opt.remove();
+            if (parfumSelect.options.length > 0) {
+                parfumSelect.value = parfumSelect.options[0].value;
+                parfumSelect.dispatchEvent(new Event('change'));
+            } else {
+                parfumPreviewImg.style.display = 'none';
+                parfumPreviewEmpty.style.display = 'block';
+            }
+        } else {
+            const result = await response.json();
+            Modal.error("Erreur", result.detail);
+        }
+    } catch (e) {
+        Modal.error("Erreur réseau", e.message);
+    }
 };
 
 previewNewParfumBtn.onclick = () => {
     const nom = newParfumNom.value.trim();
     const ean = newParfumEan.value.trim();
+    const nom_impression = newParfumNomImpression.value.trim();
     
     if (!nom || !ean) {
         Modal.error("Informations manquantes", "Veuillez taper le nom et le code barre EAN-13.");
         return;
     }
     
-    if (ean.length < 13) {
-        Modal.error("Code barre incorrect", "Le code barre doit contenir au moins 13 chiffres.");
-        return;
-    }
-    
-    parfumPreviewImg.src = `/api/preview-4up-live?nom=${encodeURIComponent(nom)}&ean13=${encodeURIComponent(ean)}&t=${new Date().getTime()}`;
+    parfumPreviewImg.src = `/api/preview-4up-live?nom=${encodeURIComponent(nom)}&ean13=${encodeURIComponent(ean)}&nom_impression=${encodeURIComponent(nom_impression)}&t=${new Date().getTime()}`;
     parfumPreviewImg.style.display = 'inline-block';
     parfumPreviewEmpty.style.display = 'none';
 };
@@ -461,6 +544,9 @@ previewNewParfumBtn.onclick = () => {
 saveNewParfumBtn.onclick = async () => {
     const nom = newParfumNom.value.trim();
     const ean = newParfumEan.value.trim();
+    const nom_impression = newParfumNomImpression.value.trim();
+    const isEdit = editParfumId.value !== '';
+    const parfumId = editParfumId.value;
     
     if (!nom || !ean) {
         Modal.error("Informations manquantes", "Veuillez taper le nom et le code barre EAN-13.");
@@ -468,26 +554,35 @@ saveNewParfumBtn.onclick = async () => {
     }
     
     try {
-        const response = await fetch('/api/parfums-4up', {
-            method: 'POST',
+        const url = isEdit ? `/api/parfums-4up/${parfumId}` : '/api/parfums-4up';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nom, ean13: ean })
+            body: JSON.stringify({ nom, ean13: ean, nom_impression })
         });
         
         const result = await response.json();
         if (response.ok) {
-            Modal.alert("Enregistré !", "Le nouveau parfum a été sauvegardé avec succès.", 'check-circle', 'icon-success');
+            Modal.alert("Enregistré !", `Le parfum a été ${isEdit ? 'modifié' : 'créé'} avec succès.`, 'check-circle', 'icon-success');
             
-            const opt = document.createElement('option');
-            opt.value = result.parfum.id;
-            opt.textContent = `${result.parfum.nom}`;
-            parfumSelect.appendChild(opt);
-            parfumSelect.value = result.parfum.id;
+            if (isEdit) {
+                const opt = parfumSelect.options[parfumSelect.selectedIndex];
+                opt.text = result.parfum.nom;
+                opt.dataset.ean = result.parfum.ean13;
+                opt.dataset.nomImpression = result.parfum.nom_impression || result.parfum.nom;
+            } else {
+                const opt = document.createElement('option');
+                opt.value = result.parfum.id;
+                opt.textContent = result.parfum.nom;
+                opt.dataset.ean = result.parfum.ean13;
+                opt.dataset.nomImpression = result.parfum.nom_impression || result.parfum.nom;
+                parfumSelect.appendChild(opt);
+                parfumSelect.value = result.parfum.id;
+            }
             
-            addParfumForm.style.display = 'none';
-            toggleAddParfumBtn.innerHTML = '<i data-lucide="plus-circle"></i> Nouveau';
-            lucide.createIcons();
-            
+            hideParfumForm();
             parfumSelect.dispatchEvent(new Event('change'));
         } else {
             Modal.error("Erreur du système", result.detail);
@@ -497,18 +592,62 @@ saveNewParfumBtn.onclick = async () => {
     }
 };
 
-// Bouton impression 4-up
+// --- Gestion Impression Multiple (Batch) 4-up ---
 const print4UpBtn = document.getElementById('print-4up-btn');
-const parfumQtyInput = document.getElementById('parfum-qty');
+const addToBatch4UpBtn = document.getElementById('add-to-batch-4up-btn');
+const qty4UpInput = document.getElementById('parfum-qty');
+const batchList4UpContainer = document.getElementById('batch-list-4up-container');
+const batchUl4Up = document.getElementById('batch-list-4up');
+const batchTotal4UpSpan = document.getElementById('batch-total-4up');
 
-if (print4UpBtn) {
-    print4UpBtn.onclick = async () => {
-        if (!isPrinterReady) {
-            Modal.error("Imprimante indisponible", "L'imprimante n'est pas prête. Vérifiez qu'elle est allumée et qu'il n'y a pas d'erreur rouge.");
-            return;
-        }
+let batch4Up = [];
 
-        const qty = parseInt(parfumQtyInput.value);
+function updateBatch4UpUI() {
+    batchUl4Up.innerHTML = '';
+    let total = 0;
+    
+    batch4Up.forEach((item, index) => {
+        total += item.quantity;
+        const li = document.createElement('li');
+        li.style.borderBottom = "1px solid #e2e8f0";
+        li.style.padding = "5px 0";
+        li.style.display = "flex";
+        li.style.justifyContent = "space-between";
+        li.style.alignItems = "center";
+        
+        const textSpan = document.createElement('span');
+        textSpan.innerHTML = `<strong>${item.quantity}x</strong> ${item.parfumName}`;
+        
+        const delBtn = document.createElement('button');
+        delBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+        delBtn.className = "btn btn-danger";
+        delBtn.style.padding = "2px 5px";
+        delBtn.style.fontSize = "12px";
+        delBtn.onclick = () => {
+            batch4Up.splice(index, 1);
+            updateBatch4UpUI();
+        };
+        
+        li.appendChild(textSpan);
+        li.appendChild(delBtn);
+        batchUl4Up.appendChild(li);
+    });
+    
+    batchTotal4UpSpan.textContent = total;
+    lucide.createIcons();
+    
+    if (batch4Up.length > 0) {
+        batchList4UpContainer.style.display = 'block';
+        print4UpBtn.style.display = 'inline-flex';
+    } else {
+        batchList4UpContainer.style.display = 'none';
+        print4UpBtn.style.display = 'none';
+    }
+}
+
+if (addToBatch4UpBtn) {
+    addToBatch4UpBtn.onclick = () => {
+        const qty = parseInt(qty4UpInput.value);
         if (isNaN(qty) || qty <= 0) {
             Modal.error("Quantité invalide", "Veuillez indiquer un nombre d'étiquettes supérieur à 0.");
             return;
@@ -521,13 +660,49 @@ if (print4UpBtn) {
         }
 
         const parfumName = parfumSelect.options[parfumSelect.selectedIndex].text;
-        const ok = await Modal.confirm("Confirmation d'impression", `Vous allez lancer l'impression de ${qty} étiquettes pour le parfum :\n\n${parfumName}\n\nÊtes-vous sûr ?`, 'printer', 'icon-info');
+        
+        batch4Up.push({
+            parfum_id: parfumId,
+            parfumName: parfumName,
+            quantity: qty
+        });
+        
+        updateBatch4UpUI();
+        qty4UpInput.value = 1; // reset
+    };
+}
+
+if (print4UpBtn) {
+    print4UpBtn.onclick = async () => {
+        if (!isPrinterReady) {
+            Modal.error("Imprimante indisponible", "L'imprimante n'est pas prête. Vérifiez qu'elle est allumée et qu'il n'y a pas d'erreur rouge.");
+            return;
+        }
+
+        if (batch4Up.length === 0) return;
+
+        const totalQty = batch4Up.reduce((acc, curr) => acc + curr.quantity, 0);
+        const recapList = batch4Up.map(b => `- ${b.quantity}x ${b.parfumName}`).join('\n');
+
+        const ok = await Modal.confirm(
+            "Confirmation d'impression multiple", 
+            `Vous allez lancer l'impression de ${totalQty} étiquettes au total pour les parfums suivants :\n\n${recapList}\n\nUn séparateur sera automatiquement imprimé entre chaque parfum.\n\nÊtes-vous sûr ?`, 
+            'printer', 
+            'icon-info'
+        );
         if (!ok) return;
 
-        addLog(`Lancement impression 4-up (${qty} ex. - ${parfumName})`);
+        addLog(`Lancement impression 4-up (Batch de ${batch4Up.length} parfums, Total: ${totalQty})`);
         
         try {
             const opt = printerSelect.options[printerSelect.selectedIndex];
+            
+            // On prépare l'objet items sans le champ "parfumName" (qui n'est que pour l'UI)
+            const apiItems = batch4Up.map(b => ({
+                parfum_id: b.parfum_id,
+                quantity: b.quantity
+            }));
+            
             const response = await fetch('/print-4up', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -535,8 +710,7 @@ if (print4UpBtn) {
                     printer_ip: opt.value,
                     printer_dpi: parseInt(opt.dataset.dpi),
                     printer_language: opt.dataset.language,
-                    parfum_id: parfumId,
-                    quantity: qty,
+                    items: apiItems,
                     offset_x: parseInt(opt.dataset.offsetX) || 0,
                     offset_y: parseInt(opt.dataset.offsetY) || 0,
                     title_size: parseInt(opt.dataset.titleSize) || 0,
@@ -552,6 +726,9 @@ if (print4UpBtn) {
             if (response.ok) {
                 addLog(`Succès: ${result.message}`, "success");
                 Modal.alert("Impression envoyée", "Les étiquettes sont en cours d'impression !", 'check-circle', 'icon-success');
+                // On vide le panier après succès
+                batch4Up = [];
+                updateBatch4UpUI();
             } else {
                 Modal.error("Erreur du système", result.detail);
             }
@@ -561,100 +738,54 @@ if (print4UpBtn) {
     };
 }
 
-// Modale d'Aide
-const helpModal = document.getElementById('help-modal');
-const helpModalBtn = document.getElementById('help-modal-btn');
-const closeHelpModalBtn = document.getElementById('close-help-modal');
-
-if (helpModalBtn) {
-    helpModalBtn.addEventListener('click', () => {
-        helpModal.style.display = 'flex';
-    });
-}
-if (closeHelpModalBtn) {
-    closeHelpModalBtn.addEventListener('click', () => {
-        helpModal.style.display = 'none';
-    });
-}
-
-// Gestion des imprimantes (Modal Technicien)
-const printerModal = document.getElementById('printer-modal');
-const managePrintersBtn = document.getElementById('manage-printers-btn');
-const closePrinterModalBtn = document.getElementById('close-printer-modal');
+// Gestion des imprimantes (Espace Technicien)
 const savePrintersBtn = document.getElementById('save-printers-btn');
-const addPrinterBtn = document.getElementById('add-printer-btn');
 const managePrintersTableBody = document.querySelector('#manage-printers-table tbody');
 
 let localPrinters = [...printersData];
 
-managePrintersBtn.addEventListener('click', () => {
-    localPrinters = [...printersData];
-    renderManageTable();
-    printerModal.style.display = 'flex';
-});
+if (savePrintersBtn) {
+    savePrintersBtn.onclick = async () => {
+        const ok = await Modal.confirm("Enregistrer les adresses IP", "Voulez-vous appliquer ces nouvelles adresses IP au système ?", 'save', 'icon-warning');
+        if (!ok) return;
 
-closePrinterModalBtn.onclick = () => {
-    printerModal.style.display = 'none';
-};
-
-addPrinterBtn.onclick = () => {
-    localPrinters.push({ name: "Nouvelle machine", ip: "0.0.0.0", dpi: 203, language: "ZPL", sector: "prepa_commande", port: 9100 });
-    renderManageTable();
-};
-
-savePrintersBtn.onclick = async () => {
-    const ok = await Modal.confirm("Enregistrer", "Voulez-vous enregistrer ces paramètres d'imprimantes ?", 'save', 'icon-warning');
-    if (!ok) return;
-
-    try {
-        const response = await fetch('/api/printers', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(localPrinters)
-        });
-        if (response.ok) {
-            Modal.alert("Sauvegardé", "Les imprimantes ont été mises à jour. L'application va se recharger.", 'check-circle', 'icon-success');
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            Modal.error("Erreur", "Impossible de sauvegarder la configuration.");
+        try {
+            const response = await fetch('/api/printers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(localPrinters)
+            });
+            if (response.ok) {
+                Modal.alert("Sauvegardé", "Les imprimantes ont été mises à jour. L'application va se recharger.", 'check-circle', 'icon-success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                Modal.error("Erreur", "Impossible de sauvegarder la configuration.");
+            }
+        } catch (e) {
+            Modal.error("Problème réseau", e.message);
         }
-    } catch (e) {
-        Modal.error("Problème réseau", e.message);
-    }
-};
+    };
+}
 
 function renderManageTable() {
+    if (!managePrintersTableBody) return;
     managePrintersTableBody.innerHTML = '';
     localPrinters.forEach((p, index) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><input type="text" value="${p.name}" oninput="localPrinters[${index}].name = this.value"></td>
-            <td><input type="text" value="${p.ip}" oninput="localPrinters[${index}].ip = this.value"></td>
-            <td><input type="number" value="${p.dpi}" oninput="localPrinters[${index}].dpi = parseInt(this.value)"></td>
+            <td style="font-weight: 500; color: #475569;">${p.name}</td>
             <td>
-                <select onchange="localPrinters[${index}].language = this.value" style="padding: 8px;">
-                    <option value="ZPL" ${p.language === 'ZPL' ? 'selected' : ''}>ZPL (Zebra)</option>
-                    <option value="TPCL" ${p.language === 'TPCL' ? 'selected' : ''}>TPCL (Toshiba)</option>
-                </select>
+                <input type="text" value="${p.ip}" oninput="localPrinters[${index}].ip = this.value" style="font-family: monospace; font-weight: bold; width: 100%;">
             </td>
-            <td>
-                <select onchange="localPrinters[${index}].sector = this.value" style="padding: 8px;">
-                    <option value="prepa_commande" ${p.sector === 'prepa_commande' ? 'selected' : ''}>Prépa Commande</option>
-                    <option value="conditionnement" ${p.sector === 'conditionnement' ? 'selected' : ''}>Conditionnement</option>
-                    <option value="Gravigny" ${p.sector === 'Gravigny' ? 'selected' : ''}>Gravigny</option>
-                </select>
+            <td style="color: #64748b;">${p.dpi} DPI</td>
+            <td style="color: #64748b;">${p.language}</td>
+            <td style="color: #64748b;">
+                <span class="status-badge" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">${p.sector}</span>
             </td>
-            <td><button class="btn-remove" onclick="removePrinter(${index})"><i data-lucide="trash-2"></i></button></td>
         `;
         managePrintersTableBody.appendChild(tr);
     });
-    lucide.createIcons();
 }
-
-window.removePrinter = (index) => {
-    localPrinters.splice(index, 1);
-    renderManageTable();
-};
 
 function filterPrinters(sector) {
     printerSelect.innerHTML = '';
@@ -1062,9 +1193,9 @@ if (apiFetchBtn) {
                 if (data.length === 0) {
                     Modal.error("Introuvable", `La commande ${orderNumber} n'existe pas ou ne contient aucun produit dans l'ERP.`);
                 } else {
-                    // On ajoute le statut coché par défaut comme pour le CSV
-                    data.forEach(item => item._selected = true);
-                    currentData = data;
+                    const aggregated = aggregateOrderData(data);
+                    aggregated.forEach(item => item._selected = true);
+                    currentData = aggregated;
                     displayEditSection();
                 }
             } else if (res.status === 403) {
@@ -1122,7 +1253,70 @@ function parseCSV(text) {
         headers.forEach((h, i) => { if (h) obj[h] = values[i] || ""; });
         if (obj.Libelle && obj.Libelle.toLowerCase() !== "libelle") result.push(obj);
     });
-    return result;
+    return aggregateOrderData(result);
+}
+
+function aggregateOrderData(data) {
+    if (!data || data.length === 0) return [];
+    
+    const aggregated = [];
+    const map = new Map();
+    
+    data.forEach(item => {
+        const lib = item.Libelle || item.Designation || "";
+        const dateKey = item.CodeBarre17 || item.Numlot || "";
+        if (!lib) return; 
+        
+        const key = lib + "_" + dateKey;
+        
+        if (map.has(key)) {
+            const existing = map.get(key);
+            existing.Quantite = (parseInt(existing.Quantite) || 0) + (parseInt(item.Quantite) || 0);
+        } else {
+            const clone = { ...item };
+            clone.Quantite = parseInt(item.Quantite) || 0;
+            map.set(key, clone);
+            aggregated.push(clone);
+        }
+    });
+    
+    // Règle CREMLOG / CREMCENTRE : Les couches doivent être pleines (arrondi au supérieur)
+    const client = data[0].Client ? data[0].Client.toUpperCase() : "";
+    if (client.includes("CREMLOG") || client.includes("CREMCENTRE")) {
+        // Grouper par Libellé (ignorer DLC) pour avoir le total par parfum
+        const totalParParfum = {};
+        aggregated.forEach(item => {
+            const lib = item.Libelle || item.Designation;
+            if (!totalParParfum[lib]) totalParParfum[lib] = { qte: 0, firstItem: item };
+            totalParParfum[lib].qte += item.Quantite;
+        });
+        
+        for (const lib in totalParParfum) {
+            let colisParCouche = 1;
+            const libLower = lib.toLowerCase();
+            
+            // Déduction du nombre par couche selon le libellé
+            if (libLower.includes("paraffine")) {
+                colisParCouche = 1; // Pas d'arrondi
+            } else if (libLower.includes("140g") || libLower.includes("brasse") || libLower.includes("brassé")) {
+                colisParCouche = 36;
+            } else if (libLower.includes("125g")) {
+                colisParCouche = 18;
+            } else if (libLower.includes("skyr")) {
+                colisParCouche = 13;
+            }
+            
+            const total = totalParParfum[lib].qte;
+            if (colisParCouche > 1 && total % colisParCouche !== 0) {
+                const newTotal = Math.ceil(total / colisParCouche) * colisParCouche;
+                const diff = newTotal - total;
+                // On ajoute la différence à la première ligne trouvée pour ce parfum
+                totalParParfum[lib].firstItem.Quantite += diff;
+            }
+        }
+    }
+    
+    return aggregated;
 }
 
 function displayEditSection() {
@@ -1164,11 +1358,17 @@ function displayEditSection() {
         let qteCartonCol = `<input type="number" value="${item.Quantite || 0}" style="${isLigne1 ? 'background-color: #eef2ff; border-color: #c7d2fe; font-weight: bold; color: #3730a3;' : ''}" oninput="updateRowData(${index}, 'Quantite', this.value)">`;
         let extraCol = isLigne1 ? `<td style="background-color: #f0fdf4;"><input type="number" id="qte-pots-${index}" value="${item.QuantitePots || 0}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>` : '<td style="display:none;"></td>';
         
+        const rawDLC = item.CodeBarre17 || item.DateLivraison || '';
+        let displayDLC = rawDLC;
+        if (rawDLC && rawDLC.length === 6 && !rawDLC.includes('/')) {
+            displayDLC = `${rawDLC.substring(4,6)}/${rawDLC.substring(2,4)}/20${rawDLC.substring(0,2)}`;
+        }
+        
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="row-select large-checkbox" ${item._selected ? 'checked' : ''} oninput="updateRowData(${index}, '_selected', this.checked)"></td>
             <td><strong>${item.Libelle}</strong></td>
-            <td><input type="text" value="${item.DateLivraison || item.CodeBarre17 || ''}" oninput="updateRowData(${index}, 'DateLivraison', this.value)"></td>
+            <td><input type="text" value="${displayDLC}" onchange="updateDLC(${index}, this.value)"></td>
             <td><input type="text" value="${item.Numlot || ''}" oninput="updateRowData(${index}, 'Numlot', this.value)"></td>
             <td style="${isLigne1 ? 'background-color: #f5f8ff;' : ''}">${qteCartonCol}</td>
             ${extraCol}
@@ -1182,6 +1382,20 @@ function displayEditSection() {
     uploadSection.style.display = 'none';
     editSection.style.display = 'block';
     editSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window.updateDLC = (index, displayValue) => {
+    let rawValue = displayValue.trim();
+    // Si l'utilisateur a tapé DD/MM/YYYY, on le remet en YYMMDD pour le ZPL
+    if (rawValue.includes('/')) {
+        const parts = rawValue.split('/');
+        if (parts.length === 3) {
+            let yy = parts[2];
+            if (yy.length === 4) yy = yy.substring(2, 4);
+            rawValue = `${yy}${parts[1]}${parts[0]}`;
+        }
+    }
+    updateRowData(index, 'CodeBarre17', rawValue);
 }
 
 window.updateRowData = (index, field, value) => {
@@ -1237,6 +1451,173 @@ function closeEditSection() {
 
 printBtn.onclick = () => startPrint(false);
 printAllBtn.onclick = () => startPrint(true);
+
+const btnPaletisationOrder = document.getElementById('btn-paletisation-order');
+const paletisationModal = document.getElementById('paletisation-modal');
+const closePaletisationModal = document.getElementById('close-paletisation-modal');
+const paletisationContainer = document.getElementById('paletisation-container');
+const paletisationSummary = document.getElementById('paletisation-summary');
+
+if (closePaletisationModal) {
+    closePaletisationModal.onclick = () => {
+        paletisationModal.style.display = 'none';
+    };
+}
+
+if (btnPaletisationOrder) {
+    btnPaletisationOrder.onclick = async () => {
+        if (!currentData || currentData.length === 0) return;
+        
+        // Grouper les quantités par libellé au cas où il y ait des doublons
+        const grouped = {};
+        currentData.forEach(item => {
+            // On prend toutes les lignes, cochées ou non
+            const lib = item.Libelle || item.Designation || "Inconnu";
+            const qte = parseInt(item.Quantite) || 0;
+            if (!grouped[lib]) grouped[lib] = 0;
+            grouped[lib] += qte;
+        });
+
+        const items = Object.keys(grouped).map(lib => ({
+            libelle: lib,
+            quantite: grouped[lib]
+        })).filter(i => i.quantite > 0);
+
+        const optMaxCheckbox = document.getElementById('opt-max-checkbox');
+        const isOptMax = optMaxCheckbox ? optMaxCheckbox.checked : false;
+
+        paletisationSummary.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Calcul du plan optimal...';
+        paletisationContainer.innerHTML = '';
+        paletisationModal.style.display = 'flex';
+        lucide.createIcons();
+
+        try {
+            const response = await fetch('/api/palettisation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: items, optimisation_max: isOptMax })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                let totalPalettes = 0;
+                let totalPoids = 0;
+                let summaryHTML = `<div style="margin-bottom:10px; display: flex; justify-content: space-around;">
+                    <div><strong>Total Palettes au sol :</strong> ${result.tours.length}</div>
+                    <div><strong>Total Palettes bois :</strong> <span id="total-pal-count"></span></div>
+                    <div><strong>Poids total estimé :</strong> <span id="total-weight-count"></span> kg</div>
+                </div>
+                <div style="font-size: 13px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; border-top: 1px solid #e2e8f0; padding-top: 10px;" id="paletisation-details">`;
+
+                // On passe le conteneur principal en Grid
+                paletisationContainer.style.display = 'grid';
+                paletisationContainer.style.gridAutoFlow = 'column';
+                paletisationContainer.style.gridAutoColumns = '160px';
+                paletisationContainer.style.gap = '20px';
+                
+                // Dessin graphique
+                const cmToPx = 2.5; 
+                
+                result.tours.forEach((tour, i) => {
+                    // Poids fictif : 250kg par palette dans la tour (bois compris)
+                    const tourPoids = tour.items.length * 250;
+                    totalPoids += tourPoids;
+                    totalPalettes += tour.items.length;
+                    
+                    summaryHTML += `<div><strong>n°${i+1} :</strong> ${tourPoids} kg</div>`;
+
+                    let hauteurTxt = document.createElement('div');
+                    hauteurTxt.style.textAlign = 'center';
+                    hauteurTxt.style.marginBottom = '10px';
+                    hauteurTxt.style.color = '#475569';
+                    hauteurTxt.style.alignSelf = 'end'; // Aligné en bas de sa cellule
+                    hauteurTxt.innerHTML = `<strong style="color: #9333ea; font-size: 15px;">n°${i+1}</strong><br><span style="font-weight: bold;">${tour.hauteur} cm</span>`;
+                    
+                    // On va créer un conteneur pour la tour
+                    const tourStack = document.createElement('div');
+                    tourStack.style.display = 'flex';
+                    tourStack.style.flexDirection = 'column-reverse';
+                    tourStack.style.width = '100%';
+                    
+                    tour.items.forEach(pal => {
+                        // Dessiner la palette bois en dessous (hauteur visuelle divisée par 2)
+                        const bois = document.createElement('div');
+                        bois.style.height = `${(14.5 / 2) * cmToPx}px`; 
+                        bois.style.width = '100%';
+                        bois.style.background = '#8b4513';
+                        bois.style.borderRadius = '2px';
+                        bois.style.marginTop = '2px';
+                        bois.title = "Palette Bois (14.5 cm)";
+                        
+                        // Dessiner le bloc produit
+                        const bloc = document.createElement('div');
+                        // On force une hauteur minimale de 36px pour être sûr de pouvoir afficher le texte
+                        const visualHeight = Math.max(36, pal.hauteur_cm * cmToPx);
+                        bloc.style.height = `${visualHeight}px`;
+                        bloc.style.width = '100%';
+                        bloc.style.borderRadius = '4px';
+                        bloc.style.border = '1px solid rgba(0,0,0,0.2)';
+                        bloc.style.display = 'flex';
+                        bloc.style.flexDirection = 'column';
+                        bloc.style.alignItems = 'center';
+                        bloc.style.justifyContent = 'center';
+                        bloc.style.color = 'white';
+                        bloc.style.textAlign = 'center';
+                        bloc.style.padding = '2px';
+                        bloc.style.boxSizing = 'border-box';
+                        bloc.style.lineHeight = '1.1';
+                        bloc.style.marginTop = '2px';
+                        bloc.style.overflow = 'hidden';
+                        
+                        if (pal.famille === 'A') bloc.style.background = '#3b82f6';
+                        else if (pal.famille === 'B') bloc.style.background = '#10b981';
+                        else if (pal.famille === 'C') bloc.style.background = '#f59e0b';
+                        else bloc.style.background = '#64748b';
+                        
+                        if (pal.fragile) bloc.style.border = '2px dashed #dc2626';
+                        
+                        let shortName = pal.libelle.substring(0, 25);
+                        if (pal.libelle.length > 25) shortName += '...';
+                        
+                        // Le texte est toujours affiché car le bloc fait au minimum 36px
+                        bloc.innerHTML = `<strong style="font-size: 12px;">${pal.qte} colis</strong><span style="font-size: 10px; opacity: 0.9;">${shortName}</span>`;
+                        
+                        bloc.title = `${pal.qte} cartons de ${pal.libelle} (${pal.pleine ? 'Pleine' : 'Chute'})`;
+                        
+                        // L'ordre d'ajout dans 'column-reverse' détermine ce qui est en bas.
+                        // On ajoute le bois EN PREMIER pour qu'il soit tout en bas physiquement.
+                        tourStack.appendChild(bois);
+                        tourStack.appendChild(bloc);
+                    });
+                    
+                    let col = document.createElement('div');
+                    col.style.display = 'grid';
+                    col.style.gridTemplateRows = '1fr auto auto';
+                    col.style.height = '100%';
+                    col.style.gap = '5px';
+                    
+                    let spacer = document.createElement('div');
+                    
+                    col.appendChild(spacer);
+                    col.appendChild(hauteurTxt);
+                    col.appendChild(tourStack);
+                    
+                    paletisationContainer.appendChild(col);
+                });
+                
+                summaryHTML += `</div>`;
+                paletisationSummary.innerHTML = summaryHTML;
+                document.getElementById('total-pal-count').innerText = totalPalettes;
+                document.getElementById('total-weight-count').innerText = totalPoids;
+                
+            } else {
+                paletisationSummary.innerHTML = `<span style="color: red;">Erreur: ${result.error}</span>`;
+            }
+        } catch (e) {
+            paletisationSummary.innerHTML = `<span style="color: red;">Erreur réseau: ${e.message}</span>`;
+        }
+    };
+}
 
 async function startPrint(all = false) {
     if (!isPrinterReady) {
@@ -1425,3 +1806,14 @@ function connectWebSocket() {
     };
 }
 connectWebSocket();
+
+document.addEventListener('DOMContentLoaded', () => {
+    const optMaxCb = document.getElementById('opt-max-checkbox');
+    if (optMaxCb) {
+        optMaxCb.addEventListener('change', () => {
+            if (document.getElementById('paletisation-modal').style.display === 'flex') {
+                openPaletisationModal();
+            }
+        });
+    }
+});

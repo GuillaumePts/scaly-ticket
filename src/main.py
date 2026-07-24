@@ -22,6 +22,7 @@ from src.zpl_engine import ZPLEngine
 from src.printer import PrinterClient
 from src.utils import get_days_offset, get_updated_dlc, get_updated_lot
 from src.licence import check_licence, get_licence_status, LicenceError
+from src.paletisation_engine import generer_plan_palettisation
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -173,6 +174,18 @@ class Print4UpRequest(BaseModel):
     gs1_bold: bool = False
     lot_size: int = 0
     lot_bold: bool = False
+
+class PalettisationRequest(BaseModel):
+    items: List[dict] # [{"libelle": "...", "quantite": 100}]
+    optimisation_max: bool = False
+
+@app.post("/api/palettisation")
+async def api_palettisation(request: PalettisationRequest):
+    try:
+        tours = generer_plan_palettisation(request.items, opt_max=request.optimisation_max)
+        return {"success": True, "tours": tours}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 @app.post("/print-nature")
 async def print_nature(request: PrintNatureRequest):

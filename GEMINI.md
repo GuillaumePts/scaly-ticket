@@ -76,3 +76,6 @@
 
 ## 5. PENSE-BÊTES & CONCEPTS CLÉS
 - **Hydration (State Injection)** : Injecter l'état initial depuis le backend directement dans le code source HTML (via `{{ variable|tojson }}` en Jinja2, ou `<%- JSON.stringify(var) %>` en EJS/Node.js). Cela permet d'éviter les requêtes `fetch()` asynchrones au premier chargement et d'obtenir un affichage instantané des données (excellent pour optimiser l'ouverture d'un SaaS).
+
+
+agy --conversation=58ed7f21-e554-4603-8ffa-210a9186f5a6
