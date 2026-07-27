@@ -1,6 +1,6 @@
 {
     "contraintes_globales": {
-        "hauteur_max_palette_cm": 220,
+        "hauteur_max_palette_cm": 212,
         "poids_max_palette_kg": null,
         "clients_speciaux": {
             "cremlog": {
@@ -10,7 +10,7 @@
                 "un_parfum_par_palette": true
             }
         },
-        "epaisseur_palette_vide_cm": 14.5,
+        "epaisseur_palette_vide_cm": 15.0,
         "familles": {
             "A": "125g (Cartons normaux)",
             "B": "140g (Brassés) + Skyr",
@@ -21,34 +21,45 @@
         "carton 48 pots": {
             "colis_par_couche": 9,
             "couches_max": 8,
-            "total_colis": 72
+            "total_colis": 72,
+            "hauteur_carton_cm": 14.0
         },
         "carton 6x140g": {
             "colis_par_couche": 36,
             "couches_max": 10,
-            "total_colis": 360
+            "total_colis": 360,
+            "hauteur_carton_cm": 7.0,
+            "pots_par_colis": 6
         },
         "carton x24": {
             "colis_par_couche": 9,
             "couches_max": 15,
-            "total_colis": 135
+            "total_colis": 135,
+            "hauteur_carton_cm": 7.0,
+            "pots_par_colis": 24
         },
         "carton x12": {
             "colis_par_couche": 18,
-            "couches_max": 10,
-            "total_colis": 180
+            "couches_max": 12,
+            "total_colis": 216,
+            "hauteur_carton_cm": 7.0,
+            "pots_par_colis": 12
         },
         "skyr": {
             "colis_par_couche": 13,
             "couches_max": 10,
             "total_colis": 130,
-            "fragile_top_only": true
+            "fragile_top_only": true,
+            "hauteur_carton_cm": 14.5,
+            "pots_par_colis": 1
         },
         "pot paraffine": {
             "colis_par_couche": 0,
             "couches_max": 0,
             "total_colis": 0,
-            "fragile_top_only": true
+            "fragile_top_only": true,
+            "hauteur_carton_cm": 7.0,
+            "pots_par_colis": 24
         }
     },
     "articles": [

@@ -1519,12 +1519,12 @@ if (btnPaletisationOrder) {
                 const cmToPx = 2.5; 
                 
                 result.tours.forEach((tour, i) => {
-                    // Poids fictif : 250kg par palette dans la tour (bois compris)
-                    const tourPoids = tour.items.length * 250;
+                    // Utilisation du poids réel calculé par le backend
+                    const tourPoids = tour.poids_kg || 0;
                     totalPoids += tourPoids;
                     totalPalettes += tour.items.length;
                     
-                    summaryHTML += `<div><strong>n°${i+1} :</strong> ${tourPoids} kg</div>`;
+                    summaryHTML += `<div><strong>n°${i+1} :</strong> ${tourPoids.toFixed(1)} kg</div>`;
 
                     let hauteurTxt = document.createElement('div');
                     hauteurTxt.style.textAlign = 'center';
@@ -1580,9 +1580,16 @@ if (btnPaletisationOrder) {
                         if (pal.libelle.length > 25) shortName += '...';
                         
                         // Le texte est toujours affiché car le bloc fait au minimum 36px
-                        bloc.innerHTML = `<strong style="font-size: 12px;">${pal.qte} colis</strong><span style="font-size: 10px; opacity: 0.9;">${shortName}</span>`;
+                        const updateBlocText = () => {
+                            bloc.innerHTML = `<strong style="font-size: 12px;">${pal.qte} colis</strong><span style="font-size: 10px; opacity: 0.9;">${shortName}</span><div style="font-size:9px; margin-top:2px;">(${Math.ceil(pal.qte / pal.colis_par_couche)} couches)</div>`;
+                            bloc.title = `${pal.qte} cartons de ${pal.libelle} (${pal.pleine ? 'Pleine' : 'Chute'})`;
+                        };
+                        updateBlocText();
                         
-                        bloc.title = `${pal.qte} cartons de ${pal.libelle} (${pal.pleine ? 'Pleine' : 'Chute'})`;
+                        bloc.style.cursor = 'pointer';
+                        bloc.onclick = () => {
+                            openRuptureModal(pal, updateBlocText);
+                        };
                         
                         // L'ordre d'ajout dans 'column-reverse' détermine ce qui est en bas.
                         // On ajoute le bois EN PREMIER pour qu'il soit tout en bas physiquement.
@@ -1608,7 +1615,7 @@ if (btnPaletisationOrder) {
                 summaryHTML += `</div>`;
                 paletisationSummary.innerHTML = summaryHTML;
                 document.getElementById('total-pal-count').innerText = totalPalettes;
-                document.getElementById('total-weight-count').innerText = totalPoids;
+                document.getElementById('total-weight-count').innerText = totalPoids.toFixed(1);
                 
             } else {
                 paletisationSummary.innerHTML = `<span style="color: red;">Erreur: ${result.error}</span>`;
@@ -1816,4 +1823,97 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Modal Rupture
+    const closeRuptureBtn = document.getElementById('close-rupture-modal');
+    const cancelRuptureBtn = document.getElementById('btn-cancel-rupture');
+    const saveRuptureBtn = document.getElementById('btn-save-rupture');
+    const deleteRuptureBtn = document.getElementById('btn-delete-rupture');
+
+    if (closeRuptureBtn) closeRuptureBtn.onclick = () => document.getElementById('rupture-modal').style.display = 'none';
+    if (cancelRuptureBtn) cancelRuptureBtn.onclick = () => document.getElementById('rupture-modal').style.display = 'none';
+    if (saveRuptureBtn) {
+        saveRuptureBtn.onclick = () => {
+            const val = parseInt(document.getElementById('rupture-qte-input').value);
+            applyRupture(val);
+        };
+    }
+    if (deleteRuptureBtn) {
+        deleteRuptureBtn.onclick = () => {
+            applyRupture(0);
+        };
+    }
 });
+
+let currentRupturePal = null;
+let currentUpdateBlocText = null;
+
+function openRuptureModal(pal, updateBlocTextFn) {
+    currentRupturePal = pal;
+    currentUpdateBlocText = updateBlocTextFn;
+    
+    document.getElementById('rupture-title').innerText = `Rupture / Ajustement - ${pal.libelle}`;
+    document.getElementById('rupture-subtitle').innerText = `Quantité actuelle dans ce bloc : ${pal.qte} colis (${Math.ceil(pal.qte / pal.colis_par_couche)} couches).`;
+    const input = document.getElementById('rupture-qte-input');
+    input.value = pal.qte;
+    
+    document.getElementById('rupture-modal').style.display = 'flex';
+    setTimeout(() => input.focus(), 50);
+}
+
+function showToast(message) {
+    let toast = document.getElementById('toast-container');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast-container';
+        toast.style.position = 'fixed';
+        toast.style.bottom = '20px';
+        toast.style.right = '20px';
+        toast.style.backgroundColor = '#333';
+        toast.style.color = 'white';
+        toast.style.padding = '12px 20px';
+        toast.style.borderRadius = '8px';
+        toast.style.zIndex = '9999';
+        toast.style.transition = 'opacity 0.3s ease';
+        document.body.appendChild(toast);
+    }
+    toast.innerText = message;
+    toast.style.opacity = '1';
+    toast.style.display = 'block';
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.style.display = 'none', 300);
+    }, 3000);
+}
+
+function applyRupture(newQte) {
+    if (!currentRupturePal) return;
+    const pal = currentRupturePal;
+    document.getElementById('rupture-modal').style.display = 'none';
+    
+    if (isNaN(newQte) || newQte < 0) return;
+    const diff = pal.qte - newQte;
+    if (diff === 0) return;
+    
+    if (currentData) {
+        let remainingDiff = diff;
+        for (let d of currentData) {
+            const dLib = d.Libelle || d.Designation || "Inconnu";
+            if (dLib === pal.libelle) {
+                const curQte = parseInt(d.Quantite) || 0;
+                if (curQte >= remainingDiff) {
+                    d.Quantite = (curQte - remainingDiff).toString();
+                    remainingDiff = 0;
+                    break;
+                } else {
+                    remainingDiff -= curQte;
+                    d.Quantite = "0";
+                }
+            }
+        }
+    }
+    
+    showToast(`Recalcul de la palettisation en cours...`);
+    document.getElementById('btn-paletisation-order').click();
+}

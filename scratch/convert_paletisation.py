@@ -45,7 +45,7 @@ for _, row in df_emb.iterrows():
 
 # 3. Manually adding the constraints specified by the user
 contraintes_globales = {
-    "hauteur_max_palette_cm": 220,
+    "hauteur_max_palette_cm": 212,
     "poids_max_palette_kg": None, # A demander
     "clients_speciaux": {
         "cremlog": {
@@ -61,27 +61,41 @@ regles_empilement = {
     "carton 48 pots": {
         "colis_par_couche": 9,
         "couches_max": 8,
-        "total_colis": 72
+        "total_colis": 72,
+        "hauteur_carton_cm": 14.0
     },
     "carton 6x140g": {
         "colis_par_couche": 36,
         "couches_max": 10,
-        "total_colis": 360
+        "total_colis": 360,
+        "hauteur_carton_cm": 7.0
     },
     "carton x24": {
         "colis_par_couche": 9,
         "couches_max": 15,
-        "total_colis": 135
+        "total_colis": 135,
+        "hauteur_carton_cm": 7.0
     },
     "carton x12": {
         "colis_par_couche": 18,
-        "couches_max": 10,
-        "total_colis": 180
+        "couches_max": 12,
+        "total_colis": 216,
+        "fragile_top_only": False,
+        "hauteur_carton_cm": 7.0
     },
     "skyr": {
         "colis_par_couche": 13,
         "couches_max": 10,
-        "total_colis": 130
+        "total_colis": 130,
+        "fragile_top_only": True,
+        "hauteur_carton_cm": 14.5
+    },
+    "pot paraffine": {
+        "colis_par_couche": 0,
+        "couches_max": 0,
+        "total_colis": 0,
+        "fragile_top_only": True,
+        "hauteur_carton_cm": 7.0
     }
 }
 
