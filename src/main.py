@@ -111,7 +111,7 @@ async def spooler_worker(ip: str):
             else:
                 # Toshiba : Juste un ping réseau (fire & forget avec fallback erreur)
                 await ws_manager.broadcast({"type": "status", "ip": ip, "level": "success", "message": "Envoi vers Toshiba en cours..."})
-                    
+            
             await asyncio.to_thread(printer.send_zpl, job.flux, job.sleep_time)
             await ws_manager.broadcast({"type": "status", "ip": ip, "level": "success", "message": "Job envoyé avec succès !"})
             
@@ -119,6 +119,7 @@ async def spooler_worker(ip: str):
             await ws_manager.broadcast({"type": "status", "ip": ip, "level": "error", "message": f"Échec fatal de l'envoi: {e}"})
         finally:
             queue.task_done()
+
 
 def enqueue_job(ip: str, dpi: int, lang: str, flux: str, sleep_time: float = 2.0):
     if ip not in print_queues:
@@ -160,12 +161,19 @@ class PrintNatureRequest(BaseModel):
     printer_language: str = "TPCL"
     quantity: int
 
+class Print4UpItem(BaseModel):
+    parfum_id: str
+    quantity: int
+
 class Print4UpRequest(BaseModel):
     printer_ip: str
     printer_dpi: int
     printer_language: str = "TPCL"
-    parfum_id: str
-    quantity: int
+    # Nouveau : liste d'items (plusieurs parfums en un seul job)
+    items: List[Print4UpItem] = []
+    # Ancien format (compat) : un seul parfum
+    parfum_id: str = ""
+    quantity: int = 0
     offset_x: int = 0
     offset_y: int = 0
     title_size: int = 0
@@ -270,64 +278,65 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
         raise HTTPException(status_code=403, detail=str(e))
         
     try:
-        parfum = db.get_parfum(request.parfum_id)
-        if not parfum:
-            raise HTTPException(status_code=404, detail="Parfum non trouvé")
-            
+        # Normaliser : supporter l'ancien format (parfum_id unique) ET le nouveau (liste items)
+        items_to_print = request.items
+        if not items_to_print and request.parfum_id:
+            items_to_print = [Print4UpItem(parfum_id=request.parfum_id, quantity=request.quantity)]
+        
+        if not items_to_print:
+            raise HTTPException(status_code=400, detail="Aucun parfum à imprimer")
+
         engine = ZPLEngine(dpi=request.printer_dpi)
-        printer = PrinterClient(host=request.printer_ip)
 
         # Détection B-EV4 : Gravigny ou TOSHIBA FLIPOU → pas de pitch dans XPML
+        # (Validé terrain : la FLIPOU rejette aussi l'attribut pitch, comme la B-EV4 Gravigny)
         printer_info = next((p for p in db.get_printers() if p.get("ip") == request.printer_ip), {})
         xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
         is_bev4 = not xpml_pitch
 
-        # Les offsets de calibrage sont FORMAT-DÉPENDANTS :
-        # - Les B-EV4 (FLIPOU/Gravigny) peuvent charger un rouleau 3-up OU 4-up
-        # - Les coordonnées de collage étant différentes selon le format, on stocke
-        #   "offset_x_4up" / "offset_y_4up" séparément dans printers.json.
-        # - Si ces champs n'existent pas, on retombe sur les offsets 3-up génériques.
         if is_bev4:
             offset_x = printer_info.get("offset_x_4up", request.offset_x)
             offset_y = printer_info.get("offset_y_4up", request.offset_y)
-            # d_param_4up : dimensions {D} pour le rouleau 4-up B-EV4 (ex: "0460,0975,0450")
-            # La valeur par défaut None laisse le moteur utiliser le rouleau 3-up (1221,0975,1201),
-            # mais cela sera probablement faux sur un rouleau 4-up physiquement différent.
             d_param = printer_info.get("d_param_4up", None)
         else:
             offset_x = request.offset_x
             offset_y = request.offset_y
             d_param = None
 
-        if request.printer_language == "TPCL":
-            styling = {
-                "title_size": request.title_size, "title_bold": request.title_bold,
-                "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
-                "lot_size": request.lot_size, "lot_bold": request.lot_bold
-            }
-            # L'utilisateur demande X étiquettes, on doit imprimer X/4 bandes
-            nb_bands = (request.quantity + 3) // 4
-            
-            # Chunking pour éviter le crash mémoire/parseur de l'imprimante Toshiba (limite XS quantité)
-            MAX_QTY_PER_JOB = 2000 # 2000 bandes maximum par commande TPCL
-            remaining = nb_bands
-            flux = ""
-            while remaining > 0:
-                chunk_qty = min(remaining, MAX_QTY_PER_JOB)
-                flux += engine.generate_4up_toshiba_tpcl(parfum, chunk_qty, offset_x=offset_x, offset_y=offset_y, styling=styling, xpml_pitch=xpml_pitch, d_param=d_param)
-                remaining -= chunk_qty
-
-        else:
-            # Fallback ou autre imprimante, non implémenté pour l'instant
+        if request.printer_language != "TPCL":
             raise HTTPException(status_code=400, detail="ZPL non supporté pour ce format")
-            
-        # Calcul réaliste : environ 0.5s par bande pour la B-EV4
-        nb_bands = (request.quantity + 3) // 4 if request.printer_language == "TPCL" else request.quantity
-        sleep_time = max(2.0, nb_bands * 0.5)
-        
-        enqueue_job(request.printer_ip, request.printer_dpi, request.printer_language, flux, sleep_time)
-        return {"message": f"Impression 4-up de {request.quantity} étiquettes ajoutée à la file d'attente."}
 
+        styling = {
+            "title_size": request.title_size, "title_bold": request.title_bold,
+            "gs1_size": request.gs1_size, "gs1_bold": request.gs1_bold,
+            "lot_size": request.lot_size, "lot_bold": request.lot_bold
+        }
+
+        # Send everything in a SINGLE TCP job using the batch engine
+        total_bands = sum((item.quantity + 3) // 4 for item in items_to_print)
+        
+        # Le temps de maintien TCP doit couvrir le temps d'impression physique
+        calc_sleep = max(2.0, total_bands * 0.5)
+        
+        batch_items = []
+        total_qty = 0
+        for item in items_to_print:
+            parfum = db.get_parfum(item.parfum_id)
+            if not parfum:
+                raise HTTPException(status_code=404, detail=f"Parfum '{item.parfum_id}' non trouvé")
+            
+            nb_bands = (item.quantity + 3) // 4
+            total_qty += item.quantity
+            batch_items.append({"parfum": parfum, "qty": nb_bands})
+            
+        full_flux = engine.generate_4up_toshiba_tpcl_batch(batch_items, offset_x=offset_x, offset_y=offset_y, styling=styling, xpml_pitch=xpml_pitch, d_param=d_param)
+        enqueue_job(request.printer_ip, request.printer_dpi, request.printer_language, full_flux, sleep_time=calc_sleep)
+        jobs_enqueued = 1
+
+        return {"message": f"Impression 4-up de {total_qty} étiquettes ({jobs_enqueued} jobs) ajoutée à la file d'attente."}
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erreur impression 4-up: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -384,8 +393,8 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
     lang = request.printer_language
 
     # Détecter si l'imprimante est sur le secteur Gravigny (B-EV4) ou si c'est la nouvelle B-EV4 (FLIPOU) :
-    # La B-EV4 rejette l'attribut pitch='120.1 mm' dans les balises sentinelles XPML.
-    # (Validé par diagnostic juillet 2026 : variante E = OK, variante A avec pitch = voyant rouge)
+    # La B-EV4 ET la TOSHIBA FLIPOU rejettent l'attribut pitch='120.1 mm' dans les balises sentinelles XPML.
+    # (Validé par diagnostic juillet 2026 + commit 15eeb6a : la FLIPOU = firmware B-EV4, pas B-FV4D)
     printer_info = next((p for p in db.get_printers() if p.get("ip") == request.printer_ip), {})
     xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
 

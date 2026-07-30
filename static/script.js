@@ -683,10 +683,13 @@ if (print4UpBtn) {
 
         const totalQty = batch4Up.reduce((acc, curr) => acc + curr.quantity, 0);
         const recapList = batch4Up.map(b => `- ${b.quantity}x ${b.parfumName}`).join('\n');
+        
+        let confirmMsg = `Vous allez lancer l'impression de ${totalQty} étiquettes au total pour les parfums suivants :\n\n${recapList}\n\n`;
+        confirmMsg += `Êtes-vous sûr ?`;
 
         const ok = await Modal.confirm(
             "Confirmation d'impression multiple", 
-            `Vous allez lancer l'impression de ${totalQty} étiquettes au total pour les parfums suivants :\n\n${recapList}\n\nUn séparateur sera automatiquement imprimé entre chaque parfum.\n\nÊtes-vous sûr ?`, 
+            confirmMsg, 
             'printer', 
             'icon-info'
         );

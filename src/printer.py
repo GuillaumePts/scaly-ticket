@@ -77,19 +77,36 @@ class PrinterClient:
             # Detect if the payload contains TPCL/XPML commands
             is_tpcl = ("<xpml>" in zpl) or ("{C|}" in zpl) or (zpl.startswith("\x1b"))
             
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(10.0 if is_tpcl else 5.0)
-                s.connect((self.host, self.port))
-                s.sendall(zpl.encode("latin-1")) # latin-1 ou utf-8 selon les besoins
-                
-                if is_tpcl:
-                    logger.info(f"Flux TPCL détecté. Fermeture propre (shutdown) et attente de {sleep_time}s...")
-                    s.shutdown(socket.SHUT_WR)
-                    time.sleep(sleep_time)
+            max_retries = 3 if is_tpcl else 1
+            retry_count = 0
+            
+            while retry_count < max_retries:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.settimeout(10.0 if is_tpcl else 5.0)
+                        s.connect((self.host, self.port))
+                        s.sendall(zpl.encode("latin-1")) # latin-1 ou utf-8 selon les besoins
+                        
+                        if is_tpcl:
+                            logger.info(f"Flux TPCL détecté. Maintien de la connexion (ESTABLISHED) pendant {sleep_time}s...")
+                            time.sleep(sleep_time)
+                            # Fermeture propre APRÈS le délai pour éviter le timeout CLOSE_WAIT de l'imprimante
+                            try:
+                                s.shutdown(socket.SHUT_WR)
+                            except OSError:
+                                pass
+                            
+                        logger.info(f"Flux envoyé avec succès via TCP à {self.host}")
+                        return # Succès, on sort de la fonction
+                except Exception as e:
+                    retry_count += 1
+                    logger.warning(f"Tentative {retry_count}/{max_retries} échouée pour {self.host}: {e}")
+                    if retry_count >= max_retries:
+                        raise # On relève l'erreur si on a épuisé les essais
+                    time.sleep(2.0) # Attente avant le prochain essai
                     
-                logger.info(f"Flux envoyé avec succès via TCP à {self.host}")
         except Exception as e:
-            logger.error(f"Erreur lors de l'envoi TCP à {self.host}: {e}")
+            logger.error(f"Erreur fatale lors de l'envoi TCP à {self.host}: {e}")
             raise
 
     def _parse_hs_response(self, response: str) -> dict:

@@ -188,46 +188,66 @@ class ZPLEngine:
             main.paste(lbl, (x_offsets[i] + offset_x, 0 + offset_y))
         return main
 
-    def _build_tpcl_job(self, image: Image.Image, quantity: int = 1, xpml_pitch: bool = True, d_param: str = None) -> bytes:
-        """Construit le flux TPCL binaire complet (header XPML + SG graphique + footer XS).
-
-        xpml_pitch=True  -> B-FV4D : balises avec attribut pitch='120.1 mm'
-        xpml_pitch=False -> B-EV4 Gravigny/FLIPOU : sans attribut pitch (firmware B-EV4 le rejette)
-        d_param : chaine 'PITCH,WIDTH,HEIGHT' en 1/10mm pour la commande {D}.
-                  Defaut : '1221,0975,1201' (rouleau 3-up standard).
-                  4-up B-EV4 : configurer dans printers.json via 'd_param_4up'.
-        """
-        img_w, img_h = image.size
+    def _build_tpcl_job(self, images_and_qtys: list, xpml_pitch: bool = True, d_param: str = None) -> bytes:
+        """Construit le flux TPCL binaire complet (header XPML + SG graphique + footer XS)."""
+        img_w, img_h = images_and_qtys[0][0].size
         w_bytes = img_w // 8
         d_bytes = (d_param or "1221,0975,1201").encode('ascii')
         crlf = b"\r\n"
 
-
         if xpml_pitch:
-            # B-FV4D : balises XPML avec attribut pitch (comportement d'origine validé juin 2026)
-            page_open = b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>"
-            page_cont = b"<xpml></page></xpml><xpml><page quantity='1' pitch='120.1 mm'></xpml>"
+            page_0 = b"<xpml><page quantity='0' pitch='120.1 mm'></xpml>"
+            page_1 = b"<xpml><page quantity='1' pitch='120.1 mm'></xpml>"
         else:
-            # B-EV4 Gravigny/FLIPOU : balises XPML SANS attribut pitch (validé juillet 2026)
-            page_open = b"<xpml><page quantity='0'></xpml>"
-            page_cont = b"<xpml></page></xpml><xpml><page quantity='1'></xpml>"
+            page_0 = b"<xpml><page quantity='0'></xpml>"
+            page_1 = b"<xpml><page quantity='1'></xpml>"
+        
+        # Header global du job
+        header = page_0 + b"{D" + d_bytes + b"|}" + crlf
+        
+        body = b""
+        for i, (img, qty) in enumerate(images_and_qtys):
+            if i == 0:
+                # Fermer la page d'entête (0) et ouvrir la page d'impression (1) sans saut de ligne !
+                body += b"<xpml></page></xpml>" + page_1 + b"{C|}" + crlf
+            else:
+                # Fermer la page précédente et ouvrir la nouvelle sans saut de ligne !
+                body += b"<xpml></page></xpml>" + page_1 + b"{C|}" + crlf
+            
+            # LE SAINT GRAAL (validé sur B-FV4D ET B-EV4) :
+            # On envoie UNE UNIQUE commande SG avec H=0300, mais le payload contient
+            # la totalité des lignes réelles (344 ou 360). 
+            raw = img.tobytes()
+            inv = bytes(b ^ 0xFF for b in raw)
+            comp = self.compress_topix(w_bytes, img_h, inv)
+            
+            sg = f"{{SG;0000,0000,{img_w:04d},0300,3,".encode('ascii')
+            clen = len(comp)
+            sg += bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
+            body += sg
+                
+            body += f"{{XS;I,{qty:04d},0002C5000|}}\r\n".encode('ascii')
 
-        header = page_open + b"{D" + d_bytes + b"|}" + crlf + page_cont + b"{C|}" + crlf
+        footer = b"<xpml></page></xpml><xpml><end/></xpml>\r\n"
+        return header + body + footer
 
-        raw = image.tobytes()
-        inv = bytes(b ^ 0xFF for b in raw)
+    def generate_4up_toshiba_tpcl_batch(self, batch_items: list, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True, d_param: str = None) -> str:
+        """Genere un flux TPCL contenant plusieurs parfums dans une SEULE session XPML."""
+        is_bev4 = not xpml_pitch
+        images_and_qtys = []
+        
+        for item in batch_items:
+            qty = item["qty"]
+            parfum = item["parfum"]
+            parfum_name = parfum['nom']
+            ean13 = parfum['ean13']
+            nom_impression = parfum.get('nom_impression')
+            
+            image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling, bev4=is_bev4, nom_impression=nom_impression)
+            images_and_qtys.append((image, qty))
 
-        # LE SAINT GRAAL (validé sur B-FV4D ET B-EV4) :
-        # On envoie UNE UNIQUE commande SG avec H=0300, mais le payload contient
-        # la totalité des lignes réelles. Les deux imprimantes ignorent le H et
-        # affichent tout d'un bloc -> zéro coupure, zéro ligne blanche.
-        comp = self.compress_topix(w_bytes, img_h, inv)
-        sg = f"{{SG;0000,0000,{img_w:04d},0300,3,".encode('ascii')
-        clen = len(comp)
-        sg = sg + bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
-
-        footer = f"{{XS;I,{quantity:04d},0002C5000|}}\r\n<xpml></page></xpml><xpml><end/></xpml>\r\n".encode('ascii')
-        return header + sg + footer
+        job = self._build_tpcl_job(images_and_qtys, xpml_pitch=xpml_pitch, d_param=d_param)
+        return job.decode('latin-1')
 
     def generate_ticket_tpcl(self, data: TicketData, quantity: int = 1, offset_x: int = 0, offset_y: int = 0, styling: dict = None, xpml_pitch: bool = True) -> str:
         """Génère le flux TPCL de production 3-up.
@@ -236,7 +256,7 @@ class ZPLEngine:
         xpml_pitch=False -> B-EV4 Gravigny
         """
         image = self._render_toshiba_band([data, data, data], offset_x, offset_y, styling)
-        job = self._build_tpcl_job(image, quantity, xpml_pitch=xpml_pitch)
+        job = self._build_tpcl_job([(image, quantity)], xpml_pitch=xpml_pitch)
         return job.decode('latin-1')
  
     def generate_separator_tpcl(self, next_product_name: str, xpml_pitch: bool = True) -> str:
@@ -459,8 +479,8 @@ class ZPLEngine:
             t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
             g_font = "arialbd.ttf" if styling.get("gs1_bold") else "arial.ttf"
             
-            font_title = ImageFont.truetype(t_font, max(10, 22 + styling.get("title_size", 0)))
-            font_ean   = ImageFont.truetype(g_font, max(10, 22 + styling.get("gs1_size", 0)))
+            font_title = ImageFont.truetype(t_font, max(10, 21 + styling.get("title_size", 0)))
+            font_ean   = ImageFont.truetype(g_font, max(10, 21 + styling.get("gs1_size", 0)))
         except IOError:
             font_title = ImageFont.load_default()
             font_ean   = ImageFont.load_default()
@@ -499,17 +519,17 @@ class ZPLEngine:
                     if prn_img.width > img_w - 4:
                         prn_img = prn_img.resize((img_w - 4, int(prn_img.height * ((img_w - 4)/prn_img.width))), Image.NEAREST)
                         
-                    img.paste(prn_img, ((img_w - prn_img.width) // 2, 5))
+                    img.paste(prn_img, ((img_w - prn_img.width) // 2, 10))
                     prn_graphic_pasted = True
                     
             if not prn_graphic_pasted:
                 # Fallback
                 title_w = draw.textlength(nom_imp, font=font_title)
-                draw.text(((img_w - title_w) // 2, 5), nom_imp, font=font_title, fill=0)
+                draw.text(((img_w - title_w) // 2, 10), nom_imp, font=font_title, fill=0)
         elif not is_figue_rgf:
             # Parfum classique
             title_w = draw.textlength(nom_imp, font=font_title)
-            draw.text(((img_w - title_w) // 2, 5), nom_imp, font=font_title, fill=0)
+            draw.text(((img_w - title_w) // 2, 10), nom_imp, font=font_title, fill=0)
 
         # Code-barres ou QR Code
         # Détection spéciale pour la Figue RGF (qui utilise un QR Code GS1 Digital Link)
@@ -560,7 +580,8 @@ class ZPLEngine:
                 ean_spaced = ean13
                 
             tw = draw.textlength(ean_spaced, font=font_ean)
-            ean_y = label_h - 36
+            # Décale le texte vers le bas pour l'écarter du code barre
+            ean_y = label_h - 26
             draw.text(((img_w - tw) // 2, ean_y), ean_spaced, font=font_ean, fill=0)
         
         return img.transpose(Image.ROTATE_90)
@@ -597,7 +618,7 @@ class ZPLEngine:
         is_bev4 = not xpml_pitch
         image = self._render_4up_toshiba_band(parfum_name, ean13, offset_x, offset_y, styling, bev4=is_bev4, nom_impression=nom_impression)
 
-        job = self._build_tpcl_job(image, quantity=nb_rows, xpml_pitch=xpml_pitch, d_param=d_param)
+        job = self._build_tpcl_job([(image, nb_rows)], xpml_pitch=xpml_pitch, d_param=d_param)
         return job.decode('latin-1')
 
     def _render_4up_separator_band(self, next_product_name: str, bev4: bool = False) -> Image.Image:
@@ -626,10 +647,10 @@ class ZPLEngine:
             
         draw.text((max(0, (canvas_w - tw) // 2), max(0, (canvas_h - th) // 2)), text_to_draw, fill=0, font=font)
         
-        # Lignes horizontales pour bien délimiter
+        # Lignes horizontales pour bien délimiter (X=12 minimum pour éviter la sécurité matérielle Pixel 0)
         line_thick = 4
-        draw.rectangle([0, 20, canvas_w, 20 + line_thick], fill=0)
-        draw.rectangle([0, canvas_h - 20 - line_thick, canvas_w, canvas_h - 20], fill=0)
+        draw.rectangle([12, 20, canvas_w - 12, 20 + line_thick], fill=0)
+        draw.rectangle([12, canvas_h - 20 - line_thick, canvas_w - 12, canvas_h - 20], fill=0)
         
         return img
 

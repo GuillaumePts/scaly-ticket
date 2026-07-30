@@ -259,12 +259,11 @@
                             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: right; font-weight: bold; font-size: 14px; color: #0f172a;">
                                 Total : <span id="batch-total-4up">0</span> étiquettes
                             </div>
+                            <button type="button" id="print-4up-btn" class="btn-primary btn-massive"
+                                style="margin-top: 15px; display: none; width: 100%;">
+                                <i data-lucide="printer"></i> Lancer l'impression multiple
+                            </button>
                         </div>
-
-                        <button type="button" id="print-4up-btn" class="btn-primary btn-massive"
-                            style="margin-top: 25px; display: none;">
-                            <i data-lucide="printer"></i> Lancer l'impression multiple
-                        </button>
                     </div>
 
                     <div class="preview-box">
@@ -683,7 +682,7 @@
     <script>
         const printersData = {{ printers| tojson }};
     </script>
-    <script src="/static/script.js?v=32"></script>
+    <script src="/static/script.js?v=33"></script>
 </body>
 
 </html>
