@@ -1461,6 +1461,13 @@ const closePaletisationModal = document.getElementById('close-paletisation-modal
 const paletisationContainer = document.getElementById('paletisation-container');
 const paletisationSummary = document.getElementById('paletisation-summary');
 
+let globalTours = [];
+let dragItem = null;
+let dragSource = null;
+let dragHover = null;
+let dragEl = null;
+let wasDragging = false;
+
 if (closePaletisationModal) {
     closePaletisationModal.onclick = () => {
         paletisationModal.style.display = 'none';
@@ -1503,123 +1510,8 @@ if (btnPaletisationOrder) {
             const result = await response.json();
             
             if (result.success) {
-                let totalPalettes = 0;
-                let totalPoids = 0;
-                let summaryHTML = `<div style="margin-bottom:10px; display: flex; justify-content: space-around;">
-                    <div><strong>Total Palettes au sol :</strong> ${result.tours.length}</div>
-                    <div><strong>Total Palettes bois :</strong> <span id="total-pal-count"></span></div>
-                    <div><strong>Poids total estimé :</strong> <span id="total-weight-count"></span> kg</div>
-                </div>
-                <div style="font-size: 13px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; border-top: 1px solid #e2e8f0; padding-top: 10px;" id="paletisation-details">`;
-
-                // On passe le conteneur principal en Grid
-                paletisationContainer.style.display = 'grid';
-                paletisationContainer.style.gridAutoFlow = 'column';
-                paletisationContainer.style.gridAutoColumns = '160px';
-                paletisationContainer.style.gap = '20px';
-                
-                // Dessin graphique
-                const cmToPx = 2.5; 
-                
-                result.tours.forEach((tour, i) => {
-                    // Utilisation du poids réel calculé par le backend
-                    const tourPoids = tour.poids_kg || 0;
-                    totalPoids += tourPoids;
-                    totalPalettes += tour.items.length;
-                    
-                    summaryHTML += `<div><strong>n°${i+1} :</strong> ${tourPoids.toFixed(1)} kg</div>`;
-
-                    let hauteurTxt = document.createElement('div');
-                    hauteurTxt.style.textAlign = 'center';
-                    hauteurTxt.style.marginBottom = '10px';
-                    hauteurTxt.style.color = '#475569';
-                    hauteurTxt.style.alignSelf = 'end'; // Aligné en bas de sa cellule
-                    hauteurTxt.innerHTML = `<strong style="color: #9333ea; font-size: 15px;">n°${i+1}</strong><br><span style="font-weight: bold;">${tour.hauteur} cm</span>`;
-                    
-                    // On va créer un conteneur pour la tour
-                    const tourStack = document.createElement('div');
-                    tourStack.style.display = 'flex';
-                    tourStack.style.flexDirection = 'column-reverse';
-                    tourStack.style.width = '100%';
-                    
-                    tour.items.forEach(pal => {
-                        // Dessiner la palette bois en dessous (hauteur visuelle divisée par 2)
-                        const bois = document.createElement('div');
-                        bois.style.height = `${(14.5 / 2) * cmToPx}px`; 
-                        bois.style.width = '100%';
-                        bois.style.background = '#8b4513';
-                        bois.style.borderRadius = '2px';
-                        bois.style.marginTop = '2px';
-                        bois.title = "Palette Bois (14.5 cm)";
-                        
-                        // Dessiner le bloc produit
-                        const bloc = document.createElement('div');
-                        // On force une hauteur minimale de 36px pour être sûr de pouvoir afficher le texte
-                        const visualHeight = Math.max(36, pal.hauteur_cm * cmToPx);
-                        bloc.style.height = `${visualHeight}px`;
-                        bloc.style.width = '100%';
-                        bloc.style.borderRadius = '4px';
-                        bloc.style.border = '1px solid rgba(0,0,0,0.2)';
-                        bloc.style.display = 'flex';
-                        bloc.style.flexDirection = 'column';
-                        bloc.style.alignItems = 'center';
-                        bloc.style.justifyContent = 'center';
-                        bloc.style.color = 'white';
-                        bloc.style.textAlign = 'center';
-                        bloc.style.padding = '2px';
-                        bloc.style.boxSizing = 'border-box';
-                        bloc.style.lineHeight = '1.1';
-                        bloc.style.marginTop = '2px';
-                        bloc.style.overflow = 'hidden';
-                        
-                        if (pal.famille === 'A') bloc.style.background = '#3b82f6';
-                        else if (pal.famille === 'B') bloc.style.background = '#10b981';
-                        else if (pal.famille === 'C') bloc.style.background = '#f59e0b';
-                        else bloc.style.background = '#64748b';
-                        
-                        if (pal.fragile) bloc.style.border = '2px dashed #dc2626';
-                        
-                        let shortName = pal.libelle.substring(0, 25);
-                        if (pal.libelle.length > 25) shortName += '...';
-                        
-                        // Le texte est toujours affiché car le bloc fait au minimum 36px
-                        const updateBlocText = () => {
-                            bloc.innerHTML = `<strong style="font-size: 12px;">${pal.qte} colis</strong><span style="font-size: 10px; opacity: 0.9;">${shortName}</span><div style="font-size:9px; margin-top:2px;">(${Math.ceil(pal.qte / pal.colis_par_couche)} couches)</div>`;
-                            bloc.title = `${pal.qte} cartons de ${pal.libelle} (${pal.pleine ? 'Pleine' : 'Chute'})`;
-                        };
-                        updateBlocText();
-                        
-                        bloc.style.cursor = 'pointer';
-                        bloc.onclick = () => {
-                            openRuptureModal(pal, updateBlocText);
-                        };
-                        
-                        // L'ordre d'ajout dans 'column-reverse' détermine ce qui est en bas.
-                        // On ajoute le bois EN PREMIER pour qu'il soit tout en bas physiquement.
-                        tourStack.appendChild(bois);
-                        tourStack.appendChild(bloc);
-                    });
-                    
-                    let col = document.createElement('div');
-                    col.style.display = 'grid';
-                    col.style.gridTemplateRows = '1fr auto auto';
-                    col.style.height = '100%';
-                    col.style.gap = '5px';
-                    
-                    let spacer = document.createElement('div');
-                    
-                    col.appendChild(spacer);
-                    col.appendChild(hauteurTxt);
-                    col.appendChild(tourStack);
-                    
-                    paletisationContainer.appendChild(col);
-                });
-                
-                summaryHTML += `</div>`;
-                paletisationSummary.innerHTML = summaryHTML;
-                document.getElementById('total-pal-count').innerText = totalPalettes;
-                document.getElementById('total-weight-count').innerText = totalPoids.toFixed(1);
-                
+                globalTours = result.tours;
+                window.renderPaletisationState();
             } else {
                 paletisationSummary.innerHTML = `<span style="color: red;">Erreur: ${result.error}</span>`;
             }
@@ -1916,7 +1808,306 @@ function applyRupture(newQte) {
             }
         }
     }
-    
     showToast(`Recalcul de la palettisation en cours...`);
     document.getElementById('btn-paletisation-order').click();
+}
+
+window.renderPaletisationState = function() {
+    const paletisationContainer = document.getElementById('paletisation-container');
+    const paletisationSummary = document.getElementById('paletisation-summary');
+    if (!paletisationContainer || !paletisationSummary) return;
+
+    globalTours = globalTours.filter(t => t.items.length > 0);
+    globalTours.push({ items: [], hauteur: 0, poids_kg: 0, familles: [] });
+
+    let totalPalettes = 0;
+    let totalPoids = 0;
+    
+    let summaryHTML = `<div style="margin-bottom:10px; display: flex; justify-content: space-around;">
+        <div><strong>Total Palettes au sol :</strong> ${globalTours.length > 1 ? globalTours.length - 1 : 0}</div>
+        <div><strong>Total Palettes bois :</strong> <span id="total-pal-count"></span></div>
+        <div><strong>Poids total estimé :</strong> <span id="total-weight-count"></span> kg</div>
+    </div>
+    <div style="font-size: 13px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; border-top: 1px solid #e2e8f0; padding-top: 10px;" id="paletisation-details">`;
+
+    paletisationContainer.style.display = 'grid';
+    paletisationContainer.style.gridAutoFlow = 'column';
+    paletisationContainer.style.gridAutoColumns = '160px';
+    paletisationContainer.style.gap = '20px';
+    paletisationContainer.innerHTML = '';
+    
+    const cmToPx = 2.5;
+    const MAX_HEIGHT_CM = 212;
+
+    globalTours.forEach((tour, tIdx) => {
+        let renderItems = [...tour.items];
+        
+        if (dragHover && dragHover.tourIdx === tIdx) {
+            renderItems.splice(dragHover.itemIdx, 0, { ...dragItem, isPlaceholder: true });
+        }
+
+        const tourPoidsCalc = renderItems.reduce((sum, item) => sum + (item.poids_kg || 0) + 25, 0);
+        const tourHauteurCalc = renderItems.reduce((sum, item) => sum + (item.hauteur_cm || 0) + 15, 0);
+
+        if (renderItems.length > 0 && !(renderItems.length === 1 && renderItems[0].isPlaceholder && tIdx === globalTours.length-1)) {
+            totalPoids += tourPoidsCalc;
+            totalPalettes += renderItems.length;
+        }
+
+        if (tIdx < globalTours.length - 1 || renderItems.length > 0) {
+            summaryHTML += `<div><strong>n°${tIdx+1} :</strong> ${tourPoidsCalc.toFixed(1)} kg</div>`;
+        }
+
+        let col = document.createElement('div');
+        col.style.display = 'grid';
+        col.style.gridTemplateRows = '1fr auto auto';
+        col.style.height = '100%';
+        col.style.gap = '5px';
+        col.dataset.tourIdx = tIdx;
+
+        let spacer = document.createElement('div');
+
+        let hauteurTxt = document.createElement('div');
+        hauteurTxt.style.textAlign = 'center';
+        hauteurTxt.style.marginBottom = '10px';
+        hauteurTxt.style.color = tourHauteurCalc > MAX_HEIGHT_CM ? '#dc2626' : '#475569';
+        hauteurTxt.style.alignSelf = 'end';
+        
+        if (renderItems.length > 0) {
+            let exceedText = tourHauteurCalc > MAX_HEIGHT_CM ? `<br><span style="color: #dc2626; font-size: 11px; font-weight: bold;">+${(tourHauteurCalc - MAX_HEIGHT_CM).toFixed(1)} cm excédent</span>` : '';
+            hauteurTxt.innerHTML = `<strong style="color: #9333ea; font-size: 15px;">n°${tIdx+1}</strong><br><span style="font-weight: bold;">${tourHauteurCalc} cm</span>${exceedText}`;
+        } else {
+            hauteurTxt.innerHTML = `<span style="color: #94a3b8; font-style: italic;">Nouvelle palette</span>`;
+        }
+
+        const tourStack = document.createElement('div');
+        tourStack.style.display = 'flex';
+        tourStack.style.flexDirection = 'column-reverse';
+        tourStack.style.width = '100%';
+        tourStack.style.position = 'relative';
+        tourStack.style.minHeight = '30px'; 
+        tourStack.style.border = renderItems.length === 0 ? '2px dashed #cbd5e1' : 'none';
+        tourStack.style.borderRadius = '4px';
+        tourStack.dataset.tourIdx = tIdx;
+        
+        if (tourHauteurCalc > MAX_HEIGHT_CM) {
+            let redLine = document.createElement('div');
+            redLine.style.position = 'absolute';
+            redLine.style.bottom = `${MAX_HEIGHT_CM * cmToPx}px`;
+            redLine.style.left = '-10px';
+            redLine.style.right = '-10px';
+            redLine.style.height = '4px';
+            redLine.style.backgroundColor = '#dc2626';
+            redLine.style.zIndex = '10';
+            redLine.style.boxShadow = '0 0 5px rgba(220, 38, 38, 0.5)';
+            redLine.title = `Limite de ${MAX_HEIGHT_CM} cm dépassée !`;
+            tourStack.appendChild(redLine);
+        }
+
+        renderItems.forEach((pal, pIdx) => {
+            const bois = document.createElement('div');
+            bois.style.height = `${(14.5 / 2) * cmToPx}px`;
+            bois.style.width = '100%';
+            bois.style.background = '#8b4513';
+            bois.style.borderRadius = '2px';
+            bois.style.marginTop = '2px';
+            bois.title = "Palette Bois (14.5 cm)";
+            
+            const bloc = document.createElement('div');
+            const visualHeight = Math.max(36, pal.hauteur_cm * cmToPx);
+            bloc.style.height = `${visualHeight}px`;
+            bloc.style.width = '100%';
+            bloc.style.borderRadius = '4px';
+            bloc.style.border = '1px solid rgba(0,0,0,0.2)';
+            bloc.style.display = 'flex';
+            bloc.style.flexDirection = 'column';
+            bloc.style.alignItems = 'center';
+            bloc.style.justifyContent = 'center';
+            bloc.style.color = 'white';
+            bloc.style.textAlign = 'center';
+            bloc.style.padding = '2px';
+            bloc.style.boxSizing = 'border-box';
+            bloc.style.lineHeight = '1.1';
+            bloc.style.marginTop = '2px';
+            bloc.style.overflow = 'hidden';
+            
+            if (pal.famille === 'A') bloc.style.background = '#3b82f6';
+            else if (pal.famille === 'B') bloc.style.background = '#10b981';
+            else if (pal.famille === 'C') bloc.style.background = '#f59e0b';
+            else bloc.style.background = '#64748b';
+            
+            if (pal.fragile) bloc.style.border = '2px dashed #dc2626';
+
+            let shortName = pal.libelle.substring(0, 25);
+            if (pal.libelle.length > 25) shortName += '...';
+            
+            bloc.innerHTML = `<strong style="font-size: 12px;">${pal.qte} colis</strong><span style="font-size: 10px; opacity: 0.9;">${shortName}</span><div style="font-size:9px; margin-top:2px;">(${Math.ceil(pal.qte / pal.colis_par_couche)} couches)</div>`;
+            bloc.title = `${pal.qte} cartons de ${pal.libelle} (${pal.pleine ? 'Pleine' : 'Chute'})`;
+
+            if (pal.isPlaceholder) {
+                bloc.style.opacity = '0.4';
+                bloc.style.border = '2px dashed #334155';
+                bois.style.opacity = '0.4';
+            } else {
+                bloc.style.cursor = 'grab';
+                bloc.dataset.itemIdx = tour.items.indexOf(pal);
+                
+                bloc.onpointerdown = (e) => window.startDrag(e, tIdx, bloc.dataset.itemIdx, bloc, bois);
+                
+                bloc.onclick = (e) => {
+                    if (!wasDragging) {
+                        openRuptureModal(pal, () => {
+                            window.renderPaletisationState();
+                        });
+                    }
+                };
+            }
+            
+            tourStack.appendChild(bois);
+            tourStack.appendChild(bloc);
+        });
+
+        col.appendChild(spacer);
+        col.appendChild(hauteurTxt);
+        col.appendChild(tourStack);
+        
+        paletisationContainer.appendChild(col);
+    });
+
+    summaryHTML += `</div>`;
+    paletisationSummary.innerHTML = summaryHTML;
+    document.getElementById('total-pal-count').innerText = totalPalettes;
+    document.getElementById('total-weight-count').innerText = totalPoids.toFixed(1);
+}
+
+window.startDrag = function(e, tourIdx, itemIdx, blocEl, boisEl) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    let isDraggingCurrently = false;
+    let startX = e.clientX;
+    let startY = e.clientY;
+
+    const onPointerMove = (ev) => {
+        if (!isDraggingCurrently) {
+            if (Math.abs(ev.clientX - startX) > 5 || Math.abs(ev.clientY - startY) > 5) {
+                isDraggingCurrently = true;
+                wasDragging = true;
+                window.initDrag(tourIdx, itemIdx, blocEl, boisEl, ev);
+            }
+        } else {
+            window.handleDragMove(ev);
+        }
+    };
+
+    const onPointerUp = (ev) => {
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        if (isDraggingCurrently) {
+            window.endDrag(ev);
+            setTimeout(() => { wasDragging = false; }, 10);
+        } else {
+            wasDragging = false;
+        }
+    };
+
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+}
+
+window.initDrag = function(tourIdx, itemIdx, blocEl, boisEl, e) {
+    const item = globalTours[tourIdx].items[itemIdx];
+    dragItem = item;
+    dragSource = { tourIdx: tourIdx, itemIdx: itemIdx };
+    globalTours[tourIdx].items.splice(itemIdx, 1);
+
+    dragEl = document.createElement('div');
+    dragEl.style.position = 'fixed';
+    dragEl.style.pointerEvents = 'none';
+    dragEl.style.zIndex = '99999';
+    dragEl.style.width = blocEl.getBoundingClientRect().width + 'px';
+    
+    const cloneBloc = blocEl.cloneNode(true);
+    const cloneBois = boisEl.cloneNode(true);
+    
+    cloneBloc.style.cursor = 'grabbing';
+    cloneBloc.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.3)';
+    
+    dragEl.appendChild(cloneBloc);
+    dragEl.appendChild(cloneBois);
+    
+    document.body.appendChild(dragEl);
+    
+    window.updateDragElPos(e);
+    
+    dragHover = { tourIdx: tourIdx, itemIdx: itemIdx };
+    window.renderPaletisationState();
+}
+
+window.updateDragElPos = function(e) {
+    if (dragEl) {
+        dragEl.style.left = (e.clientX - dragEl.offsetWidth / 2) + 'px';
+        dragEl.style.top = (e.clientY - dragEl.offsetHeight / 2) + 'px';
+    }
+}
+
+window.handleDragMove = function(e) {
+    window.updateDragElPos(e);
+
+    const elements = document.elementsFromPoint(e.clientX, e.clientY);
+    let foundTourStack = null;
+    for (let el of elements) {
+        if (el.dataset && el.dataset.tourIdx !== undefined && el.style.flexDirection === 'column-reverse') {
+            foundTourStack = el;
+            break;
+        }
+    }
+
+    if (foundTourStack) {
+        const hoverTourIdx = parseInt(foundTourStack.dataset.tourIdx);
+        const rect = foundTourStack.getBoundingClientRect();
+        const yFromBottom = rect.bottom - e.clientY;
+        
+        let cumulativeHeight = 0;
+        let insertIdx = 0;
+        const cmToPx = 2.5;
+        
+        const tourItems = globalTours[hoverTourIdx].items;
+        
+        for (let i = 0; i < tourItems.length; i++) {
+            const visualH = 2 + 18.125 + 2 + Math.max(36, tourItems[i].hauteur_cm * cmToPx);
+            cumulativeHeight += visualH;
+            if (yFromBottom > cumulativeHeight - (visualH / 2)) {
+                insertIdx = i + 1;
+            } else {
+                break;
+            }
+        }
+        
+        if (!dragHover || dragHover.tourIdx !== hoverTourIdx || dragHover.itemIdx !== insertIdx) {
+            dragHover = { tourIdx: hoverTourIdx, itemIdx: insertIdx };
+            window.renderPaletisationState();
+        }
+    }
+}
+
+window.endDrag = function(e) {
+    if (dragEl) {
+        dragEl.remove();
+        dragEl = null;
+    }
+    
+    if (dragHover) {
+        globalTours[dragHover.tourIdx].items.splice(dragHover.itemIdx, 0, dragItem);
+    } else {
+        globalTours[dragSource.tourIdx].items.splice(dragSource.itemIdx, 0, dragItem);
+    }
+    
+    globalTours = globalTours.filter(t => t.items.length > 0);
+    
+    dragItem = null;
+    dragSource = null;
+    dragHover = null;
+    window.renderPaletisationState();
 }
