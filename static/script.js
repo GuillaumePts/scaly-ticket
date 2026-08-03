@@ -346,12 +346,12 @@ function activateDedicatedTool(tool, sector) {
                     const potsPrinter = zebras.find(o => o.text.includes("x2"));
                     
                     staticBlock.innerHTML = `
-                        <div class="hub-card tool-card" style="display:flex; flex-direction:column; align-items:center; cursor:default; pointer-events:none;">
+                        <div class="hub-card tool-card" style="display:flex; flex-direction:column; align-items:center; cursor:default; position:relative;">
                             <i data-lucide="box" class="hub-icon text-orange"></i>
                             <h3 style="margin: 10px 0 5px 0;">${cartonPrinter ? cartonPrinter.text : 'Zebra (Cartons)'}</h3>
                             <p style="margin: 0; font-size: 14px; opacity: 0.8;">${cartonPrinter ? cartonPrinter.value : 'IP introuvable'}</p>
                         </div>
-                        <div class="hub-card tool-card" style="display:flex; flex-direction:column; align-items:center; cursor:default; pointer-events:none;">
+                        <div class="hub-card tool-card" style="display:flex; flex-direction:column; align-items:center; cursor:default; position:relative;">
                             <i data-lucide="tags" class="hub-icon text-green"></i>
                             <h3 style="margin: 10px 0 5px 0;">${potsPrinter ? potsPrinter.text : 'Zebra (Pots x2)'}</h3>
                             <p style="margin: 0; font-size: 14px; opacity: 0.8;">${potsPrinter ? potsPrinter.value : 'IP introuvable'}</p>
@@ -802,6 +802,11 @@ function renderManageTable() {
             <td style="color: #64748b;">
                 <span class="status-badge" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">${p.sector}</span>
             </td>
+            <td style="text-align: right;">
+                <button type="button" class="btn-secondary btn-sm" onclick="openCalibrationForPrinter('${p.ip}')" style="font-size: 11px; padding: 4px 8px;">
+                    <i data-lucide="move" style="width: 14px;"></i> Calibrer
+                </button>
+            </td>
         `;
         managePrintersTableBody.appendChild(tr);
     });
@@ -828,6 +833,13 @@ function filterPrinters(sector) {
         opt.dataset.gs1Bold = !!p.gs1_bold;
         opt.dataset.lotSize = p.lot_size || 0;
         opt.dataset.lotBold = !!p.lot_bold;
+
+        opt.dataset.titleSize4up = p.title_size_4up || 0;
+        opt.dataset.titleBold4up = !!p.title_bold_4up;
+        opt.dataset.gs1Size4up = p.gs1_size_4up || 0;
+        opt.dataset.gs1Bold4up = !!p.gs1_bold_4up;
+        opt.dataset.lotSize4up = p.lot_size_4up || 0;
+        opt.dataset.lotBold4up = !!p.lot_bold_4up;
         printerSelect.appendChild(opt);
     });
     
@@ -836,8 +848,14 @@ function filterPrinters(sector) {
     const openCalibrationHeaderBtn = document.getElementById('open-calibration-header-btn');
     const toggleCalibrationBtn = () => {
         const opt = printerSelect.options[printerSelect.selectedIndex];
-        if (openCalibrationBtn) openCalibrationBtn.style.display = 'block';
-        if (openCalibrationHeaderBtn) openCalibrationHeaderBtn.style.display = 'flex';
+        
+        // Cacher les boutons de calibrage globaux pour les Zebra (Ligne 1) car ils ont leurs propres boutons
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentTool = urlParams.get('tool');
+        const hideForZebra = currentTool && currentTool.startsWith('zebra');
+        
+        if (openCalibrationBtn) openCalibrationBtn.style.display = hideForZebra ? 'none' : 'block';
+        if (openCalibrationHeaderBtn) openCalibrationHeaderBtn.style.display = hideForZebra ? 'none' : 'flex';
     };
     printerSelect.addEventListener('change', toggleCalibrationBtn);
     toggleCalibrationBtn();
@@ -877,10 +895,11 @@ function updateCalibrationVisual() {
     
     const opt = printerSelect.options[printerSelect.selectedIndex];
     if (opt && opt.dataset.language === 'TPCL') {
-        calibImg.style.left = zebraY + 'px';
+        // Inversion de l'axe X uniquement pour que la visualisation corresponde à la réalité matérielle
+        calibImg.style.left = (-zebraY) + 'px';
         calibImg.style.top = zebraX + 'px';
     } else {
-        calibImg.style.left = zebraY + 'px';
+        calibImg.style.left = (-zebraY) + 'px';
         calibImg.style.top = (zebraX - 800) + 'px';
     }
 }
@@ -1006,6 +1025,33 @@ function updateCalibrationPreviewImage() {
     }
 }
 
+function loadCalibrationValues() {
+    const opt = printerSelect.options[printerSelect.selectedIndex];
+    if (!opt) return;
+    
+    const format = calibFormatSelector.value;
+    
+    if (format === '4up') {
+        calibValX.value = opt.dataset.offsetX4up || 0;
+        calibValY.value = opt.dataset.offsetY4up || 0;
+        titleSizeInput.value = opt.dataset.titleSize4up || 0;
+        titleBoldInput.checked = opt.dataset.titleBold4up === "true";
+        gs1SizeInput.value = opt.dataset.gs1Size4up || 0;
+        gs1BoldInput.checked = opt.dataset.gs1Bold4up === "true";
+        lotSizeInput.value = opt.dataset.lotSize4up || 0;
+        lotBoldInput.checked = opt.dataset.lotBold4up === "true";
+    } else {
+        calibValX.value = opt.dataset.offsetX || 0;
+        calibValY.value = opt.dataset.offsetY || 0;
+        titleSizeInput.value = opt.dataset.titleSize || 0;
+        titleBoldInput.checked = opt.dataset.titleBold === "true";
+        gs1SizeInput.value = opt.dataset.gs1Size || 0;
+        gs1BoldInput.checked = opt.dataset.gs1Bold === "true";
+        lotSizeInput.value = opt.dataset.lotSize || 0;
+        lotBoldInput.checked = opt.dataset.lotBold === "true";
+    }
+}
+
 calibFormatSelector.onchange = (e) => {
     const val = e.target.value;
     const opt = printerSelect.options[printerSelect.selectedIndex];
@@ -1018,17 +1064,9 @@ calibFormatSelector.onchange = (e) => {
         }
         if (targetOpt && printerSelect.value !== targetOpt.value) {
             printerSelect.value = targetOpt.value;
-            // Reload offsets for this new selected printer
-            calibValX.value = targetOpt.dataset.offsetY || 0;
-            calibValY.value = targetOpt.dataset.offsetX || 0;
-            titleSizeInput.value = targetOpt.dataset.titleSize || 0;
-            titleBoldInput.checked = targetOpt.dataset.titleBold === "true";
-            gs1SizeInput.value = targetOpt.dataset.gs1Size || 0;
-            gs1BoldInput.checked = targetOpt.dataset.gs1Bold === "true";
-            lotSizeInput.value = targetOpt.dataset.lotSize || 0;
-            lotBoldInput.checked = targetOpt.dataset.lotBold === "true";
         }
     }
+    loadCalibrationValues();
     updateCalibrationPreviewImage();
     updateCalibrationVisual();
 };
@@ -1036,16 +1074,6 @@ calibFormatSelector.onchange = (e) => {
 const openCalibrationModal = async () => {
     const opt = printerSelect.options[printerSelect.selectedIndex];
     if (!opt) return;
-    
-    calibValX.value = opt.dataset.offsetY || 0;
-    calibValY.value = opt.dataset.offsetX || 0;
-    
-    titleSizeInput.value = opt.dataset.titleSize || 0;
-    titleBoldInput.checked = opt.dataset.titleBold === "true";
-    gs1SizeInput.value = opt.dataset.gs1Size || 0;
-    gs1BoldInput.checked = opt.dataset.gs1Bold === "true";
-    lotSizeInput.value = opt.dataset.lotSize || 0;
-    lotBoldInput.checked = opt.dataset.lotBold === "true";
     
     // Auto-selection of format if it was previously clicked
     if (opt.dataset.language === 'TPCL') {
@@ -1059,13 +1087,23 @@ const openCalibrationModal = async () => {
             calibFormatSelector.value = '1up';
         }
     }
+    
+    loadCalibrationValues();
     updateCalibrationPreviewImage();
     updateCalibrationVisual();
     calibrationModal.style.display = 'flex';
 };
 
-if (openCalibrationBtn) openCalibrationBtn.onclick = openCalibrationModal;
-if (openCalibrationHeaderBtn) openCalibrationHeaderBtn.onclick = openCalibrationModal;
+window.openCalibrationForPrinter = (ip) => {
+    const p = printersData.find(x => x.ip === ip);
+    if (!p) return;
+    
+    // On met à jour le selecteur caché (pour que le reste du code continue de fonctionner)
+    filterPrinters(p.sector);
+    printerSelect.value = ip;
+    
+    openCalibrationModal();
+};
 
 closeCalibrationModal.onclick = () => {
     calibrationModal.style.display = 'none';
@@ -1091,10 +1129,34 @@ closeCalibrationModal.onclick = () => {
     lotSizeInput.oninput = triggerPreviewUpdate;
     lotBoldInput.onchange = triggerPreviewUpdate;
     
+    const resetCalibrationBtn = document.getElementById('reset-calibration-btn');
+    if (resetCalibrationBtn) {
+        resetCalibrationBtn.onclick = () => {
+            calibValX.value = 0;
+            calibValY.value = 0;
+            titleSizeInput.value = 0;
+            titleBoldInput.checked = false;
+            gs1SizeInput.value = 0;
+            gs1BoldInput.checked = false;
+            lotSizeInput.value = 0;
+            lotBoldInput.checked = false;
+            triggerPreviewUpdate();
+            updateCalibrationVisual();
+        };
+    }
+    
     saveCalibrationBtn.onclick = async () => {
         const opt = printerSelect.options[printerSelect.selectedIndex];
-        const newOffsetX = parseInt(calibValY.value);
-        const newOffsetY = parseInt(calibValX.value);
+        const newOffsetX = parseInt(calibValY.value) || 0;
+        const newOffsetY = parseInt(calibValX.value) || 0;
+        const format = calibFormatSelector.value || "3up";
+        
+        // Safety bounds for Toshiba (TPCL)
+        if (opt.dataset.language === 'TPCL') {
+            if (newOffsetX < -100 || newOffsetX > 800 || newOffsetY < -100 || newOffsetY > 1200) {
+                return Modal.error("Sécurité", "Ces valeurs dépassent les limites physiques de l'imprimante et risquent de la faire planter. Restez dans des valeurs raisonnables (ex: entre 0 et 800).");
+            }
+        }
         
         try {
             const res = await fetch('/api/update-printer-offsets', {
@@ -1109,31 +1171,54 @@ closeCalibrationModal.onclick = () => {
                     gs1_size: parseInt(gs1SizeInput.value) || 0,
                     gs1_bold: gs1BoldInput.checked,
                     lot_size: parseInt(lotSizeInput.value) || 0,
-                    lot_bold: lotBoldInput.checked
+                    lot_bold: lotBoldInput.checked,
+                    format: format
                 })
             });
             if (res.ok) {
                 // Mettre à jour en local
-                opt.dataset.offsetX = newOffsetX;
-                opt.dataset.offsetY = newOffsetY;
-                opt.dataset.titleSize = titleSizeInput.value;
-                opt.dataset.titleBold = titleBoldInput.checked;
-                opt.dataset.gs1Size = gs1SizeInput.value;
-                opt.dataset.gs1Bold = gs1BoldInput.checked;
-                opt.dataset.lotSize = lotSizeInput.value;
-                opt.dataset.lotBold = lotBoldInput.checked;
+                if (format === '4up') {
+                    opt.dataset.offsetX4up = newOffsetX;
+                    opt.dataset.offsetY4up = newOffsetY;
+                    opt.dataset.titleSize4up = titleSizeInput.value;
+                    opt.dataset.titleBold4up = titleBoldInput.checked;
+                    opt.dataset.gs1Size4up = gs1SizeInput.value;
+                    opt.dataset.gs1Bold4up = gs1BoldInput.checked;
+                    opt.dataset.lotSize4up = lotSizeInput.value;
+                    opt.dataset.lotBold4up = lotBoldInput.checked;
+                } else {
+                    opt.dataset.offsetX = newOffsetX;
+                    opt.dataset.offsetY = newOffsetY;
+                    opt.dataset.titleSize = titleSizeInput.value;
+                    opt.dataset.titleBold = titleBoldInput.checked;
+                    opt.dataset.gs1Size = gs1SizeInput.value;
+                    opt.dataset.gs1Bold = gs1BoldInput.checked;
+                    opt.dataset.lotSize = lotSizeInput.value;
+                    opt.dataset.lotBold = lotBoldInput.checked;
+                }
                 
-                // Mettre à jour aussi dans printersData pour que ce soit persistant si on re-filtre
+                // Mettre à jour aussi dans printersData global
                 const pData = printersData.find(p => p.ip === opt.value);
                 if (pData) {
-                    pData.offset_x = newOffsetX;
-                    pData.offset_y = newOffsetY;
-                    pData.title_size = parseInt(titleSizeInput.value) || 0;
-                    pData.title_bold = titleBoldInput.checked;
-                    pData.gs1_size = parseInt(gs1SizeInput.value) || 0;
-                    pData.gs1_bold = gs1BoldInput.checked;
-                    pData.lot_size = parseInt(lotSizeInput.value) || 0;
-                    pData.lot_bold = lotBoldInput.checked;
+                    if (format === '4up') {
+                        pData.offset_x_4up = newOffsetX;
+                        pData.offset_y_4up = newOffsetY;
+                        pData.title_size_4up = parseInt(titleSizeInput.value) || 0;
+                        pData.title_bold_4up = titleBoldInput.checked;
+                        pData.gs1_size_4up = parseInt(gs1SizeInput.value) || 0;
+                        pData.gs1_bold_4up = gs1BoldInput.checked;
+                        pData.lot_size_4up = parseInt(lotSizeInput.value) || 0;
+                        pData.lot_bold_4up = lotBoldInput.checked;
+                    } else {
+                        pData.offset_x = newOffsetX;
+                        pData.offset_y = newOffsetY;
+                        pData.title_size = parseInt(titleSizeInput.value) || 0;
+                        pData.title_bold = titleBoldInput.checked;
+                        pData.gs1_size = parseInt(gs1SizeInput.value) || 0;
+                        pData.gs1_bold = gs1BoldInput.checked;
+                        pData.lot_size = parseInt(lotSizeInput.value) || 0;
+                        pData.lot_bold = lotBoldInput.checked;
+                    }
                 }
                 
                 Modal.alert("Succès", "Calibrage enregistré !");
@@ -1530,10 +1615,11 @@ if (btnPaletisationOrder) {
         lucide.createIcons();
 
         try {
+            const currentClient = (currentData && currentData.length > 0) ? currentData[0].Client : "";
             const response = await fetch('/api/palettisation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: items, optimisation_max: isOptMax })
+                body: JSON.stringify({ items: items, optimisation_max: isOptMax, client: currentClient })
             });
             const result = await response.json();
             
@@ -1962,6 +2048,7 @@ window.renderPaletisationState = function() {
             if (pal.famille === 'A') bloc.style.background = '#3b82f6';
             else if (pal.famille === 'B') bloc.style.background = '#10b981';
             else if (pal.famille === 'C') bloc.style.background = '#f59e0b';
+            else if (pal.famille === 'SAMADA') bloc.style.background = '#8b5cf6';
             else bloc.style.background = '#64748b';
             
             if (pal.fragile) bloc.style.border = '2px dashed #dc2626';
@@ -1969,7 +2056,7 @@ window.renderPaletisationState = function() {
             let shortName = pal.libelle.substring(0, 25);
             if (pal.libelle.length > 25) shortName += '...';
             
-            bloc.innerHTML = `<strong style="font-size: 12px;">${pal.qte} colis</strong><span style="font-size: 10px; opacity: 0.9;">${shortName}</span><div style="font-size:9px; margin-top:2px;">(${Math.ceil(pal.qte / pal.colis_par_couche)} couches)</div>`;
+            bloc.innerHTML = `<strong style="font-size: 12px;">${pal.qte} colis</strong><span style="font-size: 10px; opacity: 0.9;">${shortName}</span><div style="font-size:9px; margin-top:2px;">(${pal.is_samada ? Math.ceil(pal.qte / (pal.type_colis === 'brasse' ? 36 : 18)) : Math.ceil(pal.qte / pal.colis_par_couche)} couches)</div>`;
             bloc.title = `${pal.qte} cartons de ${pal.libelle} (${pal.pleine ? 'Pleine' : 'Chute'})`;
 
             if (pal.isPlaceholder) {
@@ -1977,16 +2064,24 @@ window.renderPaletisationState = function() {
                 bloc.style.border = '2px dashed #334155';
                 bois.style.opacity = '0.4';
             } else {
-                bloc.style.cursor = 'grab';
-                bloc.dataset.itemIdx = tour.items.indexOf(pal);
-                
-                bloc.onpointerdown = (e) => window.startDrag(e, tIdx, bloc.dataset.itemIdx, bloc, bois);
+                if (!pal.is_samada) {
+                    bloc.style.cursor = 'grab';
+                    bloc.dataset.itemIdx = tour.items.indexOf(pal);
+                    bloc.onpointerdown = (e) => window.startDrag(e, tIdx, bloc.dataset.itemIdx, bloc, bois);
+                } else {
+                    bloc.style.cursor = 'pointer';
+                    bloc.title = "Cliquez pour voir la vue de dessus (Vue SAMADA)";
+                }
                 
                 bloc.onclick = (e) => {
                     if (!wasDragging) {
-                        openRuptureModal(pal, () => {
-                            window.renderPaletisationState();
-                        });
+                        if (pal.is_samada) {
+                            openSamadaTopViewModal(pal);
+                        } else {
+                            openRuptureModal(pal, () => {
+                                window.renderPaletisationState();
+                            });
+                        }
                     }
                 };
             }
@@ -2433,4 +2528,83 @@ if(print3UpBtn) print3UpBtn.onclick = async () => {
             Modal.error("Erreur", result.detail);
         }
     } catch(e) { Modal.error("Problème réseau", e.message); }
+};
+
+window.openSamadaTopViewModal = function(tour) {
+    const modal = document.getElementById('samada-modal');
+    const container = document.getElementById('samada-grid-container');
+    const closeBtn = document.getElementById('close-samada-modal');
+    
+    if (!modal || !container) return;
+    
+    container.innerHTML = '';
+    
+    const rows = tour.grid.length;
+    const cols = tour.grid[0].length;
+    
+    container.style.gridTemplateColumns = `repeat(${cols}, 80px)`;
+    
+    function getFlavorColor(libelle) {
+        const lib = libelle.toLowerCase();
+        if (lib.includes('citron')) return '#fde047';
+        if (lib.includes('chocolat')) return '#78350f';
+        if (lib.includes('café') || lib.includes('cafe')) return '#0f172a';
+        if (lib.includes('fraise')) return '#ef4444';
+        if (lib.includes('framboise')) return '#ec4899';
+        if (lib.includes('vanille')) return '#fef3c7';
+        if (lib.includes('caramel')) return '#d97706';
+        if (lib.includes('abricot')) return '#f97316';
+        if (lib.includes('figue')) return '#7e22ce';
+        if (lib.includes('myrtille')) return '#3b82f6';
+        if (lib.includes('nois')) return '#a16207';
+        if (lib.includes('coco')) return '#ffffff';
+        if (lib.includes('nature') || lib.includes('paraffine')) return '#f8fafc';
+        return '#cbd5e1';
+    }
+    
+    tour.grid.forEach(row => {
+        row.forEach(cell => {
+            const pileDiv = document.createElement('div');
+            pileDiv.style.width = '80px';
+            pileDiv.style.height = '80px';
+            pileDiv.style.display = 'flex';
+            pileDiv.style.flexDirection = 'column';
+            pileDiv.style.alignItems = 'center';
+            pileDiv.style.justifyContent = 'center';
+            pileDiv.style.borderRadius = '8px';
+            pileDiv.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            pileDiv.style.position = 'relative';
+            pileDiv.style.textAlign = 'center';
+            pileDiv.style.fontSize = '12px';
+            pileDiv.style.fontWeight = 'bold';
+            
+            if (cell.contents.length === 0) {
+                pileDiv.style.background = '#e2e8f0';
+                pileDiv.style.border = '1px solid #cbd5e1';
+                pileDiv.innerHTML = '<span style="color:#94a3b8">Vide</span>';
+            } else if (cell.contents.length === 1) {
+                const color = getFlavorColor(cell.contents[0].libelle);
+                pileDiv.style.background = color;
+                pileDiv.style.border = '1px solid rgba(0,0,0,0.1)';
+                pileDiv.style.color = (color === '#0f172a' || color === '#78350f' || color === '#7e22ce' || color === '#ef4444' || color === '#3b82f6') ? 'white' : 'black';
+                pileDiv.innerHTML = `${cell.total_boxes}<br><span style="font-size:10px; font-weight:normal;">${cell.contents[0].qte}x ${cell.contents[0].libelle.split(' ')[2] || 'Mix'}</span>`;
+                pileDiv.title = cell.contents[0].libelle;
+            } else {
+                const color1 = getFlavorColor(cell.contents[0].libelle);
+                const color2 = getFlavorColor(cell.contents[1].libelle);
+                pileDiv.style.background = `linear-gradient(135deg, ${color1} 50%, ${color2} 50%)`;
+                pileDiv.style.border = '3px dashed #334155';
+                pileDiv.style.color = 'black';
+                pileDiv.style.textShadow = '0 0 3px white, 0 0 3px white';
+                pileDiv.innerHTML = `${cell.total_boxes}<br><span style="font-size:10px; font-weight:normal;">Mixte</span>`;
+                pileDiv.title = cell.contents.map(c => `${c.qte}x ${c.libelle}`).join(' + ');
+            }
+            
+            container.appendChild(pileDiv);
+        });
+    });
+    
+    if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
+    modal.style.display = 'grid';
+    modal.style.placeItems = 'start center';
 };

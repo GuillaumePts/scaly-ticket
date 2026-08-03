@@ -186,11 +186,12 @@ class Print4UpRequest(BaseModel):
 class PalettisationRequest(BaseModel):
     items: List[dict] # [{"libelle": "...", "quantite": 100}]
     optimisation_max: bool = False
+    client: str = ""
 
 @app.post("/api/palettisation")
 async def api_palettisation(request: PalettisationRequest):
     try:
-        tours = generer_plan_palettisation(request.items, opt_max=request.optimisation_max)
+        tours = generer_plan_palettisation(request.items, opt_max=request.optimisation_max, client=request.client)
         return {"success": True, "tours": tours}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -749,6 +750,7 @@ class PrinterOffsetsRequest(BaseModel):
     gs1_bold: bool = False
     lot_size: int = 0
     lot_bold: bool = False
+    format: str = "3up"
 
 @app.post("/api/update-printer-offsets")
 async def update_printer_offsets(req: PrinterOffsetsRequest):
@@ -768,7 +770,7 @@ async def update_printer_offsets(req: PrinterOffsetsRequest):
         "gs1_bold": req.gs1_bold,
         "lot_size": req.lot_size,
         "lot_bold": req.lot_bold
-    })
+    }, format_type=req.format)
             
     if updated:
         return {"message": "Offsets sauvegardés"}

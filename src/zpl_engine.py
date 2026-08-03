@@ -186,6 +186,11 @@ class ZPLEngine:
         for i, data in enumerate(data_list[:3]):
             lbl = self._draw_toshiba_single_label(data, styling)
             main.paste(lbl, (x_offsets[i] + offset_x, 0 + offset_y))
+            
+        # Securite Toshiba B-EV4 (Gravigny) : Toujours vider (blanc) les 12 premiers pixels de gauche
+        draw = ImageDraw.Draw(main)
+        draw.rectangle([(0, 0), (11, self.TOSHIBA_CANVAS_H)], fill=1)
+        
         return main
 
     def _build_tpcl_job(self, images_and_qtys: list, xpml_pitch: bool = True, d_param: str = None) -> bytes:
@@ -603,9 +608,12 @@ class ZPLEngine:
             lbl_rot = self._draw_4up_toshiba_single_label(nom, ean13, styling, label_h=label_h, nom_impression=nom_impression)
             x = x_offsets[i] + offset_x
             y = offset_y
-            # Securite : ne pas coller en dehors du canvas
-            if 0 <= x < canvas_w:
-                main.paste(lbl_rot, (x, y))
+            main.paste(lbl_rot, (x, y))
+            
+        # Securite Toshiba B-EV4 (Gravigny) : Toujours vider (blanc) les 12 premiers pixels de gauche
+        # pour éviter le crash matériel si des pixels noirs touchent X=0
+        draw = ImageDraw.Draw(main)
+        draw.rectangle([(0, 0), (11, canvas_h)], fill=1)
 
         return main
 

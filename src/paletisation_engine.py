@@ -235,11 +235,144 @@ def assembler_tours(palettes, chutes, opt_max=False):
         
     return tours
 
-def generer_plan_palettisation(produits, opt_max=False):
+def generer_plan_palettisation(produits, opt_max=False, client=""):
     """
     produits = [{"libelle": "...", "quantite": 100}, ...]
     retourne un json de tours
     """
+    client_upper = client.upper() if client else ""
+    if "SAMADA" in client_upper:
+        return generer_plan_palettisation_samada(produits)
+        
     palettes_pleines, chutes = creer_palettes_logiques(produits, opt_max=opt_max)
     tours = assembler_tours(palettes_pleines, chutes, opt_max=opt_max)
     return [t.to_dict() for t in tours]
+
+def generer_plan_palettisation_samada(produits):
+    groupes = {'brasse': [], 'classique': []}
+    for item in produits:
+        libelle = item['libelle']
+        qte = item['quantite']
+        if qte <= 0:
+            continue
+        lib_lower = libelle.lower()
+        if 'brasse' in lib_lower or 'brassé' in lib_lower or '140g' in lib_lower:
+            groupes['brasse'].append(item)
+        elif '125g' in lib_lower or 'x12' in lib_lower:
+            groupes['classique'].append(item)
+        else:
+            groupes['classique'].append(item)
+            
+    tours = []
+    logical_pallets = []
+    
+    for type_groupe, items in groupes.items():
+        if not items:
+            continue
+            
+        colis_par_couche = 36 if type_groupe == 'brasse' else 18
+        max_colis_par_palette = 7 * colis_par_couche
+        base_qty = 4 * colis_par_couche
+        
+        total_qte = sum(i['quantite'] for i in items)
+        
+        pallets_sizes = []
+        rem = total_qte
+        while rem > 0:
+            if rem <= max_colis_par_palette:
+                pallets_sizes.append(rem)
+                rem = 0
+            else:
+                if rem > max_colis_par_palette and rem < max_colis_par_palette + base_qty:
+                    pallets_sizes.append(base_qty)
+                    rem -= base_qty
+                else:
+                    pallets_sizes.append(max_colis_par_palette)
+                    rem -= max_colis_par_palette
+                    
+        item_idx = 0
+        rem_item_qte = items[item_idx]['quantite'] if items else 0
+        
+        for size in pallets_sizes:
+            cols = 4 if type_groupe == 'brasse' else 3
+            rows = 9 if type_groupe == 'brasse' else 6
+            P = rows * cols
+            
+            base_pile = size // P
+            extra = size % P
+            
+            grid = []
+            for r in range(rows):
+                row_data = []
+                for c in range(cols):
+                    pile_idx = r * cols + c
+                    pile_cap = base_pile + (1 if pile_idx < extra else 0)
+                    
+                    pile_contents = []
+                    rem_pile_cap = pile_cap
+                    
+                    while rem_pile_cap > 0 and item_idx < len(items):
+                        take = min(rem_pile_cap, rem_item_qte)
+                        if take > 0:
+                            if pile_contents and pile_contents[-1]['libelle'] == items[item_idx]['libelle']:
+                                pile_contents[-1]['qte'] += take
+                            else:
+                                pile_contents.append({
+                                    "libelle": items[item_idx]['libelle'],
+                                    "qte": take
+                                })
+                            rem_pile_cap -= take
+                            rem_item_qte -= take
+                            
+                        if rem_item_qte == 0:
+                            item_idx += 1
+                            if item_idx < len(items):
+                                rem_item_qte = items[item_idx]['quantite']
+                                
+                    row_data.append({
+                        "total_boxes": pile_cap,
+                        "contents": pile_contents
+                    })
+                grid.append(row_data)
+                
+            couches_eff = math.ceil(size / colis_par_couche)
+            hauteur = couches_eff * 14.5
+            
+            # Create a logical pallet object
+            logical_pallet = {
+                "is_samada": True,
+                "type_colis": type_groupe,
+                "qte": size,
+                "couches": couches_eff,
+                "grid": grid,
+                "libelle": f"Palette {type_groupe.capitalize()} (SAMADA)",
+                "famille": "SAMADA",
+                "hauteur_cm": hauteur,
+                "fragile": False,
+                "pleine": size == max_colis_par_palette,
+                "poids_kg": size * 0.25
+            }
+            logical_pallets.append(logical_pallet)
+            
+    # Now stack logical pallets into tours (gerbage)
+    tours = []
+    for pal in logical_pallets:
+        placed = False
+        for tour in tours:
+            # Check if it fits (height + epaisseur pallet)
+            if tour['hauteur'] + pal['hauteur_cm'] + 15 <= 212: # 212 = HAUTEUR_MAX_TOUR
+                tour['items'].append(pal)
+                tour['hauteur'] += pal['hauteur_cm'] + 15
+                tour['poids_kg'] += pal['poids_kg'] + 25
+                placed = True
+                break
+        if not placed:
+            tours.append({
+                "is_samada": True,
+                "items": [pal],
+                "hauteur": pal['hauteur_cm'],
+                "poids_kg": pal['poids_kg'] + 25,
+                "familles": ["SAMADA"]
+            })
+            
+    return tours

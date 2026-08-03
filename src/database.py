@@ -42,7 +42,13 @@ class DatabaseManager:
                     gs1_size INTEGER,
                     gs1_bold BOOLEAN,
                     lot_size INTEGER,
-                    lot_bold BOOLEAN
+                    lot_bold BOOLEAN,
+                    title_size_4up INTEGER DEFAULT 0,
+                    title_bold_4up BOOLEAN DEFAULT 0,
+                    gs1_size_4up INTEGER DEFAULT 0,
+                    gs1_bold_4up BOOLEAN DEFAULT 0,
+                    lot_size_4up INTEGER DEFAULT 0,
+                    lot_bold_4up BOOLEAN DEFAULT 0
                 )
             """)
             
@@ -83,15 +89,19 @@ class DatabaseManager:
                                 INSERT INTO printers (
                                     ip, name, dpi, language, sector, port, offset_x, offset_y,
                                     offset_x_4up, offset_y_4up, d_param_4up,
-                                    title_size, title_bold, gs1_size, gs1_bold, lot_size, lot_bold
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    title_size, title_bold, gs1_size, gs1_bold, lot_size, lot_bold,
+                                    title_size_4up, title_bold_4up, gs1_size_4up, gs1_bold_4up, lot_size_4up, lot_bold_4up
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, (
                                 p.get("ip"), p.get("name"), p.get("dpi"), p.get("language"), p.get("sector"), p.get("port", 9100),
                                 p.get("offset_x", 0), p.get("offset_y", 0),
                                 p.get("offset_x_4up"), p.get("offset_y_4up"), p.get("d_param_4up"),
                                 p.get("title_size", 0), p.get("title_bold", False),
                                 p.get("gs1_size", 0), p.get("gs1_bold", False),
-                                p.get("lot_size", 0), p.get("lot_bold", False)
+                                p.get("lot_size", 0), p.get("lot_bold", False),
+                                p.get("title_size_4up", 0), p.get("title_bold_4up", False),
+                                p.get("gs1_size_4up", 0), p.get("gs1_bold_4up", False),
+                                p.get("lot_size_4up", 0), p.get("lot_bold_4up", False)
                             ))
                     conn.commit()
                     printers_json_path.rename(printers_json_path.with_suffix('.json.bak'))
@@ -129,31 +139,47 @@ class DatabaseManager:
                     INSERT INTO printers (
                         ip, name, dpi, language, sector, port, offset_x, offset_y,
                         offset_x_4up, offset_y_4up, d_param_4up,
-                        title_size, title_bold, gs1_size, gs1_bold, lot_size, lot_bold
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        title_size, title_bold, gs1_size, gs1_bold, lot_size, lot_bold,
+                        title_size_4up, title_bold_4up, gs1_size_4up, gs1_bold_4up, lot_size_4up, lot_bold_4up
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     p.get("ip"), p.get("name"), p.get("dpi"), p.get("language"), p.get("sector"), p.get("port", 9100),
                     p.get("offset_x", 0), p.get("offset_y", 0),
                     p.get("offset_x_4up"), p.get("offset_y_4up"), p.get("d_param_4up"),
                     p.get("title_size", 0), p.get("title_bold", False),
                     p.get("gs1_size", 0), p.get("gs1_bold", False),
-                    p.get("lot_size", 0), p.get("lot_bold", False)
+                    p.get("lot_size", 0), p.get("lot_bold", False),
+                    p.get("title_size_4up", 0), p.get("title_bold_4up", False),
+                    p.get("gs1_size_4up", 0), p.get("gs1_bold_4up", False),
+                    p.get("lot_size_4up", 0), p.get("lot_bold_4up", False)
                 ))
             conn.commit()
 
-    def update_printer_offsets(self, ip: str, data: dict) -> bool:
+    def update_printer_offsets(self, ip: str, data: dict, format_type: str = "3up") -> bool:
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE printers SET 
-                offset_x=?, offset_y=?, title_size=?, title_bold=?,
-                gs1_size=?, gs1_bold=?, lot_size=?, lot_bold=?
-                WHERE ip=?
-            """, (
-                data["offset_x"], data["offset_y"], data["title_size"], data["title_bold"],
-                data["gs1_size"], data["gs1_bold"], data["lot_size"], data["lot_bold"],
-                ip
-            ))
+            if format_type == "4up":
+                cursor.execute("""
+                    UPDATE printers SET 
+                    offset_x_4up=?, offset_y_4up=?, title_size_4up=?, title_bold_4up=?,
+                    gs1_size_4up=?, gs1_bold_4up=?, lot_size_4up=?, lot_bold_4up=?
+                    WHERE ip=?
+                """, (
+                    data["offset_x"], data["offset_y"], data["title_size"], data["title_bold"],
+                    data["gs1_size"], data["gs1_bold"], data["lot_size"], data["lot_bold"],
+                    ip
+                ))
+            else:
+                cursor.execute("""
+                    UPDATE printers SET 
+                    offset_x=?, offset_y=?, title_size=?, title_bold=?,
+                    gs1_size=?, gs1_bold=?, lot_size=?, lot_bold=?
+                    WHERE ip=?
+                """, (
+                    data["offset_x"], data["offset_y"], data["title_size"], data["title_bold"],
+                    data["gs1_size"], data["gs1_bold"], data["lot_size"], data["lot_bold"],
+                    ip
+                ))
             conn.commit()
             return cursor.rowcount > 0
 

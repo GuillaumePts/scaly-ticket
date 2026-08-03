@@ -25,10 +25,6 @@
                 <p>Système d'impression d'étiquettes</p>
             </div>
             <div style="display: flex; gap: 15px; align-items: center;">
-                <button type="button" id="open-calibration-header-btn" class="btn-icon"
-                    style="display: none; color: var(--warning);" title="Calibrer l'imprimante">
-                    <i data-lucide="move"></i> Calibrage Imprimante
-                </button>
                 <button type="button" id="help-modal-btn" class="btn-icon" style="display: none; color: var(--primary);"
                     title="Mode d'emploi et dépannage Toshiba">
                     <i data-lucide="life-buoy"></i> Aide Toshiba
@@ -155,10 +151,6 @@
                         <label for="printer" class="sr-only">Imprimante :</label>
                         <div style="display: flex; gap: 10px; width: 100%;">
                             <select id="printer" class="large-select" style="flex-grow: 1;"></select>
-                            <button type="button" id="open-calibration-btn" class="btn-secondary" style="display: none;"
-                                title="Ajuster l'impression au millimètre">
-                                <i data-lucide="move"></i> Calibrer
-                            </button>
                         </div>
                         <div id="printer-status" class="status-badge"><i data-lucide="loader"></i> Vérification...</div>
                     </div>
@@ -411,6 +403,7 @@
                                     <th>DPI</th>
                                     <th>Langage</th>
                                     <th>Secteur</th>
+                                    <th style="text-align: right;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -588,14 +581,20 @@
         </div>
     </div>
 
-    <!-- Modale de Calibrage Visuel Zebra -->
+    <!-- Modale de Calibrage Visuel -->
     <div id="calibration-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content large" style="max-width: 800px;">
+        <div class="modal-content large" style="max-width: 1400px; width: 95vw;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0; display:flex; align-items:center; gap:10px;"><i data-lucide="move"
                         class="icon-info"></i> Calibrage Visuel - Impression</h3>
-                <button type="button" id="close-calibration-modal" class="btn-icon"
-                    style="border:none; background:transparent;"><i data-lucide="x"></i></button>
+                
+                <div style="display: flex; gap: 15px;">
+                    <button type="button" id="reset-calibration-btn" class="btn-secondary" style="font-size: 13px; padding: 6px 12px;">
+                        <i data-lucide="rotate-ccw" style="width: 16px;"></i> Valeurs d'usine
+                    </button>
+                    <button type="button" id="close-calibration-modal" class="btn-icon"
+                        style="border:none; background:transparent;"><i data-lucide="x"></i></button>
+                </div>
             </div>
 
             <p style="color: var(--text-muted); margin-bottom: 20px;">Ajustez l'impression au millimètre (1 pixel = 1
@@ -622,7 +621,7 @@
                                     <button type="button" class="btn-icon" id="calib-left" style="padding:4px;"><i
                                             data-lucide="arrow-left" style="width:16px;"></i></button>
                                     <input type="number" id="calib-val-x"
-                                        style="width: 65px; text-align: center; font-weight: bold;" value="18">
+                                        style="width: 85px; text-align: center; font-weight: bold;" value="18">
                                     <button type="button" class="btn-icon" id="calib-right" style="padding:4px;"><i
                                             data-lucide="arrow-right" style="width:16px;"></i></button>
                                 </div>
@@ -633,7 +632,7 @@
                                     <button type="button" class="btn-icon" id="calib-up" style="padding:4px;"><i
                                             data-lucide="arrow-up" style="width:16px;"></i></button>
                                     <input type="number" id="calib-val-y"
-                                        style="width: 65px; text-align: center; font-weight: bold;" value="800">
+                                        style="width: 85px; text-align: center; font-weight: bold;" value="800">
                                     <button type="button" class="btn-icon" id="calib-down" style="padding:4px;"><i
                                             data-lucide="arrow-down" style="width:16px;"></i></button>
                                 </div>
@@ -693,8 +692,7 @@
                                 </div>
                             </div>
                             <div style="text-align: center; margin-top: 5px; font-size: 0.75rem; color: #ef4444;">
-                                Appuyez sur "Calibrer" pour voir les changements de texte (Nécessite un rechargement
-                                backend)</div>
+                                Appuyez sur "Calibrer" pour voir les changements de texte</div>
                         </div>
                     </div>
 
@@ -796,7 +794,28 @@
     <script>
         const printersData = {{ printers| tojson }};
     </script>
-    <script src="/static/script.js?v=33"></script>
+    <!-- SAMADA TOP VIEW MODAL -->
+    <div id="samada-modal" class="modal-overlay" style="display: none; z-index: 9999; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 900px; width: 90%; margin: 40px auto;">
+            <div class="modal-header">
+                <h3>Vue de dessus - Palette SAMADA</h3>
+                <button type="button" id="close-samada-modal" class="btn-icon"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body" style="background: #f1f5f9; padding: 20px;">
+                <div id="samada-grid-container" style="display: grid; gap: 4px; justify-content: center;">
+                    <!-- Grid generated via JS -->
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content: space-between; align-items:center;">
+                <div style="font-size: 13px; color: #64748b;">
+                    <i data-lucide="info" style="width:14px; vertical-align:middle;"></i>
+                    Les couleurs indiquent les parfums. Les bordures en pointillés indiquent une pile mixte.
+                </div>
+                <button type="button" class="btn-primary" onclick="document.getElementById('samada-modal').style.display='none'">Fermer</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/script.js?v=4"></script>
 </body>
-
 </html>
