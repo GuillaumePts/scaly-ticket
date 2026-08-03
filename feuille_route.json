@@ -1,0 +1,8 @@
+{
+    "Page d'accueil" : "vu que c'est pour garvigny on va desctivé le bouton prepa commande, et conditionnement, on va les griser et enlever les desactiver les evenement clique",
+    "apres selection secteur gravigny" : "ça nous fait arriver sur la page du choix des etiquettes 3up ou 4up, ici on change rien",
+    "sur 3up" : ["on enleve le bouton palettisation", "gros changement sur la selection de la commande, actuellement il peux soit utiliser l'api, soit download un fichier txt directement sur le pc et on va rajouter un 3eme choix, selection d'etiquette personnalisé : on va reprendre exactement la meme methode que pour le 4up avec sa liste et sa creation d'etiquette sauf que la le rendu n'est pas sur 4up mais faut bien utiliser le rendu 3up. On ne va pas afficher les 3 methode d'un coup, l'operateur doit avoir un bouton de selection et on va mettre par defaut notre nouvelle methode car je penses qu'ils utiliseront souvent les memes etiquettes. ATTENTION ici on est pas en 4up il y a date et numero de lot à mettre et qui changera à chaque fois donc il faut reprendre aussi l'interface du 3up classique avec les input pour ce champ + un nouveau pour le numéro du code barre"],
+    "calibrage imprimante": "gros refectoring en prevision pour tout les secteurs on voit ça en dernier je mets juste ça la pour pas oublier",
+
+    "directive à suivre" : "ne genere pas d'executable avant qu'on ai tout fini, ne touche pas au methode de communication tpcl sans me demander et m'expliquer clairement ce que tu comptes faire si tu as besoin de modifier mais normalement tant qu'on touche pas au calibrage ça devrait le faire. Pour eviter les hallucination et travaux baclé on va regler les problème un à un et seulement apres validation"
+}

@@ -12,6 +12,7 @@ def get_base_path():
 class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 3000
+    SIMULATION_MODE: bool = False
     
     # We will fetch printers dynamically from DB, no more JSON property here
     # to avoid state mismatch.
@@ -25,6 +26,16 @@ base_path = get_base_path()
 exe_directory = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(os.getcwd())
 data_path = exe_directory / "data"
 data_path.mkdir(exist_ok=True)
+
+db_path = data_path / "scaly_ticket.db"
+
+# Si on est en version compilée et que la DB persistante n'existe pas,
+# on copie la DB initiale embarquée dans le MEIPASS vers le dossier persistant.
+if getattr(sys, 'frozen', False) and not db_path.exists():
+    import shutil
+    embedded_db = base_path / "data" / "scaly_ticket.db"
+    if embedded_db.exists():
+        shutil.copy2(embedded_db, db_path)
 
 # Initialisation de la Base de Données SQLite
 from src.database import DatabaseManager

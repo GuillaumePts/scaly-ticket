@@ -301,12 +301,11 @@ function activateDedicatedTool(tool, sector) {
             printerSelect.dispatchEvent(new Event('change'));
             updatePrinterStatus();
             
-            // S'il y a plus d'une imprimante Toshiba, on affiche le sélecteur
-            if (toshibas.length > 1) {
-                document.getElementById('step2').style.display = 'block';
-                const stepNum = document.getElementById('step2').querySelector('.step-number');
-                if(stepNum) stepNum.style.display = 'none';
-            }
+            // Toujours afficher le sélecteur pour que l'utilisateur puisse vérifier l'IP (surtout à Gravigny)
+            document.getElementById('step2').style.display = 'block';
+            const stepNum = document.getElementById('step2').querySelector('.step-number');
+            if(stepNum) stepNum.style.display = 'none';
+            
         } else {
             Modal.error("Imprimante introuvable", "Aucune imprimante Toshiba n'est configurée pour ce secteur !");
         }
@@ -322,13 +321,12 @@ function activateDedicatedTool(tool, sector) {
             printerSelect.dispatchEvent(new Event('change'));
             updatePrinterStatus();
             
-            // S'il y a plus d'une imprimante Zebra, on affiche le sélecteur
-            if (zebras.length > 1) {
-                document.getElementById('step2').style.display = 'block';
-                const stepNum = document.getElementById('step2').querySelector('.step-number');
-                if(stepNum) stepNum.style.display = 'none';
+            // Toujours afficher le sélecteur d'imprimante
+            document.getElementById('step2').style.display = 'block';
+            const stepNum = document.getElementById('step2').querySelector('.step-number');
+            if(stepNum) stepNum.style.display = 'none';
 
-                if (tool === 'zebra') {
+            if (tool === 'zebra') {
                     // Customisation Ligne 1
                     document.querySelector('.printer-selection-box > div').style.display = 'none';
                     document.getElementById('step2').querySelector('h2').textContent = "Imprimantes Ligne 1 (Automatique)";
@@ -361,7 +359,6 @@ function activateDedicatedTool(tool, sector) {
                     `;
                     lucide.createIcons();
                 }
-            }
         } else {
             Modal.error("Imprimante introuvable", "Aucune imprimante Zebra n'est configurée pour ce secteur !");
         }
@@ -373,7 +370,16 @@ function activateDedicatedTool(tool, sector) {
         parfumSection.style.display = 'none';
         const stepNum = uploadSection.querySelector('.step-number');
         if (stepNum) stepNum.style.display = 'none';
-        uploadSection.querySelector('h2').textContent = "Sélection du fichier de commandes";
+        
+        const titleEl = document.getElementById('upload-section-title');
+        if (titleEl) titleEl.textContent = "Configuration de la commande 3-up";
+        
+        const methodSelector = document.getElementById('upload-method-selector');
+        if (methodSelector) methodSelector.style.display = 'flex';
+        
+        const customBtn = document.getElementById('method-custom-btn');
+        if (customBtn) customBtn.click(); // trigger default tab
+        
     } else if (tool === 'toshiba_4up') {
         currentFormat = '4up';
         uploadSection.style.display = 'none';
@@ -387,7 +393,18 @@ function activateDedicatedTool(tool, sector) {
         parfumSection.style.display = 'none';
         const stepNum = uploadSection.querySelector('.step-number');
         if (stepNum) stepNum.style.display = 'none';
-        uploadSection.querySelector('h2').textContent = "Commandes (Zebra 1-up)";
+        
+        const titleEl = document.getElementById('upload-section-title');
+        if (titleEl) titleEl.textContent = "Commandes (Zebra 1-up)";
+        
+        const methodSelector = document.getElementById('upload-method-selector');
+        if (methodSelector) methodSelector.style.display = 'none';
+        
+        const panel3up = document.getElementById('panel-3up-custom');
+        if (panel3up) panel3up.style.display = 'none';
+        
+        const panelErp = document.getElementById('panel-erp-file');
+        if (panelErp) panelErp.style.display = 'flex';
     }
 }
 
@@ -1384,6 +1401,17 @@ function displayEditSection() {
     
     uploadSection.style.display = 'none';
     editSection.style.display = 'block';
+    
+    // Règle métier : la palettisation est inutile pour Gravigny (on la masque)
+    const btnPalet = document.getElementById('btn-paletisation-order');
+    if (btnPalet) {
+        if (currentSector === 'Gravigny') {
+            btnPalet.style.display = 'none';
+        } else {
+            btnPalet.style.display = 'inline-flex';
+        }
+    }
+    
     editSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -2111,3 +2139,298 @@ window.endDrag = function(e) {
     dragHover = null;
     window.renderPaletisationState();
 }
+
+// ==========================================
+// ====== GESTION 3-UP PERSONNALISÉE ========
+// ==========================================
+
+// --- Tabs Method Selector ---
+const methodCustomBtn = document.getElementById('method-custom-btn');
+const methodErpBtn = document.getElementById('method-erp-btn');
+const methodFileBtn = document.getElementById('method-file-btn');
+const panel3upCustom = document.getElementById('panel-3up-custom');
+const panelErpFile = document.getElementById('panel-erp-file');
+
+if (methodCustomBtn) {
+    methodCustomBtn.addEventListener('click', () => {
+        methodCustomBtn.classList.add('active');
+        methodErpBtn.classList.remove('active');
+        methodFileBtn.classList.remove('active');
+        panel3upCustom.style.display = 'block';
+        panelErpFile.style.display = 'none';
+    });
+}
+if (methodErpBtn) {
+    methodErpBtn.addEventListener('click', () => {
+        methodErpBtn.classList.add('active');
+        methodCustomBtn.classList.remove('active');
+        methodFileBtn.classList.remove('active');
+        panel3upCustom.style.display = 'none';
+        panelErpFile.style.display = 'flex';
+        document.getElementById('panel-file').style.display = 'none';
+        document.getElementById('panel-erp').style.display = 'flex';
+    });
+}
+if (methodFileBtn) {
+    methodFileBtn.addEventListener('click', () => {
+        methodFileBtn.classList.add('active');
+        methodCustomBtn.classList.remove('active');
+        methodErpBtn.classList.remove('active');
+        panel3upCustom.style.display = 'none';
+        panelErpFile.style.display = 'flex';
+        document.getElementById('panel-erp').style.display = 'none';
+        document.getElementById('panel-file').style.display = 'flex';
+    });
+}
+
+// --- CRUD Parfums 3-up ---
+const parfum3UpSelect = document.getElementById('parfum-3up-select');
+
+function loadParfums3Up() {
+    fetch('/api/parfums-3up')
+        .then(res => res.json())
+        .then(parfums => {
+            parfum3UpSelect.innerHTML = '';
+            parfums.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.nom;
+                opt.dataset.ean = p.ean13 || '';
+                opt.dataset.nomImpression = p.nom_impression || p.nom;
+                parfum3UpSelect.appendChild(opt);
+            });
+            if (parfums.length > 0) {
+                parfum3UpSelect.dispatchEvent(new Event('change'));
+            }
+        })
+        .catch(err => {
+            parfum3UpSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            console.error(err);
+        });
+}
+// Load on startup
+if (parfum3UpSelect) loadParfums3Up();
+
+const toggleAddParfum3upBtn = document.getElementById('toggle-add-parfum-3up-btn');
+const editParfum3upBtn = document.getElementById('edit-parfum-3up-btn');
+const deleteParfum3upBtn = document.getElementById('delete-parfum-3up-btn');
+const addParfum3upForm = document.getElementById('add-parfum-3up-form');
+const cancelParfum3upBtn = document.getElementById('cancel-parfum-3up-btn');
+const saveParfum3upBtn = document.getElementById('save-new-parfum-3up-btn');
+
+function hideParfum3UpForm() {
+    addParfum3upForm.style.display = 'none';
+    document.getElementById('new-parfum-3up-nom').value = '';
+    document.getElementById('new-parfum-3up-nom-impression').value = '';
+    document.getElementById('new-parfum-3up-ean').value = '';
+    document.getElementById('edit-parfum-3up-id').value = '';
+}
+
+if(toggleAddParfum3upBtn) toggleAddParfum3upBtn.onclick = () => {
+    hideParfum3UpForm();
+    document.getElementById('parfum-3up-form-title').innerHTML = '<i data-lucide="tag"></i> Créer un nouveau produit 3-up';
+    addParfum3upForm.style.display = 'block';
+};
+
+if(editParfum3upBtn) editParfum3upBtn.onclick = () => {
+    const opt = parfum3UpSelect.options[parfum3UpSelect.selectedIndex];
+    if (!opt) return;
+    document.getElementById('edit-parfum-3up-id').value = opt.value;
+    document.getElementById('new-parfum-3up-nom').value = opt.text;
+    document.getElementById('new-parfum-3up-nom-impression').value = opt.dataset.nomImpression;
+    document.getElementById('new-parfum-3up-ean').value = opt.dataset.ean || '';
+    document.getElementById('parfum-3up-form-title').innerHTML = '<i data-lucide="edit"></i> Modifier ce produit 3-up';
+    addParfum3upForm.style.display = 'block';
+};
+
+if(cancelParfum3upBtn) cancelParfum3upBtn.onclick = hideParfum3UpForm;
+
+if(deleteParfum3upBtn) deleteParfum3upBtn.onclick = async () => {
+    const opt = parfum3UpSelect.options[parfum3UpSelect.selectedIndex];
+    if (!opt) return;
+    const ok = await Modal.confirm("Supprimer", `Supprimer le produit "${opt.text}" ?`, 'trash-2', 'icon-error');
+    if (!ok) return;
+    try {
+        const response = await fetch(`/api/parfums-3up/${opt.value}`, { method: 'DELETE' });
+        if (response.ok) {
+            opt.remove();
+            Modal.alert("Supprimé", "Produit supprimé avec succès.", 'check', 'icon-success');
+            hideParfum3UpForm();
+        } else {
+            const data = await response.json();
+            Modal.error("Erreur", data.detail);
+        }
+    } catch(e) { Modal.error("Erreur", e.message); }
+};
+
+if(saveParfum3upBtn) saveParfum3upBtn.onclick = async () => {
+    const nom = document.getElementById('new-parfum-3up-nom').value.trim();
+    const nom_impression = document.getElementById('new-parfum-3up-nom-impression').value.trim();
+    const ean = document.getElementById('new-parfum-3up-ean').value.trim();
+    const parfumId = document.getElementById('edit-parfum-3up-id').value;
+    const isEdit = parfumId !== '';
+    
+    if (!nom || !nom_impression) {
+        Modal.error("Erreur", "Le nom et le texte d'impression sont obligatoires.");
+        return;
+    }
+    
+    try {
+        const url = isEdit ? `/api/parfums-3up/${parfumId}` : '/api/parfums-3up';
+        const method = isEdit ? 'PUT' : 'POST';
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nom, ean13: ean, nom_impression })
+        });
+        const result = await response.json();
+        
+        if (response.ok) {
+            Modal.alert("Succès", `Produit ${isEdit ? 'modifié' : 'créé'}.`, 'check', 'icon-success');
+            if (isEdit) {
+                const opt = parfum3UpSelect.options[parfum3UpSelect.selectedIndex];
+                opt.text = nom;
+                opt.dataset.ean = ean;
+                opt.dataset.nomImpression = nom_impression;
+            } else {
+                const opt = document.createElement('option');
+                opt.value = result.parfum.id;
+                opt.text = nom;
+                opt.dataset.ean = ean;
+                opt.dataset.nomImpression = nom_impression;
+                parfum3UpSelect.appendChild(opt);
+                parfum3UpSelect.value = result.parfum.id;
+            }
+            hideParfum3UpForm();
+        } else {
+            Modal.error("Erreur", result.detail);
+        }
+    } catch(e) { Modal.error("Erreur", e.message); }
+};
+
+// --- Batching 3-up ---
+let batch3Up = [];
+const batchList3UpContainer = document.getElementById('batch-list-3up-container');
+const batchList3Up = document.getElementById('batch-list-3up');
+const batchTotal3Up = document.getElementById('batch-total-3up');
+
+function updateBatch3UpUI() {
+    batchList3Up.innerHTML = '';
+    let total = 0;
+    batch3Up.forEach((item, index) => {
+        total += item.quantite;
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        li.style.alignItems = 'center';
+        li.style.padding = '8px 0';
+        li.style.borderBottom = '1px dashed #cbd5e1';
+        
+        const info = document.createElement('span');
+        info.innerHTML = `<strong>${item.quantite}x</strong> ${item.libelle} <span style="color:#64748b;font-size:11px;">(DLC: ${item.date_expiration} | Lot: ${item.lot})</span>`;
+        
+        const btn = document.createElement('button');
+        btn.innerHTML = '<i data-lucide="x"></i>';
+        btn.className = 'btn-remove';
+        btn.onclick = () => {
+            batch3Up.splice(index, 1);
+            updateBatch3UpUI();
+        };
+        
+        li.appendChild(info);
+        li.appendChild(btn);
+        batchList3Up.appendChild(li);
+    });
+    
+    batchTotal3Up.textContent = total;
+    if (batch3Up.length > 0) {
+        batchList3UpContainer.style.display = 'block';
+    } else {
+        batchList3UpContainer.style.display = 'none';
+    }
+    lucide.createIcons();
+}
+
+const addToBatch3UpBtn = document.getElementById('add-to-batch-3up-btn');
+if(addToBatch3UpBtn) addToBatch3UpBtn.onclick = () => {
+    const opt = parfum3UpSelect.options[parfum3UpSelect.selectedIndex];
+    if (!opt) return Modal.error("Erreur", "Veuillez sélectionner un produit.");
+    
+    let dlc = document.getElementById('custom-3up-dlc').value.trim();
+    let lot = document.getElementById('custom-3up-lot').value.trim();
+    let ean = document.getElementById('custom-3up-barcode').value.trim() || opt.dataset.ean;
+    let qty = parseInt(document.getElementById('custom-3up-qty').value) || 0;
+    
+    if (!dlc || !lot) return Modal.error("Erreur", "La date de DLC et le Lot sont obligatoires pour le 3-up.");
+    if (qty <= 0) return Modal.error("Erreur", "Quantité invalide.");
+    
+    // Formatage de la date depuis YYMMDD vers DD/MM/YY
+    let formattedDate = dlc;
+    if (dlc.length === 6) {
+        const yy = dlc.substring(0, 2);
+        const mm = dlc.substring(2, 4);
+        const dd = dlc.substring(4, 6);
+        formattedDate = `${dd}/${mm}/${yy}`;
+    }
+    
+    const displayLot = `LOT ${lot} ${formattedDate} Conservation 4/6°C`;
+    
+    batch3Up.push({
+        client: "CUSTOM",
+        commande: "3UP",
+        date_livraison: dlc,
+        libelle: opt.dataset.nomImpression,
+        gtin: ean,
+        date_expiration: dlc,
+        lot: lot,
+        num_lot_display: displayLot,
+        quantite: qty
+    });
+    
+    updateBatch3UpUI();
+};
+
+const print3UpBtn = document.getElementById('print-3up-custom-btn');
+if(print3UpBtn) print3UpBtn.onclick = async () => {
+    if (batch3Up.length === 0) return;
+    const totalQty = batch3Up.reduce((acc, curr) => acc + curr.quantite, 0);
+    const ok = await Modal.confirm(
+        "Lancer l'impression", 
+        `Vous allez imprimer ${totalQty} étiquettes 3-up. Confirmez-vous ?`, 
+        'printer', 'icon-info'
+    );
+    if (!ok) return;
+    
+    const opt = printerSelect.options[printerSelect.selectedIndex];
+    if (!opt) return Modal.error("Erreur", "Aucune imprimante sélectionnée.");
+    
+    try {
+        const response = await fetch('/print-json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                printer_ip: opt.value,
+                printer_dpi: parseInt(opt.dataset.dpi),
+                printer_language: opt.dataset.language,
+                items: batch3Up,
+                offset_x: parseInt(opt.dataset.offsetX) || 0,
+                offset_y: parseInt(opt.dataset.offsetY) || 0,
+                title_size: parseInt(opt.dataset.titleSize) || 0,
+                title_bold: opt.dataset.titleBold === "true",
+                gs1_size: parseInt(opt.dataset.gs1Size) || 0,
+                gs1_bold: opt.dataset.gs1Bold === "true",
+                lot_size: parseInt(opt.dataset.lotSize) || 0,
+                lot_bold: opt.dataset.lotBold === "true"
+            })
+        });
+        
+        const result = await response.json();
+        if (response.ok) {
+            Modal.alert("Succès", result.message, 'check-circle', 'icon-success');
+            batch3Up = [];
+            updateBatch3UpUI();
+        } else {
+            Modal.error("Erreur", result.detail);
+        }
+    } catch(e) { Modal.error("Problème réseau", e.message); }
+};

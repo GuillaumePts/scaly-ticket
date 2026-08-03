@@ -12,6 +12,10 @@ class PrinterClient:
 
     def get_status(self) -> dict:
         """Récupère le statut de l'imprimante via ~HS (Zebra) ou via Socket TCP."""
+        if getattr(settings, "SIMULATION_MODE", False):
+            logger.info(f"[SIMULATION] Statut demandé pour {self.host} (Mode Simulation actif).")
+            return {"paper_out": False, "pause": False, "ribbon_out": False, "head_open": False, "simulation": True}
+
         # Pour les imprimantes locales ou non-IP, on retourne un statut par défaut
         if not self.host or "." not in self.host or self.host == "0.0.0.0":
             return {"paper_out": False, "pause": False, "ribbon_out": False, "head_open": False}
@@ -53,7 +57,7 @@ class PrinterClient:
 
     def wait_until_ready(self, timeout: int = 30):
         """Attend que l'imprimante soit prête avant de continuer."""
-        if not self.host or "." not in self.host or self.host == "0.0.0.0":
+        if getattr(settings, "SIMULATION_MODE", False) or not self.host or "." not in self.host or self.host == "0.0.0.0":
             return True
             
         start_time = time.time()
@@ -69,6 +73,18 @@ class PrinterClient:
 
     def send_zpl(self, zpl: str, sleep_time: float = 2.0):
         """Envoie le flux (ZPL ou TPCL) à l'imprimante via Socket TCP."""
+        if getattr(settings, "SIMULATION_MODE", False):
+            logger.info(f"🎮 [SIMULATION DEV] Envoi simulé vers {self.host}:{self.port} ({len(zpl)} octets). Aucune impression matérielle.")
+            try:
+                from src.config import data_path
+                out_path = data_path / "last_simulation_output.prn"
+                with open(out_path, "wb") as f:
+                    f.write(zpl.encode("latin-1"))
+                logger.info(f"🎮 [SIMULATION DEV] Flux sauvegardé dans {out_path}")
+            except Exception as ex:
+                logger.warning(f"Impossible de sauvegarder la simulation: {ex}")
+            return
+
         if not self.host or self.host == "0.0.0.0":
             logger.error("Adresse IP de l'imprimante non configurée.")
             return

@@ -22,13 +22,4 @@ CREMCENTRE;V-00268981;01/08/26;6 Yaourt entier Fraise RGF - 2X125G;1337427004322
 CREMCENTRE;V-00268981;01/08/26;6 Yaourt Brasse Nois 140G RGF - 140G;13374270830082;260907;26L302407;LOT 26L302407 07/09/26  Conservation 4/6 °C;360
 
 
-on va ajouter une nouvelle fonctionnalité, l'operateur doit pouvoir faire un drag and drop des blocs de parfum. Comme
-  ça pour X raison si ce que sort l'algo ne leur plait pas ou ils ont un soucis au lieu de devoir tester en reel il
-  peuvent tester leurs paletisation dans notre tool. Il faut que ce soit parfait en terme d'ux par exemple l'user prend
-  un bloc ce qui modifie directement la palette qui perd son bloc puis quand il va la glisser sur une autre palette il
-  faut que ce soit reactif sans meme que l'operateur pose le bloc c'est a dire que si il le mets approximativement
-  entre 2 blocs la palette doit se separer visuellement à l'endroit exacte ou l'operateur est puis s'il le lache et
-  bien le bloc prend la place, il faut aussi que la hauteur de la palette soit reactif sans qu'il ait besoin de poser
-  le bloc, si ça depasser la limite de hauteur fixé tu fais une grosse ligne rouge à l'endroit exacte ou ça depasse la
-  limite et tu affiches le nombre de cm qui depasse de la limite en rouge.
-─────────────────────────────────────────────────────────────────────────────
+agy --conversation=0b378152-6397-49a2-97e1-673cf517f213

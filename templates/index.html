@@ -24,7 +24,7 @@
                     alt="Logo d'entreprise Ferme des Peupliers">
                 <p>Système d'impression d'étiquettes</p>
             </div>
-            <div style="display: flex; gap: 15px;">
+            <div style="display: flex; gap: 15px; align-items: center;">
                 <button type="button" id="open-calibration-header-btn" class="btn-icon"
                     style="display: none; color: var(--warning);" title="Calibrer l'imprimante">
                     <i data-lucide="move"></i> Calibrage Imprimante
@@ -72,18 +72,44 @@
                     page dédiée s'ouvrira.</p>
 
                 <div class="hub-grid">
-                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande Gravigny"
+                    <!-- Prepa Commande cards -->
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande"
                         data-tool="toshiba_3up">
                         <i data-lucide="file-spreadsheet" class="hub-icon text-blue"></i>
                         <h3>Commandes (Fichier TXT)</h3>
                         <p>Imprimante Toshiba - 3-up</p>
                     </a>
-                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande Gravigny"
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande"
                         data-tool="toshiba_4up">
                         <i data-lucide="tags" class="hub-icon text-green"></i>
                         <h3>Ligne 2</h3>
                         <p>Parfums (Format 4-up)</p>
                     </a>
+                    
+                    <!-- Gravigny specific cards -->
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="Gravigny"
+                        data-tool="toshiba_3up">
+                        <div class="labels-visual">
+                            <div class="label-box"></div>
+                            <div class="label-box"></div>
+                            <div class="label-box"></div>
+                        </div>
+                        <h3>Format 3 Étiquettes</h3>
+                        <p>Rouleau 3-up de front</p>
+                    </a>
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="Gravigny"
+                        data-tool="toshiba_4up">
+                        <div class="labels-visual">
+                            <div class="label-box"></div>
+                            <div class="label-box"></div>
+                            <div class="label-box"></div>
+                            <div class="label-box"></div>
+                        </div>
+                        <h3>Format 4 Étiquettes</h3>
+                        <p>Rouleau 4-up de front</p>
+                    </a>
+
+                    <!-- Zebra -->
                     <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande conditionnement"
                         data-tool="zebra">
                         <i data-lucide="printer" class="hub-icon text-orange"></i>
@@ -170,13 +196,101 @@
             <section class="step-section" id="upload-section" style="display: none;">
                 <div class="step-header">
                     <span class="step-number">4</span>
-                    <h2>Fournir les données de la commande</h2>
+                    <h2 id="upload-section-title">Fournir les données de la commande</h2>
                 </div>
-                <p class="help-text"><i data-lucide="info"></i> Choisissez comment importer la commande : via l'ERP (Automatique) ou avec un fichier CSV manuel.</p>
+                
+                <!-- Sélecteur de méthode (affiché uniquement en 3up et 1up) -->
+                <div id="upload-method-selector" style="display: none; gap: 10px; margin-bottom: 20px;">
+                    <button type="button" class="btn-secondary active" id="method-custom-btn" style="flex:1;">
+                        <i data-lucide="tag"></i> Création Personnalisée
+                    </button>
+                    <button type="button" class="btn-secondary" id="method-erp-btn" style="flex:1;">
+                        <i data-lucide="cloud-download"></i> Depuis l'ERP
+                    </button>
+                    <button type="button" class="btn-secondary" id="method-file-btn" style="flex:1;">
+                        <i data-lucide="file-up"></i> Fichier Manuel
+                    </button>
+                </div>
 
-                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 15px;">
+                <!-- PANEL: CREATION PERSONNALISEE (3UP) -->
+                <div id="panel-3up-custom" style="display: none;">
+                    <p class="help-text"><i data-lucide="info"></i> Configurez et ajoutez vos étiquettes personnalisées pour le format 3-up.</p>
+                    <div class="nature-body">
+                        <div class="form-group" style="background: #f8fafc; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; width: 100%;">
+                            <label for="parfum-3up-select"><strong>Produit à imprimer</strong></label>
+                            <select id="parfum-3up-select" class="large-select"></select>
+                            <div style="display: flex; gap: 10px; margin: 10px 0 20px 0;">
+                                <button type="button" id="toggle-add-parfum-3up-btn" class="btn-secondary" title="Créer un nouveau produit">
+                                    <i data-lucide="plus-circle"></i> Nouveau
+                                </button>
+                                <button type="button" id="edit-parfum-3up-btn" class="btn-secondary" title="Modifier ce produit">
+                                    <i data-lucide="edit"></i> Modifier
+                                </button>
+                                <button type="button" id="delete-parfum-3up-btn" class="btn-secondary" title="Supprimer ce produit" style="color: #dc2626; border-color: #fca5a5; background-color: #fef2f2;">
+                                    <i data-lucide="trash-2"></i> Supprimer
+                                </button>
+                            </div>
+
+                            <!-- Formulaire d'ajout/édition 3UP -->
+                            <div id="add-parfum-3up-form" class="sub-form" style="display: none; margin-bottom: 20px;">
+                                <input type="hidden" id="edit-parfum-3up-id">
+                                <h4 id="parfum-3up-form-title"><i data-lucide="tag"></i> Créer un nouveau produit</h4>
+                                <label>Nom dans le menu déroulant :</label>
+                                <input type="text" id="new-parfum-3up-nom" placeholder="Ex: Yaourt Nature">
+                                <label style="margin-top:10px;">Texte exact imprimé :</label>
+                                <input type="text" id="new-parfum-3up-nom-impression" placeholder="Ex: 6 Yaourts Nature">
+                                <label style="margin-top:10px;">Code barre (EAN-13) :</label>
+                                <input type="text" id="new-parfum-3up-ean" placeholder="Ex: 3374270030348" maxlength="14">
+                                <div class="sub-form-actions">
+                                    <button type="button" id="save-new-parfum-3up-btn" class="btn-primary"><i data-lucide="save"></i> Enregistrer</button>
+                                    <button type="button" id="cancel-parfum-3up-btn" class="btn-secondary"><i data-lucide="x"></i> Annuler</button>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label><strong>Date (DLC)</strong></label>
+                                    <input type="text" id="custom-3up-dlc" class="large-input" placeholder="Ex: 23/11/2026">
+                                </div>
+                                <div>
+                                    <label><strong>Lot</strong></label>
+                                    <input type="text" id="custom-3up-lot" class="large-input" placeholder="Ex: L231">
+                                </div>
+                                <div>
+                                    <label><strong>Code Barre (Surcharge)</strong></label>
+                                    <input type="text" id="custom-3up-barcode" class="large-input" placeholder="Ex: 3374270000000" maxlength="14">
+                                    <small style="color: #64748b; font-size: 11px;">Laissez vide pour utiliser celui du produit</small>
+                                </div>
+                                <div>
+                                    <label><strong>Quantité</strong></label>
+                                    <input type="number" id="custom-3up-qty" value="30" class="large-input">
+                                </div>
+                            </div>
+
+                            <button type="button" id="add-to-batch-3up-btn" class="btn-secondary" style="margin-top: 20px; width: 100%;">
+                                <i data-lucide="plus"></i> Ajouter à la file 3-up
+                            </button>
+
+                            <div id="batch-list-3up-container" style="display: none; background: #f1f5f9; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #cbd5e1;">
+                                <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #475569;"><i data-lucide="list"></i> File d'impression</h4>
+                                <ul id="batch-list-3up" style="list-style: none; padding: 0; margin: 0; font-size: 13px; max-height: 150px; overflow-y: auto;"></ul>
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #cbd5e1; text-align: right; font-weight: bold; font-size: 14px; color: #0f172a;">
+                                    Total : <span id="batch-total-3up">0</span> étiquettes
+                                </div>
+                                <button type="button" id="print-3up-custom-btn" class="btn-primary btn-massive" style="margin-top: 15px; width: 100%;">
+                                    <i data-lucide="printer"></i> Lancer l'impression 3-up
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL: ERP & FICHIER MANUEL -->
+                <div id="panel-erp-file" style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 0;">
+                    <p class="help-text" style="width: 100%; margin-top: 0;"><i data-lucide="info"></i> Choisissez comment importer la commande massive : via l'ERP (Automatique) ou avec un fichier CSV manuel.</p>
+                    
                     <!-- Option 1 : API ERP -->
-                    <div style="flex: 1; min-width: 300px; background: #f8fafc; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
+                    <div id="panel-erp" style="flex: 1; min-width: 300px; background: #f8fafc; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
                         <h3 style="margin-top:0; display:flex; align-items:center; gap:8px; color:#0f172a; font-size: 1.1rem;"><i data-lucide="cloud-download" style="color:var(--primary);"></i> Depuis l'ERP</h3>
                         <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:15px; flex-grow: 1;">Téléchargement direct depuis Business Central.</p>
                         <div style="display:flex; gap:10px;">
@@ -186,7 +300,7 @@
                     </div>
 
                     <!-- Option 2 : Fichier manuel -->
-                    <div style="flex: 1; min-width: 300px;">
+                    <div id="panel-file" style="flex: 1; min-width: 300px;">
                         <div class="upload-zone" id="drop-zone" tabindex="0" style="height: 100%; min-height: 140px; margin-top: 0; display: flex; flex-direction: column; justify-content: center;">
                             <div class="upload-content">
                                 <i data-lucide="file-up" class="icon-large"></i>

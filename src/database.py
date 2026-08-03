@@ -51,6 +51,17 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS parfums (
                     id TEXT PRIMARY KEY,
                     nom TEXT,
+                    nom_impression TEXT,
+                    ean13 TEXT
+                )
+            """)
+            
+            # Table Parfums 3-up
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS parfums_3up (
+                    id TEXT PRIMARY KEY,
+                    nom TEXT,
+                    nom_impression TEXT,
                     ean13 TEXT
                 )
             """)
@@ -191,5 +202,34 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM parfums WHERE id=?", (parfum_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    # Parfums 3-up CRUD
+    def get_parfums_3up(self) -> List[Dict]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM parfums_3up")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def add_parfum_3up(self, nom: str, ean13: str, nom_impression: str) -> Dict:
+        new_id = str(uuid.uuid4())
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO parfums_3up (id, nom, nom_impression, ean13) VALUES (?, ?, ?, ?)", (new_id, nom, nom_impression, ean13))
+            conn.commit()
+        return {"id": new_id, "nom": nom, "nom_impression": nom_impression, "ean13": ean13}
+
+    def update_parfum_3up(self, parfum_id: str, nom: str, ean13: str, nom_impression: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE parfums_3up SET nom=?, nom_impression=?, ean13=? WHERE id=?", (nom, nom_impression, ean13, parfum_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_parfum_3up(self, parfum_id: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM parfums_3up WHERE id=?", (parfum_id,))
             conn.commit()
             return cursor.rowcount > 0

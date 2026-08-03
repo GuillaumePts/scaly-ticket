@@ -232,14 +232,82 @@ async def get_parfums_4up():
 class Parfum4Up(BaseModel):
     nom: str
     ean13: str
+    nom_impression: str = None
 
 @app.post("/api/parfums-4up")
 async def add_parfum_4up(parfum: Parfum4Up):
     try:
-        new_parfum = db.add_parfum(parfum.nom, parfum.ean13)
+        new_parfum = db.add_parfum(parfum.nom, parfum.ean13, parfum.nom_impression)
         return {"message": "Parfum ajouté", "parfum": new_parfum}
     except Exception as e:
         logger.error(f"Erreur ajout parfum: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/parfums-4up/{parfum_id}")
+async def update_parfum_4up(parfum_id: str, parfum: Parfum4Up):
+    try:
+        success = db.update_parfum(parfum_id, parfum.nom, parfum.ean13, parfum.nom_impression)
+        if success:
+            return {"message": "Parfum mis à jour"}
+        raise HTTPException(status_code=404, detail="Parfum non trouvé")
+    except Exception as e:
+        logger.error(f"Erreur mise à jour parfum: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/parfums-4up/{parfum_id}")
+async def delete_parfum_4up(parfum_id: str):
+    try:
+        success = db.delete_parfum(parfum_id)
+        if success:
+            return {"message": "Parfum supprimé"}
+        raise HTTPException(status_code=404, detail="Parfum non trouvé")
+    except Exception as e:
+        logger.error(f"Erreur suppression parfum: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- CRUD Parfums 3-up ---
+@app.get("/api/parfums-3up")
+async def get_parfums_3up_api():
+    try:
+        return db.get_parfums_3up()
+    except Exception as e:
+        logger.error(f"Erreur chargement parfums 3up: {e}")
+        return []
+
+class Parfum3Up(BaseModel):
+    nom: str
+    ean13: str
+    nom_impression: str
+
+@app.post("/api/parfums-3up")
+async def add_parfum_3up_api(parfum: Parfum3Up):
+    try:
+        new_parfum = db.add_parfum_3up(parfum.nom, parfum.ean13, parfum.nom_impression)
+        return {"message": "Produit ajouté", "parfum": new_parfum}
+    except Exception as e:
+        logger.error(f"Erreur ajout produit 3up: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/parfums-3up/{parfum_id}")
+async def update_parfum_3up_api(parfum_id: str, parfum: Parfum3Up):
+    try:
+        success = db.update_parfum_3up(parfum_id, parfum.nom, parfum.ean13, parfum.nom_impression)
+        if success:
+            return {"message": "Produit mis à jour"}
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+    except Exception as e:
+        logger.error(f"Erreur mise à jour produit 3up: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/parfums-3up/{parfum_id}")
+async def delete_parfum_3up_api(parfum_id: str):
+    try:
+        success = db.delete_parfum_3up(parfum_id)
+        if success:
+            return {"message": "Produit supprimé"}
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+    except Exception as e:
+        logger.error(f"Erreur suppression produit 3up: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/preview-4up-live")
@@ -474,7 +542,20 @@ async def get_printer_status(ip: str):
     
     ready = not (status.get("paper_out") or status.get("pause") or 
                  status.get("ribbon_out") or status.get("head_open"))
-    return {"ready": ready, "details": status}
+    return {"ready": ready, "details": status, "simulation": status.get("simulation", False)}
+
+@app.get("/api/simulation-mode")
+async def get_simulation_mode():
+    return {"simulation_mode": settings.SIMULATION_MODE}
+
+class SimulationModeRequest(BaseModel):
+    enabled: bool
+
+@app.post("/api/simulation-mode")
+async def set_simulation_mode(req: SimulationModeRequest):
+    settings.SIMULATION_MODE = req.enabled
+    logger.info(f"Mode simulation passé à : {settings.SIMULATION_MODE}")
+    return {"simulation_mode": settings.SIMULATION_MODE}
 
 @app.get("/api/printers")
 async def get_printers():

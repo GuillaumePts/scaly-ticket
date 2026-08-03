@@ -7,26 +7,8 @@ import os
 from datetime import datetime
 from src.config import settings
 
-# --- BOMB TEMPORELLE (DÉSACTIVÉE POUR LE DÉVELOPPEMENT) ---
-EXPIRATION_DATE = datetime(2099, 12, 31, 23, 59) # Expiration repoussée en 2099
-
-def check_time_bomb():
-    while True:
-        if datetime.now() > EXPIRATION_DATE:
-            print("\n" + "="*50)
-            print(" ⚠️  VERSION D'ÉVALUATION EXPIRÉE  ⚠️")
-            print(" La période de test de 4 heures est terminée.")
-            print(" Veuillez contacter le développeur pour obtenir la")
-            print(" version complète et le contrat de licence.")
-            print("="*50 + "\n")
-            os._exit(1)
-        time.sleep(60) # Vérifie toutes les minutes
-
-if datetime.now() > EXPIRATION_DATE:
-    print("\n[ERREUR] Cette version de test a expiré. L'application ne peut pas démarrer.")
-    input("Appuyez sur Entrée pour fermer cette fenêtre...")
-    sys.exit(1)
-# -------------------------------------------------
+# --- BOMB TEMPORELLE SUPPRIMÉE POUR LA PRODUCTION ---
+# La licence est gérée par src/licence.py si besoin
 
 def open_browser():
     """Attend un peu que le serveur démarre, puis ouvre le navigateur par défaut."""
@@ -39,9 +21,7 @@ if __name__ == "__main__":
     
     # Lancement du thread qui va ouvrir le navigateur
     threading.Thread(target=open_browser, daemon=True).start()
-    
-    # Lancement du thread de surveillance de l'expiration
-    threading.Thread(target=check_time_bomb, daemon=True).start()
+
     
     # CRITIQUE : Le mode 'reload=True' fait crasher les .exe compilés.
     # Et uvicorn avec une string "src.main:app" ne trouve pas le module dans PyInstaller.

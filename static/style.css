@@ -871,3 +871,24 @@ td {
     gap: 15px;
     margin-top: 30px;
 }
+
+/* Gravigny visual blocks */
+.labels-visual {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.label-box {
+    width: 20px;
+    height: 30px;
+    background: white;
+    border: 2px solid #cbd5e1;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+}
+.hub-card:hover .label-box {
+    border-color: var(--primary);
+    background: #f0fdf4;
+}
