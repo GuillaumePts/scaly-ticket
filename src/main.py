@@ -465,10 +465,13 @@ async def print_fromis(request: PrintFromisRequest):
 
     try:
         engine = ZPLEngine(dpi=203)
-        flux = engine.generate_fromis_tpcl(label_text, request.quantity)
+        # Format 3-up : 1 ligne = 3 étiquettes. On arrondit au supérieur.
+        lignes = (request.quantity + 2) // 3
+        flux = engine.generate_fromis_tpcl(label_text, lignes)
+        
         # FLIPOU = B-EV4 → sleep de 2.0s minimum (validé terrain)
         enqueue_job(request.printer_ip, 203, "TPCL", flux, sleep_time=2.0)
-        return {"message": f"{request.quantity} étiquette(s) '{request.label_name}' envoyée(s) à la Toshiba FLIPOU."}
+        return {"message": f"{lignes * 3} étiquette(s) (soit {lignes} lignes) '{request.label_name}' envoyée(s) à l'imprimante."}
     except Exception as e:
         logger.error(f"Erreur impression Fromis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
