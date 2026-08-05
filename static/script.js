@@ -384,9 +384,17 @@ function activateDedicatedTool(tool, sector) {
         currentFormat = '4up';
         uploadSection.style.display = 'none';
         parfumSection.style.display = 'block';
+        document.getElementById('fromis-section').style.display = 'none';
         const stepNum = parfumSection.querySelector('.step-number');
         if (stepNum) stepNum.style.display = 'none';
         parfumSection.querySelector('h2').textContent = "Configuration des étiquettes";
+    } else if (tool === 'fromis') {
+        currentFormat = 'fromis';
+        uploadSection.style.display = 'none';
+        parfumSection.style.display = 'none';
+        const fromisSection = document.getElementById('fromis-section');
+        fromisSection.style.display = 'block';
+        initFromisSection();
     } else if (tool.startsWith('zebra')) {
         currentFormat = '1up'; // Zebra 300 1-up
         uploadSection.style.display = 'block';
@@ -426,6 +434,141 @@ function updateFormatVisibility() {
         uploadSection.style.display = 'none';
         parfumSection.style.display = 'block';
     }
+}
+
+// ────────────────────────────────────────────────────
+// FROMIS — Logique de la section étiquettes allemandes
+// ────────────────────────────────────────────────────
+let fromisLabelsLoaded = false;
+
+async function initFromisSection() {
+    const fromisSelect = document.getElementById('fromis-select');
+    const fromisPrinterSelect = document.getElementById('fromis-printer-select');
+    const fromisPrintBtn = document.getElementById('fromis-print-btn');
+    const fromisPreviewImg = document.getElementById('fromis-preview-img');
+    const fromisPreviewEmpty = document.getElementById('fromis-preview-empty');
+    const fromisQty = document.getElementById('fromis-qty');
+
+    if (!fromisSelect) return;
+
+    // Peupler la liste des imprimantes Toshiba disponibles
+    if (fromisPrinterSelect && fromisPrinterSelect.options.length <= 1) {
+        fromisPrinterSelect.innerHTML = '';
+        const toshibas = (window.printersData || []).filter(p => p.language === 'TPCL');
+        if (toshibas.length === 0) {
+            fromisPrinterSelect.innerHTML = '<option value="">Aucune Toshiba configurée</option>';
+        } else {
+            toshibas.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.ip;
+                opt.textContent = `${p.name} (${p.ip})`;
+                // Présélectionner FLIPOU par défaut si disponible
+                if (p.name && p.name.includes('FLIPOU')) opt.selected = true;
+                fromisPrinterSelect.appendChild(opt);
+            });
+        }
+    }
+
+    // Charger la liste des étiquettes depuis l'API (une seule fois)
+    if (!fromisLabelsLoaded) {
+        fromisSelect.innerHTML = '<option value="">Chargement...</option>';
+        try {
+            const resp = await fetch('/api/fromis/labels');
+            const data = await resp.json();
+            fromisSelect.innerHTML = '<option value="">-- Choisir une étiquette --</option>';
+            data.labels.forEach(lbl => {
+                const opt = document.createElement('option');
+                opt.value = lbl.name;
+                opt.textContent = lbl.name;
+                fromisSelect.appendChild(opt);
+            });
+            fromisLabelsLoaded = true;
+        } catch (e) {
+            fromisSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+        }
+    }
+
+    // Prévisualisation au changement de sélection
+    fromisSelect.onchange = async () => {
+        const name = fromisSelect.value;
+        if (!name) {
+            fromisPreviewImg.style.display = 'none';
+            fromisPreviewEmpty.style.display = 'block';
+            return;
+        }
+        fromisPreviewImg.style.display = 'none';
+        fromisPreviewEmpty.style.display = 'block';
+        fromisPreviewEmpty.textContent = 'Génération de l\'aperçu...';
+        try {
+            const encodedName = encodeURIComponent(name);
+            fromisPreviewImg.src = `/api/fromis/preview/${encodedName}?t=${Date.now()}`;
+            fromisPreviewImg.onload = () => {
+                fromisPreviewImg.style.display = 'block';
+                fromisPreviewEmpty.style.display = 'none';
+            };
+            fromisPreviewImg.onerror = () => {
+                fromisPreviewEmpty.textContent = 'Erreur de prévisualisation';
+                fromisPreviewEmpty.style.display = 'block';
+                fromisPreviewImg.style.display = 'none';
+            };
+        } catch (e) {
+            fromisPreviewEmpty.textContent = 'Erreur';
+            fromisPreviewEmpty.style.display = 'block';
+        }
+    };
+
+    // Bouton impression
+    fromisPrintBtn.onclick = async () => {
+        const name = fromisSelect.value;
+        const qty = parseInt(fromisQty.value) || 0;
+
+        if (!name) {
+            Modal.error("Sélection manquante", "Veuillez choisir une étiquette dans la liste.");
+            return;
+        }
+        if (qty <= 0) {
+            Modal.error("Quantité invalide", "Veuillez indiquer une quantité supérieure à 0.");
+            return;
+        }
+
+        // Récupérer l'IP depuis le sélecteur d'imprimante
+        const printerIp = fromisPrinterSelect ? fromisPrinterSelect.value : null;
+        if (!printerIp) {
+            Modal.error("Imprimante introuvable", "Aucune imprimante Toshiba sélectionnée.");
+            return;
+        }
+
+        const ok = await Modal.confirm(
+            "Confirmer l'impression",
+            `Imprimer ${qty} étiquette(s) "${name}" sur la Toshiba FLIPOU ?`,
+            'printer', 'icon-info'
+        );
+        if (!ok) return;
+
+        fromisPrintBtn.disabled = true;
+        fromisPrintBtn.innerHTML = '<i data-lucide="loader"></i> Envoi en cours...';
+        lucide.createIcons();
+
+        try {
+            const resp = await fetch('/api/fromis/print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ printer_ip: printerIp, label_name: name, quantity: qty })
+            });
+            const result = await resp.json();
+            if (resp.ok) {
+                Modal.alert("Impression envoyée", result.message, 'check-circle', 'icon-success');
+            } else {
+                Modal.error("Erreur", result.detail || "Erreur inconnue");
+            }
+        } catch (e) {
+            Modal.error("Problème réseau", e.message);
+        } finally {
+            fromisPrintBtn.disabled = false;
+            fromisPrintBtn.innerHTML = '<i data-lucide="printer"></i> Imprimer';
+            lucide.createIcons();
+        }
+    };
 }
 
 // ETAPE 4 (Parfums) : Chargement des parfums 4-up

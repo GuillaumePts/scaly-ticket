@@ -81,6 +81,12 @@
                         <h3>Ligne 2</h3>
                         <p>Parfums (Format 4-up)</p>
                     </a>
+                    <a href="#" target="_blank" class="hub-card tool-card" data-sectors="prepa_commande"
+                        data-tool="fromis">
+                        <i data-lucide="flag" class="hub-icon" style="color: #dc2626;"></i>
+                        <h3>Fromis</h3>
+                        <p>Étiquettes allemandes 30x50mm</p>
+                    </a>
                     
                     <!-- Gravigny specific cards -->
                     <a href="#" target="_blank" class="hub-card tool-card" data-sectors="Gravigny"
@@ -378,6 +384,45 @@
                             <img id="parfum-preview-img" style="display: none;" alt="Aperçu de l'étiquette" />
                             <p id="parfum-preview-empty" style="color:var(--text-muted); margin: 40px 0;">Aucun parfum
                                 sélectionné</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION FROMIS -->
+            <section class="step-section" id="fromis-section" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">4</span>
+                    <h2>Étiquettes Fromis</h2>
+                </div>
+                <p class="help-text"><i data-lucide="info"></i> Sélectionnez l'étiquette à imprimer et la quantité. L'impression sera envoyée directement à la <strong>Toshiba FLIPOU</strong>.</p>
+
+                <div class="nature-body">
+                    <div class="form-group">
+                        <label for="fromis-printer-select"><strong>0. Sur quelle imprimante ?</strong></label>
+                        <select id="fromis-printer-select" class="large-select">
+                            <!-- Rempli par JS depuis printersData -->
+                        </select>
+
+                        <label for="fromis-select" style="margin-top: 20px;"><strong>1. Quelle étiquette ?</strong></label>
+                        <select id="fromis-select" class="large-select">
+                            <option value="">Chargement...</option>
+                        </select>
+
+                        <label for="fromis-qty" style="margin-top: 20px;"><strong>2. Quantité à imprimer :</strong></label>
+                        <input type="number" id="fromis-qty" value="1" min="1" max="9999" class="large-input">
+
+                        <button type="button" id="fromis-print-btn" class="btn-primary btn-massive"
+                            style="margin-top: 20px; width: 100%;">
+                            <i data-lucide="printer"></i> Imprimer
+                        </button>
+                    </div>
+
+                    <div class="preview-box">
+                        <p class="preview-title"><i data-lucide="image"></i> Aperçu visuel</p>
+                        <div class="preview-image-container">
+                            <img id="fromis-preview-img" style="display: none; max-width: 100%; border: 1px solid #e2e8f0; border-radius: 4px;" alt="Aperçu étiquette Fromis" />
+                            <p id="fromis-preview-empty" style="color:var(--text-muted); margin: 40px 0;">Aucune étiquette sélectionnée</p>
                         </div>
                     </div>
                 </div>
@@ -793,6 +838,7 @@
 
     <script>
         const printersData = {{ printers| tojson }};
+        window.printersData = printersData;
     </script>
     <!-- SAMADA TOP VIEW MODAL -->
     <div id="samada-modal" class="modal-overlay" style="display: none; z-index: 9999; overflow-y: auto;">
@@ -816,6 +862,6 @@
         </div>
     </div>
     
-    <script src="/static/script.js?v=4"></script>
+    <script src="/static/script.js?v=5"></script>
 </body>
 </html>

@@ -410,6 +410,69 @@ async def print_4up(request: Print4UpRequest, background_tasks: BackgroundTasks)
         logger.error(f"Erreur impression 4-up: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ─────────────────────────────────────────────
+# FROMIS — Étiquettes allemandes 30x50mm
+# ─────────────────────────────────────────────
+FROMIS_LABELS_FILE = base_path / "etiquette_allemand" / "labels.json"
+
+def _load_fromis_labels() -> dict:
+    """Charge le JSON des étiquettes Fromis depuis le disque."""
+    if FROMIS_LABELS_FILE.exists():
+        with open(FROMIS_LABELS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+@app.get("/api/fromis/labels")
+async def get_fromis_labels():
+    """Retourne la liste des étiquettes Fromis disponibles."""
+    labels = _load_fromis_labels()
+    return {"labels": [{"name": k, "text_preview": v[:80] + "..." if len(v) > 80 else v} for k, v in sorted(labels.items())]}
+
+@app.get("/api/fromis/preview/{label_name}")
+async def preview_fromis_label(label_name: str):
+    """Génère un aperçu PNG d'une étiquette Fromis."""
+    labels = _load_fromis_labels()
+    label_text = labels.get(label_name)
+    if label_text is None:
+        raise HTTPException(status_code=404, detail=f"Étiquette '{label_name}' non trouvée")
+    try:
+        engine = ZPLEngine(dpi=203)
+        img_bytes = engine.generate_fromis_preview_png(label_text)
+        return Response(content=img_bytes, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class PrintFromisRequest(BaseModel):
+    printer_ip: str
+    label_name: str
+    quantity: int = 1
+
+@app.post("/api/fromis/print")
+async def print_fromis(request: PrintFromisRequest):
+    """Impression d'une étiquette Fromis sur la Toshiba FLIPOU."""
+    try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    labels = _load_fromis_labels()
+    label_text = labels.get(request.label_name)
+    if label_text is None:
+        raise HTTPException(status_code=404, detail=f"Étiquette '{request.label_name}' non trouvée")
+
+    if request.quantity <= 0 or request.quantity > 9999:
+        raise HTTPException(status_code=400, detail="Quantité invalide (1 à 9999)")
+
+    try:
+        engine = ZPLEngine(dpi=203)
+        flux = engine.generate_fromis_tpcl(label_text, request.quantity)
+        # FLIPOU = B-EV4 → sleep de 2.0s minimum (validé terrain)
+        enqueue_job(request.printer_ip, 203, "TPCL", flux, sleep_time=2.0)
+        return {"message": f"{request.quantity} étiquette(s) '{request.label_name}' envoyée(s) à la Toshiba FLIPOU."}
+    except Exception as e:
+        logger.error(f"Erreur impression Fromis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 def find_ean13_for_libelle(libelle: str, parfums_list: list) -> tuple[str, str]:
     import unicodedata
     import re

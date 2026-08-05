@@ -891,3 +891,208 @@ class ZPLEngine:
         canvas.save(buf, format="PNG")
         return buf.getvalue()
 
+    # -----------------------------------------------------------------------
+    # Moteur Fromis — Étiquette 30x50mm sur Toshiba FLIPOU / Gravigny (B-EV4)
+    # Format physique : rouleau 3-up (3x30mm de front = 90mm de large)
+    # Canvas : 768 x 400 dots (même largeur que le 3-up standard)
+    # Chaque label individuel : 400x240 dots en paysage → ROTATE_90 = 240x400
+    # Collé 3 fois à X=[12, 276, 540] (pitch 33mm = 264 dots, 30mm+3mm gap)
+    # {D} : 0520,0975,0500 (pitch 52mm, largeur 97.5mm, hauteur 50mm)
+    # Firmware B-EV4 → xpml_pitch=False (FLIPOU ET Gravigny)
+    # Règle absolue : jamais de pixel noir sur X=0 (sécurité B-EV4)
+    # -----------------------------------------------------------------------
+    FROMIS_LABEL_W  = 400   # 50mm à 203 DPI (dimension longue, paysage)
+    FROMIS_LABEL_H  = 240   # 30mm à 203 DPI
+    FROMIS_CANVAS_W = 768   # Même canvas que 3-up standard
+    FROMIS_CANVAS_H = 400   # Hauteur = longueur de l'étiquette (50mm)
+    FROMIS_D_PARAM  = "0520,0975,0500"  # pitch 52mm, larg 97.5mm, haut 50mm
+    FROMIS_X_OFFSETS = [12, 276, 540]   # Même pitch 33mm (264 dots) que le 3-up
+
+    def _render_single_fromis_label(self, label_text: str) -> Image.Image:
+        """
+        Rend UNE étiquette Fromis individuelle 50x30mm (paysage 400x240).
+        Retourne l'image pivotée 90° → 240x400 dots (portrait pour la bande).
+        Police 20px pour lisibilité maximale sur 30mm de hauteur physique.
+        """
+        img = Image.new('1', (self.FROMIS_LABEL_W, self.FROMIS_LABEL_H), color=1)
+        draw = ImageDraw.Draw(img)
+
+        # Police 20px (×2 vs v1) — meilleur compromis lisibilité/contenu
+        font_text = None
+        for font_name in ["arial.ttf", "Arial.ttf", "DejaVuSans.ttf", "cour.ttf"]:
+            try:
+                font_text = ImageFont.truetype(font_name, 15)
+                break
+            except IOError:
+                pass
+        if font_text is None:
+            font_text = ImageFont.load_default()
+
+        margin_left  = 8
+        margin_top   = 4
+        margin_right = 8
+        line_height  = 17   # 15px + 2px d'espacement
+
+        max_w = self.FROMIS_LABEL_W - margin_left - margin_right
+        max_h = self.FROMIS_LABEL_H - margin_top - 4
+
+        # Word-wrap
+        words = label_text.replace('\n', ' \n ').split(' ')
+        lines = []
+        current_line = []
+
+        for word in words:
+            if word == '\n':
+                lines.append(' '.join(current_line))
+                current_line = []
+                continue
+            test_line = ' '.join(current_line + [word])
+            try:
+                bbox = draw.textbbox((0, 0), test_line, font=font_text)
+                tw = bbox[2] - bbox[0]
+            except AttributeError:
+                tw, _ = draw.textsize(test_line, font=font_text)
+            if tw <= max_w:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        y = margin_top
+        for line in lines:
+            if y + line_height > max_h:
+                break
+            draw.text((margin_left, y), line, fill=0, font=font_text)
+            y += line_height
+
+        # Sécurité B-EV4 : colonne 0 forcée à blanc
+        draw.rectangle([(0, 0), (0, self.FROMIS_LABEL_H - 1)], fill=1)
+
+        # Rotation 90° → portrait (240x400)
+        return img.transpose(Image.ROTATE_90)
+
+    def _render_fromis_band(self, label_text: str) -> Image.Image:
+        """
+        Génère le canvas complet 3-up (768x400) avec l'étiquette répétée 3 fois.
+        Même architecture que _render_toshiba_band pour le 3-up standard.
+        """
+        canvas = Image.new('1', (self.FROMIS_CANVAS_W, self.FROMIS_CANVAS_H), color=1)
+        single = self._render_single_fromis_label(label_text)
+
+        for x in self.FROMIS_X_OFFSETS:
+            canvas.paste(single, (x, 0))
+
+        # Sécurité B-EV4 : zone gauche forcée à blanc
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([(0, 0), (11, self.FROMIS_CANVAS_H - 1)], fill=1)
+
+        return canvas
+
+    def _build_fromis_tpcl_job(self, canvas: Image.Image, quantity: int) -> bytes:
+        """
+        Construit le flux TPCL pour la bande Fromis 3-up.
+        FLIPOU & Gravigny = firmware B-EV4 → xpml_pitch=False (pas d'attribut pitch).
+        Canvas = 768x400 dots.
+        """
+        img_w, img_h = canvas.size   # 768 x 400
+        w_bytes = img_w // 8          # 96 bytes/ligne
+
+        crlf = b"\r\n"
+        # B-EV4 (FLIPOU + Gravigny) → PAS d'attribut pitch dans XPML
+        page_0 = b"<xpml><page quantity='0'></xpml>"
+        page_1 = b"<xpml><page quantity='1'></xpml>"
+
+        d_bytes = self.FROMIS_D_PARAM.encode('ascii')
+        header  = page_0 + b"{D" + d_bytes + b"|}" + crlf
+
+        # Compression TOPIX du bitmap complet
+        raw  = canvas.tobytes()
+        inv  = bytes(b ^ 0xFF for b in raw)
+        comp = self.compress_topix(w_bytes, img_h, inv)
+
+        clen = len(comp)
+        sg   = f"{{SG;0000,0000,{img_w:04d},0300,3,".encode('ascii')
+        sg  += bytes([clen >> 8, clen & 0xFF]) + comp + b"|}\r\n"
+
+        body  = b"<xpml></page></xpml>" + page_1 + b"{C|}" + crlf
+        body += sg
+        body += f"{{XS;I,{quantity:04d},0002C5000|}}\r\n".encode('ascii')
+
+        footer = b"<xpml></page></xpml><xpml><end/></xpml>\r\n"
+        return header + body + footer
+
+    def generate_fromis_tpcl(self, label_text: str, quantity: int) -> str:
+        """Point d'entrée : génère le flux TPCL complet pour l'étiquette Fromis 3-up."""
+        canvas = self._render_fromis_band(label_text)
+        job    = self._build_fromis_tpcl_job(canvas, quantity)
+        return job.decode('latin-1')
+
+    def generate_fromis_preview_png(self, label_text: str) -> bytes:
+        """
+        Génère un aperçu PNG de l'étiquette individuelle (paysage 400x240, agrandi x3).
+        On affiche 1 seule étiquette pour la lisibilité dans le navigateur.
+        """
+        img  = Image.new('1', (self.FROMIS_LABEL_W, self.FROMIS_LABEL_H), color=1)
+        draw = ImageDraw.Draw(img)
+
+        font_text = None
+        for font_name in ["arial.ttf", "Arial.ttf", "DejaVuSans.ttf", "cour.ttf"]:
+            try:
+                font_text = ImageFont.truetype(font_name, 15)
+                break
+            except IOError:
+                pass
+        if font_text is None:
+            font_text = ImageFont.load_default()
+
+        margin_left  = 8
+        margin_top   = 4
+        margin_right = 8
+        line_height  = 17
+        max_w = self.FROMIS_LABEL_W - margin_left - margin_right
+        max_h = self.FROMIS_LABEL_H - margin_top - 4
+
+        words = label_text.replace('\n', ' \n ').split(' ')
+        lines = []
+        current_line = []
+
+        for word in words:
+            if word == '\n':
+                lines.append(' '.join(current_line))
+                current_line = []
+                continue
+            test_line = ' '.join(current_line + [word])
+            try:
+                bbox = draw.textbbox((0, 0), test_line, font=font_text)
+                tw = bbox[2] - bbox[0]
+            except AttributeError:
+                tw, _ = draw.textsize(test_line, font=font_text)
+            if tw <= max_w:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        y = margin_top
+        for line in lines:
+            if y + line_height > max_h:
+                break
+            draw.text((margin_left, y), line, fill=0, font=font_text)
+            y += line_height
+
+        # Bordure fine pour le preview
+        draw.rectangle([(0, 0), (self.FROMIS_LABEL_W - 1, self.FROMIS_LABEL_H - 1)], outline=0)
+
+        # Agrandir x3 pour la lisibilité dans le navigateur
+        preview = img.resize((self.FROMIS_LABEL_W * 3, self.FROMIS_LABEL_H * 3), Image.NEAREST)
+        preview = preview.convert('RGB')
+
+        buf = io.BytesIO()
+        preview.save(buf, format="PNG")
+        return buf.getvalue()
