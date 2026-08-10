@@ -86,6 +86,7 @@ let pollingInterval = null;
 let isPrinterReady = false;
 let isPrinting = false;
 let currentFormat = '3up'; // Par défaut
+let currentSector = '';
 
 // ETAPE 1 : Gestion des secteurs
 sectorBtns.forEach(btn => {
@@ -96,6 +97,7 @@ sectorBtns.forEach(btn => {
 });
 
 function activateSector(sector, saveState = true) {
+    currentSector = sector;
     const btn = Array.from(sectorBtns).find(b => b.dataset.sector === sector);
     if (!btn) return;
 
@@ -260,6 +262,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 function activateDedicatedTool(tool, sector) {
+    currentSector = sector;
     hubSectorChoice.style.display = 'none';
     hubToolsChoice.style.display = 'none';
     
@@ -1437,6 +1440,7 @@ if (apiFetchBtn) {
             const res = await fetch(`/api/commande/${encodeURIComponent(orderNumber)}`);
             if (res.ok) {
                 const data = await res.json();
+                console.log("Réponse API Business Central:", data);
                 
                 if (data.length === 0) {
                     Modal.error("Introuvable", `La commande ${orderNumber} n'existe pas ou ne contient aucun produit dans l'ERP.`);

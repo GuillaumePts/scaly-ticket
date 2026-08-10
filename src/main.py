@@ -846,15 +846,24 @@ async def update_printer_offsets(req: PrinterOffsetsRequest):
 @app.get("/api/commande/{order_number}")
 async def fetch_commande(order_number: str):
     """
-    Route simulée pour l'API Business Central.
-    Dans le futur, elle fera l'authentification OAuth et interrogera l'ERP.
+    Interroge l'API Business Central en temps réel pour récupérer la commande.
     """
     check_licence() # Vérifie que le tool est autorisé
     
-    # Données fictives pour simuler une réponse de l'ERP
-    mock_data = [
+    try:
+        from src.bc_client import BusinessCentralClient
+        bc_client = BusinessCentralClient()
+        return bc_client.fetch_sales_order(order_number)
+    except FileNotFoundError:
+        logger.warning("Fichier secret.json introuvable. Passage en mode simulation.")
+    except Exception as e:
+        logger.error(f"Erreur lors de l'appel Business Central: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur Business Central: {str(e)}")
+    
+    # Données fictives de secours uniquement si secret.json n'existe pas
+    return [
         {
-            "Client": "FERME DES PEUPLIERS (TEST API)",
+            "Client": "FERME DES PEUPLIERS (SIMULATION)",
             "Commande": order_number,
             "Libelle": "Yaourt Fraise 4x125gr",
             "DateLivraison": "16/07/2026",
@@ -862,7 +871,7 @@ async def fetch_commande(order_number: str):
             "Quantite": 10
         },
         {
-            "Client": "FERME DES PEUPLIERS (TEST API)",
+            "Client": "FERME DES PEUPLIERS (SIMULATION)",
             "Commande": order_number,
             "Libelle": "Yaourt Vanille 4x125gr",
             "DateLivraison": "16/07/2026",
@@ -870,12 +879,8 @@ async def fetch_commande(order_number: str):
             "Quantite": 20
         }
     ]
-    
-    # Simuler un temps de latence réseau
-    import asyncio
-    await asyncio.sleep(1)
-    
-    return mock_data
+
+
 
 @app.get("/api/licence")
 async def api_licence():
