@@ -1,0 +1,2 @@
+﻿Client;Commande;DateLivraison;Libelle;CodeBarre01;CodeBarre17;CodeBarre10;Numlot;Quantite
+CREMCENTRE;V-00269917;01/09/26;6 Lait demi-ecreme Peupliers 1L - 1033G;13374272050419;260907;250826;LOT 250826 07/09/26  Conservation 4/6 °C;1

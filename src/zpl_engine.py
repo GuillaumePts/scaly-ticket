@@ -3,6 +3,18 @@ import barcode
 from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont
 from src.models import TicketData
+import re
+
+def clean_lot_string(lot_val: str, dlc_val: str) -> str:
+    if not lot_val:
+        return ""
+    clean = lot_val
+    if "LOT" in clean.upper() or "CONSERVATION" in clean.upper():
+        clean = re.sub(r'(?i)^LOT\s*', '', clean)
+        clean = re.split(r'(?i)Conservation', clean)[0].strip()
+        clean = re.sub(r'\s*\d{2}/\d{2}/\d{2,4}\s*$', '', clean).strip()
+        clean = re.sub(r'(?i)°C\s*$|C\s*$', '', clean).strip()
+    return f"LOT {clean} {dlc_val}  Conservation 4/6 °C"
 
 class ZPLEngine:
     def __init__(self, dpi: int):
@@ -164,8 +176,11 @@ class ZPLEngine:
             tw, _ = draw.textsize(gs1_text, font=font_small)
         draw.text(((img_w - tw)//2, barcode_bottom + 8), gs1_text, fill=0, font=font_small)
 
-        # Lot et DLC
-        lot_text = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        # Lot et DLC (reconstruit)
+        lot_val = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        dlc_val = f"{data.date_expiration[4:6]}/{data.date_expiration[2:4]}/{data.date_expiration[0:2]}" if len(data.date_expiration) == 6 else ""
+        lot_text = clean_lot_string(lot_val, dlc_val)
+            
         try:
             bbox = draw.textbbox((0, 0), lot_text, font=font_normal)
             tw = bbox[2] - bbox[0]
@@ -328,7 +343,11 @@ class ZPLEngine:
 
         # Chaînes nettoyées
         lib_safe = data.libelle.encode('latin-1', 'ignore').decode('latin-1')
-        lot_safe = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        
+        lot_val = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        dlc_val = f"{data.date_expiration[4:6]}/{data.date_expiration[2:4]}/{data.date_expiration[0:2]}" if len(data.date_expiration) == 6 else ""
+        lot_safe = clean_lot_string(lot_val, dlc_val)
+        
         barcode_text = f"(01){data.gtin}(17){data.date_expiration}(10){data.lot}"
 
         # Calculer la largeur estimée du code-barres pour le centrage
@@ -761,7 +780,10 @@ class ZPLEngine:
         draw.text(((img_w - tw)//2, barcode_bottom + 5), gs1_text, fill=0, font=font_small)
 
         # Lot et DLC (agrandi et positionné juste en dessous)
-        lot_text = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        lot_val = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        dlc_val = f"{data.date_expiration[4:6]}/{data.date_expiration[2:4]}/{data.date_expiration[0:2]}" if len(data.date_expiration) == 6 else ""
+        lot_text = clean_lot_string(lot_val, dlc_val)
+            
         try:
             bbox = draw.textbbox((0, 0), lot_text, font=font_normal)
             tw = bbox[2] - bbox[0]

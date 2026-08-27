@@ -10,7 +10,8 @@
 - **Moteur Hybride** : Support du **ZPL II** (Zebra) et du **TPCL** (Toshiba).
 - **Interface Web** : FastAPI avec gestion des imprimantes (IP, DPI, Langage) et interface de suppression massive.
 
-## 3. RÈGLES MÉTIER
+## 3. RÈGLES MÉTIER & SÉCURITÉ
+- **SÉCURITÉ STRICTE BUSINESS CENTRAL (LECTURE SEULE)** : Il est **STRICTEMENT INTERDIT** d'exécuter des requêtes d'écriture (`POST`, `PUT`, `PATCH`, `DELETE`) ou de tenter de modifier les bases de données Business Central. Scaly-Ticket effectue **EXCLUSIVEMENT des requêtes `GET` (lecture seule)**. Tout le traitement, le parsing, le calcul et l'assemblage sont réalisés localement dans l'application sans jamais altérer l'ERP.
 - **Impression Batch** : Traitement de fichiers CSV avec séparateurs visuels automatiques.
 - **Transition de Minuit** : DLC et Lot incrémentés dynamiquement pendant le job.
 

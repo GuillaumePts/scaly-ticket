@@ -52,13 +52,22 @@ class DatabaseManager:
                 )
             """)
             
-            # Table Parfums
+            # Table Parfums (Zebra x2 / Ligne 1 / Base)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS parfums (
                     id TEXT PRIMARY KEY,
                     nom TEXT,
+                    ean13 TEXT,
                     nom_impression TEXT,
-                    ean13 TEXT
+                    gtin14 TEXT
+                )
+            """)
+            
+            # Table des règles clients (Filtre DLC)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS clients_regles (
+                    nom_client TEXT PRIMARY KEY,
+                    jours_dlc_min INTEGER NOT NULL
                 )
             """)
             
@@ -76,6 +85,13 @@ class DatabaseManager:
     def migrate_from_json_if_needed(self, printers_json_path: Path, parfums_json_path: Path):
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Migration de schéma : ajout de gtin14
+            try:
+                cursor.execute("ALTER TABLE parfums ADD COLUMN gtin14 TEXT")
+                logger.info("Colonne gtin14 ajoutée à la table parfums.")
+            except sqlite3.OperationalError:
+                pass # La colonne existe déjà
             
             # Migrate printers
             cursor.execute("SELECT COUNT(*) as cnt FROM printers")
@@ -259,3 +275,29 @@ class DatabaseManager:
             cursor.execute("DELETE FROM parfums_3up WHERE id=?", (parfum_id,))
             conn.commit()
             return cursor.rowcount > 0
+
+    # Règles Clients CRUD
+    def get_all_client_rules(self) -> List[Dict]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM clients_regles")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_client_rule(self, nom_client: str) -> int:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # Recherche insensible à la casse
+            cursor.execute("SELECT jours_dlc_min FROM clients_regles WHERE LOWER(nom_client) = LOWER(?)", (nom_client,))
+            row = cursor.fetchone()
+            return row["jours_dlc_min"] if row else 0
+
+    def save_client_rule(self, nom_client: str, jours_dlc_min: int):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO clients_regles (nom_client, jours_dlc_min) 
+                VALUES (?, ?)
+                ON CONFLICT(nom_client) DO UPDATE SET jours_dlc_min=excluded.jours_dlc_min
+            """, (nom_client, jours_dlc_min))
+            conn.commit()
+

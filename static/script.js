@@ -8,10 +8,14 @@ class ModalManager {
         this.cancelBtn = document.getElementById('modal-cancel');
     }
 
-    show(title, message, iconName = 'info', iconClass = 'icon-info', showCancel = false) {
+    show(title, message, iconName = 'info', iconClass = 'icon-info', showCancel = false, isHtml = false) {
         return new Promise((resolve) => {
             this.titleEl.textContent = title;
-            this.messageEl.textContent = message;
+            if (isHtml) {
+                this.messageEl.innerHTML = message;
+            } else {
+                this.messageEl.textContent = message;
+            }
             this.iconEl.innerHTML = `<i data-lucide="${iconName}" class="${iconClass}"></i>`;
             lucide.createIcons(); // Refresh icons for modal
             
@@ -34,11 +38,15 @@ class ModalManager {
     }
 
     alert(title, message, iconName = 'info', iconClass = 'icon-info') {
-        return this.show(title, message, iconName, iconClass, false);
+        return this.show(title, message, iconName, iconClass, false, false);
+    }
+
+    htmlAlert(title, message, iconName = 'info', iconClass = 'icon-info') {
+        return this.show(title, message, iconName, iconClass, false, true);
     }
 
     error(title, message) {
-        return this.show(title, message, 'alert-circle', 'icon-error', false);
+        return this.show(title, message, 'alert-circle', 'icon-error', false, false);
     }
 
     confirm(title, message, iconName = 'help-circle', iconClass = 'icon-info') {
@@ -297,10 +305,11 @@ function activateDedicatedTool(tool, sector) {
             if (opt.dataset.language !== 'TPCL') opt.remove();
         });
         
-        // Sélectionne l'imprimante TPCL parmi celles du secteur
+        // Sélectionne l'imprimante TPCL parmi celles du secteur (FLIPOU par défaut)
         const toshibas = Array.from(printerSelect.options);
         if (toshibas.length > 0) {
-            printerSelect.value = toshibas[0].value;
+            const flipou = toshibas.find(opt => opt.text.toUpperCase().includes('FLIPOU') || opt.value === '200.200.129.204');
+            printerSelect.value = flipou ? flipou.value : toshibas[0].value;
             printerSelect.dispatchEvent(new Event('change'));
             updatePrinterStatus();
             
@@ -985,9 +994,16 @@ function filterPrinters(sector) {
         opt.dataset.gs1Size4up = p.gs1_size_4up || 0;
         opt.dataset.gs1Bold4up = !!p.gs1_bold_4up;
         opt.dataset.lotSize4up = p.lot_size_4up || 0;
-        opt.dataset.lotBold4up = !!p.lot_bold_4up;
         printerSelect.appendChild(opt);
     });
+
+    // Préférer Toshiba FLIPOU par défaut si disponible dans ce secteur
+    const flipouOption = Array.from(printerSelect.options).find(opt => opt.text.toUpperCase().includes('FLIPOU') || opt.value === '200.200.129.204');
+    if (flipouOption) {
+        printerSelect.value = flipouOption.value;
+    } else if (printerSelect.options.length > 0) {
+        printerSelect.selectedIndex = 0;
+    }
     
     // Afficher ou cacher le bouton de calibrage selon l'imprimante
     const openCalibrationBtn = document.getElementById('open-calibration-btn');
@@ -1433,14 +1449,58 @@ if (apiFetchBtn) {
         }
 
         const originalText = apiFetchBtn.innerHTML;
-        apiFetchBtn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Recherche...';
         apiFetchBtn.disabled = true;
+
+        // 1. Afficher l'overlay de chargement plein écran
+        const loaderId = 'order-loader-overlay';
+        let loader = document.getElementById(loaderId);
+        if (!loader) {
+            loader = document.createElement('div');
+            loader.id = loaderId;
+            loader.style.position = 'fixed';
+            loader.style.top = '0';
+            loader.style.left = '0';
+            loader.style.width = '100vw';
+            loader.style.height = '100vh';
+            loader.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
+            loader.style.backdropFilter = 'blur(6px)';
+            loader.style.zIndex = '999999';
+            loader.style.display = 'flex';
+            loader.style.flexDirection = 'column';
+            loader.style.justifyContent = 'center';
+            loader.style.alignItems = 'center';
+            loader.style.fontFamily = 'system-ui, sans-serif';
+            document.body.appendChild(loader);
+        }
+        
+        loader.innerHTML = `
+            <div style="background: white; padding: 40px 50px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+                <i data-lucide="loader-2" class="spin-icon" style="width:48px;height:48px;color:#3b82f6;"></i>
+                <h3 style="margin:0; font-size: 22px; color: #1e293b;">Recherche de la commande...</h3>
+                <p id="order-loader-text" style="margin:0; font-size: 15px; color: #64748b; font-weight: 500;">Étape 1/2 : Récupération de la commande sur Business Central...</p>
+            </div>
+        `;
+        loader.style.display = 'flex';
+        lucide.createIcons();
+
+        // Changer le texte après 1.2s pour simuler l'étape 2 (affectation des lots)
+        const step2Timeout = setTimeout(() => {
+            const textEl = document.getElementById('order-loader-text');
+            if (textEl) {
+                textEl.innerHTML = "Étape 2/2 : Analyse des stocks et affectation des lots (FEFO)...";
+            }
+        }, 1200);
 
         try {
             const res = await fetch(`/api/commande/${encodeURIComponent(orderNumber)}`);
             if (res.ok) {
                 const data = await res.json();
-                console.log("Réponse API Business Central:", data);
+                
+                if (data.length > 0 && data[0]._raw_bc_order) {
+                    console.log("%c=== DONNÉES BRUTES DE BUSINESS CENTRAL ===", "color: red; font-size: 16px; font-weight: bold;");
+                    console.log(data[0]._raw_bc_order);
+                    console.log("%c===========================================", "color: red; font-weight: bold;");
+                }
                 
                 if (data.length === 0) {
                     Modal.error("Introuvable", `La commande ${orderNumber} n'existe pas ou ne contient aucun produit dans l'ERP.`);
@@ -1458,6 +1518,8 @@ if (apiFetchBtn) {
         } catch (e) {
             Modal.error("Erreur Réseau", e.message);
         } finally {
+            clearTimeout(step2Timeout);
+            if (loader) loader.style.display = 'none';
             apiFetchBtn.innerHTML = originalText;
             apiFetchBtn.disabled = false;
             lucide.createIcons();
@@ -1521,12 +1583,28 @@ function aggregateOrderData(data) {
         
         const key = lib + "_" + dateKey;
         
+        // Convertir la quantité en flottant (ex: 0,16667 -> 0.16667) puis arrondir au supérieur
+        const parseQte = (val) => Math.ceil(parseFloat(val.toString().replace(',', '.'))) || 0;
+        
         if (map.has(key)) {
             const existing = map.get(key);
-            existing.Quantite = (parseInt(existing.Quantite) || 0) + (parseInt(item.Quantite) || 0);
+            existing.Quantite = parseQte(existing.Quantite) + parseQte(item.Quantite);
         } else {
             const clone = { ...item };
-            clone.Quantite = parseInt(item.Quantite) || 0;
+            clone.Quantite = parseQte(item.Quantite);
+            
+            // Forcer CodeBarre17 au format YYMMDD
+            let cb17 = clone.CodeBarre17 || clone.DateLivraison || "";
+            if (cb17.includes('/')) {
+                const parts = cb17.split('/');
+                if (parts.length === 3) {
+                    let yy = parts[2];
+                    if (yy.length === 4) yy = yy.substring(2, 4);
+                    cb17 = `${yy}${parts[1]}${parts[0]}`;
+                }
+            }
+            clone.CodeBarre17 = cb17;
+            
             map.set(key, clone);
             aggregated.push(clone);
         }
@@ -1620,8 +1698,13 @@ function displayEditSection() {
         tr.innerHTML = `
             <td><input type="checkbox" class="row-select large-checkbox" ${item._selected ? 'checked' : ''} oninput="updateRowData(${index}, '_selected', this.checked)"></td>
             <td><strong>${item.Libelle}</strong></td>
-            <td><input type="text" value="${displayDLC}" onchange="updateDLC(${index}, this.value)"></td>
-            <td><input type="text" value="${item.Numlot || ''}" oninput="updateRowData(${index}, 'Numlot', this.value)"></td>
+            <td>
+                <div style="display:flex; align-items:center; gap: 5px;">
+                    <input type="text" id="dlc-input-${index}" value="${displayDLC}" style="width: 120px;" onchange="updateDLC(${index}, this.value)">
+                    <button type="button" class="btn btn-secondary" style="padding: 4px; margin: 0; min-height: 0; height: 32px;" onclick="openStockPicker(${index}, '${item.Libelle.replace(/'/g, "\\'")}')" title="Chercher un lot en stock"><i data-lucide="search" style="width:16px;height:16px;"></i></button>
+                </div>
+            </td>
+            <td><input type="text" id="lot-input-${index}" value="${item.Numlot || ''}" oninput="updateRowData(${index}, 'Numlot', this.value)"></td>
             <td style="${isLigne1 ? 'background-color: #f5f8ff;' : ''}">${qteCartonCol}</td>
             ${extraCol}
             <td><button class="btn-remove" onclick="removeLine(${index})" title="Retirer cette ligne"><i data-lucide="trash-2"></i></button></td>
@@ -1662,7 +1745,7 @@ window.updateDLC = (index, displayValue) => {
 }
 
 window.updateRowData = (index, field, value) => {
-    if (field === 'Quantite' || field === 'QuantitePots') value = parseInt(value) || 0;
+    if (field === 'Quantite' || field === 'QuantitePots') value = Math.ceil(parseFloat(value.toString().replace(',', '.'))) || 0;
     if (currentData[index]) {
         currentData[index][field] = value;
         if (field === 'Quantite') {
@@ -1674,6 +1757,70 @@ window.updateRowData = (index, field, value) => {
             }
         }
     }
+};
+
+window.openStockPicker = (index, libelle) => {
+    try {
+        const item = currentData[index];
+        const lots = item.available_lots || [];
+        
+        let content = `<div style="max-height: 500px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 15px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ddd; background-color: #f8fafc;">
+                        <th style="padding: 12px 16px;">Date DLC</th>
+                        <th style="padding: 12px 16px;">Lot</th>
+                        <th style="padding: 12px 16px;">Quantité dispo</th>
+                        <th style="padding: 12px 16px;">Statut</th>
+                        <th style="padding: 12px 16px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+                
+        if (lots.length === 0) {
+            content += `<tr><td colspan="5" style="text-align:center; padding: 25px; color: #666; font-size: 16px;">Aucun stock disponible pour cet article.</td></tr>`;
+        } else {
+            lots.forEach(l => {
+                const isBlocked = l.blocked ? `<span style="color:red; font-weight:bold;"><i data-lucide="alert-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;"></i> BLOQUÉ</span>` : `<span style="color:green; font-weight: 500;">OK</span>`;
+                content += `
+                    <tr style="border-bottom: 1px solid #eee; ${l.blocked ? 'background-color:#fff0f0;' : ''}">
+                        <td style="padding: 12px 16px; font-weight: bold;">${l.dlc_display}</td>
+                        <td style="padding: 12px 16px;">${l.lot}</td>
+                        <td style="padding: 12px 16px; font-weight: 600;">${l.qty}</td>
+                        <td style="padding: 12px 16px;">${isBlocked}</td>
+                        <td style="padding: 12px 16px;">
+                            <button class="btn btn-primary" style="padding: 8px 16px; font-size: 14px; margin: 0; min-width: 90px;" onclick="selectLot(${index}, '${l.lot}', '${l.code_barre_17}', '${l.dlc_display}')">Choisir</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        
+        content += `</tbody></table></div>`;
+        Modal.htmlAlert(`Stock : ${libelle}`, content, 'box', 'icon-info');
+        // On recrée les icones dans le modal juste après
+        setTimeout(() => lucide.createIcons(), 50);
+    } catch (e) {
+        Modal.error("Erreur", "Impossible d'afficher le stock.");
+    }
+};
+
+window.selectLot = (index, lot, codeBarre17, dlcDisplay) => {
+    // Fermer le modal
+    Modal.close();
+    
+    // Mettre à jour les données
+    updateRowData(index, 'Numlot', lot);
+    updateRowData(index, 'CodeBarre17', codeBarre17);
+    
+    // Mettre à jour l'affichage dans les inputs
+    const dlcInput = document.getElementById(`dlc-input-${index}`);
+    const lotInput = document.getElementById(`lot-input-${index}`);
+    
+    if (dlcInput) dlcInput.value = dlcDisplay;
+    if (lotInput) lotInput.value = lot;
+    
+    addLog(`Ligne ${index + 1} mise à jour avec le lot ${lot}`, "success");
 };
 
 selectAllCheckbox.onchange = () => {
@@ -2606,24 +2753,37 @@ if(addToBatch3UpBtn) addToBatch3UpBtn.onclick = () => {
     if (!dlc || !lot) return Modal.error("Erreur", "La date de DLC et le Lot sont obligatoires pour le 3-up.");
     if (qty <= 0) return Modal.error("Erreur", "Quantité invalide.");
     
-    // Formatage de la date depuis YYMMDD vers DD/MM/YY
-    let formattedDate = dlc;
-    if (dlc.length === 6) {
+    // On uniformise la date : gs1Date doit être YYMMDD, displayDate doit être DD/MM/YY
+    let gs1Date = dlc;
+    let displayDate = dlc;
+    
+    if (dlc.includes('/')) {
+        // L'utilisateur a tapé DD/MM/YY ou DD/MM/YYYY
+        const parts = dlc.split('/');
+        if (parts.length === 3) {
+            let yy = parts[2];
+            if (yy.length === 4) yy = yy.substring(2, 4);
+            gs1Date = `${yy}${parts[1]}${parts[0]}`;
+            displayDate = `${parts[0]}/${parts[1]}/${yy}`;
+        }
+    } else if (dlc.length === 6) {
+        // L'utilisateur a tapé YYMMDD
         const yy = dlc.substring(0, 2);
         const mm = dlc.substring(2, 4);
         const dd = dlc.substring(4, 6);
-        formattedDate = `${dd}/${mm}/${yy}`;
+        displayDate = `${dd}/${mm}/${yy}`;
+        gs1Date = dlc;
     }
     
-    const displayLot = `LOT ${lot} ${formattedDate} Conservation 4/6°C`;
+    const displayLot = `LOT ${lot} ${displayDate} Conservation 4/6°C`;
     
     batch3Up.push({
         client: "CUSTOM",
         commande: "3UP",
-        date_livraison: dlc,
+        date_livraison: displayDate,
         libelle: opt.dataset.nomImpression,
         gtin: ean,
-        date_expiration: dlc,
+        date_expiration: gs1Date,
         lot: lot,
         num_lot_display: displayLot,
         quantite: qty

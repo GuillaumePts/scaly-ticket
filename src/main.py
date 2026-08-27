@@ -509,9 +509,7 @@ def find_ean13_for_libelle(libelle: str, parfums_list: list) -> tuple[str, str]:
             max_score = score
             best_match = p
 
-    if best_match:
-        return best_match.get('nom', libelle), best_match.get('ean13', '0000000000000')
-    return libelle, "0000000000000"
+    return best_match
 
 @app.post("/print-json")
 async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks):
@@ -573,8 +571,10 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
             else:
                 if request.printer_dpi == 203:
                     # Zebra Pots x2 (203 DPI) - Format 2-up avec code-barre EAN13
-                    parfums_list = await get_parfums_4up()
-                    nom_match, ean13 = find_ean13_for_libelle(ticket.libelle, parfums_list)
+                    parfums_list = db.get_parfums() # use standard parfums list
+                    match = find_ean13_for_libelle(ticket.libelle, parfums_list)
+                    nom_match = match.get('nom', ticket.libelle) if match else ticket.libelle
+                    ean13 = match.get('ean13', '0000000000000') if match else '0000000000000'
                     
                     # Le nb_rows correspond aux étiquettes unitaires. Vu que c'est du 2-up, on divise par 2.
                     # Ex: 1080 pots -> 1080 étiquettes unitaires -> 540 lignes imprimées
@@ -881,6 +881,53 @@ async def fetch_commande(order_number: str):
     ]
 
 
+
+@app.get("/api/stock/{libelle}")
+async def get_stock_for_libelle(libelle: str, item_no: str = None):
+    """Retourne la liste des lots pertinents avec quantité > 0 pour un produit (filtre sur item_no si fourni)."""
+    try:
+        from src.bc_client import BusinessCentralClient
+        from datetime import datetime
+        bc_client = BusinessCentralClient()
+        token = bc_client.get_access_token()
+        tenant_id = bc_client._config["BC_TENANT_ID"]
+        env = bc_client._config.get("BC_ENVIRONMENT", "Production")
+        company_name = bc_client._config.get("BC_COMPANY", "Ferme des Peupliers")
+        
+        stock_lots = bc_client._fetch_stock_lots(tenant_id, env, company_name, token, item_nos=[item_no] if item_no else None)
+        
+        candidates = bc_client._get_all_lots_for_libelle(libelle, stock_lots, datetime.now(), item_no=item_no)
+        
+        results = []
+        for e in candidates:
+            dlc_raw = e.get('Expiration_Date', '').split('T')[0]
+            lot = e.get('Lot_No', '')
+            qty = float(e.get('Remaining_Quantity', 0))
+            
+            # Formater la date en DD/MM/YYYY pour l'affichage, et YYMMDD pour le code barre
+            try:
+                dt_dlc = datetime.strptime(dlc_raw, "%Y-%m-%d")
+                dlc_display = dt_dlc.strftime("%d/%m/%Y")
+                code_barre_17 = dt_dlc.strftime("%y%m%d")
+            except:
+                dlc_display = dlc_raw
+                code_barre_17 = ""
+                
+            # Vérifier si c'est bloqué qualité (soit par un champ, soit dans le nom du lot)
+            blocked = "BLOQUE" in lot.upper() or e.get('Quality_Blocked', False)
+            
+            results.append({
+                "lot": lot,
+                "dlc_display": dlc_display,
+                "code_barre_17": code_barre_17,
+                "qty": qty,
+                "blocked": blocked
+            })
+            
+        return results
+    except Exception as e:
+        logger.error(f"Erreur API stock: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/licence")
 async def api_licence():
