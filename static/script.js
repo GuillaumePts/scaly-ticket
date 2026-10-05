@@ -79,6 +79,7 @@ const step3 = document.getElementById('step3');
 
 const uploadSection = document.getElementById('upload-section');
 const parfumSection = document.getElementById('parfum-section');
+const conditionnementSection = document.getElementById('conditionnement-section');
 
 const editSection = document.getElementById('edit-section');
 const productsTableBody = document.querySelector('#products-table tbody');
@@ -86,7 +87,7 @@ const selectAllCheckbox = document.getElementById('select-all');
 const orderClient = document.getElementById('order-client');
 const orderId = document.getElementById('order-id');
 const printBtn = document.getElementById('print-btn');
-const printAllBtn = document.getElementById('print-all-btn');
+
 const cancelBtn = document.getElementById('cancel-btn');
 
 let currentData = [];
@@ -100,11 +101,24 @@ let currentSector = '';
 sectorBtns.forEach(btn => {
     btn.onclick = () => {
         const sector = btn.dataset.sector;
+        if (sector === 'conditionnement') {
+            history.pushState({ tool: 'conditionnement', sector }, '', `?tool=conditionnement&sector=${sector}`);
+            activateDedicatedTool('conditionnement', sector);
+            return;
+        }
         activateSector(sector, true);
     };
 });
 
 function activateSector(sector, saveState = true) {
+    if (sector === 'conditionnement') {
+        const conditionnementUrl = '?tool=conditionnement&sector=conditionnement';
+        if (window.location.search !== conditionnementUrl) {
+            history.replaceState({ tool: 'conditionnement', sector }, '', conditionnementUrl);
+        }
+        activateDedicatedTool('conditionnement', sector);
+        return;
+    }
     currentSector = sector;
     const btn = Array.from(sectorBtns).find(b => b.dataset.sector === sector);
     if (!btn) return;
@@ -146,6 +160,7 @@ function resetToHome(saveState = true) {
     step3.style.display = 'none';
     uploadSection.style.display = 'none';
     parfumSection.style.display = 'none';
+    if (conditionnementSection) conditionnementSection.style.display = 'none';
     editSection.style.display = 'none';
     progressContainer.style.display = 'none';
     
@@ -182,10 +197,19 @@ const hubSectorBtns = document.querySelectorAll('.hub-sector-btn:not(#tech-mode-
 const toolCards = document.querySelectorAll('.tool-card');
 
 hubSectorBtns.forEach(btn => {
-    btn.onclick = () => {
+    btn.addEventListener('click', () => {
         const sector = btn.dataset.sector;
         hubSectorBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+
+        if (sector === 'conditionnement') {
+            history.pushState({ tool: 'conditionnement', sector }, '', `?tool=conditionnement&sector=${sector}`);
+            activateDedicatedTool('conditionnement', sector);
+            return;
+        }
+
+        // Transition vers le second écran du portail (SPA visuelle).
+        hubSectorChoice.classList.add('hub-screen-exit');
         
         // Affiche la grille des outils
         hubToolsChoice.style.display = 'block';
@@ -200,8 +224,21 @@ hubSectorBtns.forEach(btn => {
                 card.style.display = 'none';
             }
         });
-    };
+    });
 });
+
+const hubBackBtn = document.getElementById('hub-back-btn');
+if (hubBackBtn) {
+    hubBackBtn.addEventListener('click', () => {
+        hubToolsChoice.style.display = 'none';
+        hubSectorChoice.classList.remove('hub-screen-exit');
+        hubSectorBtns.forEach(b => b.classList.remove('active'));
+        toolCards.forEach(card => {
+            card.style.display = '';
+            card.href = '#';
+        });
+    });
+}
 
 const techModeBtn = document.getElementById('tech-mode-btn');
 if (techModeBtn) {
@@ -270,6 +307,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 function activateDedicatedTool(tool, sector) {
+    // Classe d'état dédiée à la présentation de l'outil, sans modifier la logique métier.
+    document.body.classList.add('dedicated-tool-page', `dedicated-tool-${tool}`);
+    const isLigne1Prepa = tool === 'zebra' && sector === 'prepa_commande';
+    document.body.classList.toggle('dedicated-tool-ligne1-prepa', isLigne1Prepa);
     currentSector = sector;
     hubSectorChoice.style.display = 'none';
     hubToolsChoice.style.display = 'none';
@@ -279,6 +320,7 @@ function activateDedicatedTool(tool, sector) {
     document.getElementById('step1').style.display = 'none';
     document.getElementById('step3').style.display = 'none';
     document.getElementById('step2').style.display = 'none';
+    if (conditionnementSection) conditionnementSection.style.display = 'none';
 
     // Reset Step 2 DOM defaults in case it was modified by Ligne 1
     const printerSelectBox = document.querySelector('.printer-selection-box > div');
@@ -297,6 +339,19 @@ function activateDedicatedTool(tool, sector) {
 
     // Configurer l'imprimante (en fond) pour le secteur
     filterPrinters(sector);
+
+    if (tool === 'conditionnement') {
+        // Le conditionnement possède une seule Zebra : aucun écran de choix
+        // d'imprimante ou de format ne doit interrompre le parcours opérateur.
+        currentFormat = '1up';
+        uploadSection.style.display = 'none';
+        parfumSection.style.display = 'none';
+        editSection.style.display = 'none';
+        if (conditionnementSection) conditionnementSection.style.display = 'block';
+        initConditionnementSection();
+        lucide.createIcons();
+        return;
+    }
 
     if (tool === 'toshiba_3up' || tool === 'toshiba_4up') {
         if (helpBtn) helpBtn.style.display = 'block'; // Affiche l'aide Toshiba
@@ -357,6 +412,25 @@ function activateDedicatedTool(tool, sector) {
                     const cartonPrinter = zebras.find(o => o.text.startsWith("Zebra Prépa commande") && !o.text.includes("x2"));
                     const potsPrinter = zebras.find(o => o.text.includes("x2"));
                     
+                    if (isLigne1Prepa) {
+                        staticBlock.innerHTML = `
+                            <div class="ligne1-printer">
+                                <span class="ligne1-printer-icon"><i data-lucide="box"></i></span>
+                                <div class="ligne1-printer-copy"><span class="ligne1-printer-role">Cartons</span><h3></h3><p></p></div>
+                            </div>
+                            <div class="ligne1-printer">
+                                <span class="ligne1-printer-icon"><i data-lucide="tags"></i></span>
+                                <div class="ligne1-printer-copy"><span class="ligne1-printer-role">Pots ×2</span><h3></h3><p></p></div>
+                            </div>
+                        `;
+                        [cartonPrinter, potsPrinter].forEach((printer, index) => {
+                            const card = staticBlock.children[index];
+                            card.querySelector('h3').textContent = printer ? printer.text : 'Non configurée';
+                            card.querySelector('p').textContent = printer ? printer.value : 'Adresse IP indisponible';
+                        });
+                        step2H2.textContent = 'Imprimantes Ligne 1';
+                        step2Help.innerHTML = "<i data-lucide='shuffle'></i> Répartition automatique entre cartons et pots.";
+                    } else {
                     staticBlock.innerHTML = `
                         <div class="hub-card tool-card" style="display:flex; flex-direction:column; align-items:center; cursor:default; position:relative;">
                             <i data-lucide="box" class="hub-icon text-orange"></i>
@@ -369,6 +443,7 @@ function activateDedicatedTool(tool, sector) {
                             <p style="margin: 0; font-size: 14px; opacity: 0.8;">${potsPrinter ? potsPrinter.value : 'IP introuvable'}</p>
                         </div>
                     `;
+                    }
                     lucide.createIcons();
                 }
         } else {
@@ -384,7 +459,7 @@ function activateDedicatedTool(tool, sector) {
         if (stepNum) stepNum.style.display = 'none';
         
         const titleEl = document.getElementById('upload-section-title');
-        if (titleEl) titleEl.textContent = "Configuration de la commande 3-up";
+        if (titleEl) titleEl.textContent = "Etiquette X3";
         
         const methodSelector = document.getElementById('upload-method-selector');
         if (methodSelector) methodSelector.style.display = 'flex';
@@ -399,7 +474,7 @@ function activateDedicatedTool(tool, sector) {
         document.getElementById('fromis-section').style.display = 'none';
         const stepNum = parfumSection.querySelector('.step-number');
         if (stepNum) stepNum.style.display = 'none';
-        parfumSection.querySelector('h2').textContent = "Configuration des étiquettes";
+        parfumSection.querySelector('h2').textContent = "Etiquette X4";
     } else if (tool === 'fromis') {
         currentFormat = 'fromis';
         uploadSection.style.display = 'none';
@@ -415,17 +490,265 @@ function activateDedicatedTool(tool, sector) {
         if (stepNum) stepNum.style.display = 'none';
         
         const titleEl = document.getElementById('upload-section-title');
-        if (titleEl) titleEl.textContent = "Commandes (Zebra 1-up)";
+        if (titleEl) titleEl.textContent = isLigne1Prepa ? 'Importer une commande' : "Commandes (Zebra 1-up)";
         
         const methodSelector = document.getElementById('upload-method-selector');
-        if (methodSelector) methodSelector.style.display = 'none';
+        if (methodSelector) methodSelector.style.display = isLigne1Prepa ? 'flex' : 'none';
         
         const panel3up = document.getElementById('panel-3up-custom');
         if (panel3up) panel3up.style.display = 'none';
         
         const panelErp = document.getElementById('panel-erp-file');
         if (panelErp) panelErp.style.display = 'flex';
+        if (isLigne1Prepa) {
+            document.getElementById('method-erp-btn').click();
+            document.querySelector('#progress-container .help-text').innerHTML = '<i data-lucide="info"></i> Veuillez patienter jusqu’à la fin de l’impression.';
+        }
     }
+}
+
+// ==========================================================================
+// Parcours Conditionnement - Zebra 300 dpi, une étiquette par ligne
+// ===========================================================================
+let conditionnementInitialized = false;
+let conditionnementQueue = [];
+let conditionnementPreviewTimer = null;
+let conditionnementPreviewUrl = null;
+
+function normalizeConditionnementDlc(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return { gs1: '', display: '' };
+
+    if (/^\d{6}$/.test(raw)) {
+        return {
+            gs1: raw,
+            display: `${raw.substring(4, 6)}/${raw.substring(2, 4)}/20${raw.substring(0, 2)}`
+        };
+    }
+
+    const parts = raw.split(/[./-]/).filter(Boolean);
+    if (parts.length === 3 && parts.every(part => /^\d+$/.test(part))) {
+        let [day, month, year] = parts;
+        if (year.length === 4) year = year.substring(2);
+        if (day.length === 1) day = `0${day}`;
+        if (month.length === 1) month = `0${month}`;
+        if (year.length === 1) year = `0${year}`;
+        if (day.length === 2 && month.length === 2 && year.length === 2) {
+            return { gs1: `${year}${month}${day}`, display: `${day}/${month}/20${year}` };
+        }
+    }
+    return { gs1: raw.replace(/\D/g, '').slice(-6), display: raw };
+}
+
+function normalizeConditionnementGtin(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    return digits.length === 13 ? `0${digits}` : digits;
+}
+
+function getConditionnementCustomTicket() {
+    const libelle = document.getElementById('conditionnement-product')?.value.trim() || '';
+    const gtin = normalizeConditionnementGtin(document.getElementById('conditionnement-gtin')?.value);
+    const dlc = normalizeConditionnementDlc(document.getElementById('conditionnement-dlc')?.value);
+    const lot = document.getElementById('conditionnement-lot')?.value.trim().replaceAll('/', '') || '';
+    const quantite = parseInt(document.getElementById('conditionnement-qty')?.value, 10) || 0;
+
+    if (!libelle || !gtin || !dlc.gs1 || !lot || quantite < 1) return null;
+    if (![13, 14].includes(gtin.length)) return null;
+
+    return {
+        client: 'CUSTOM',
+        commande: 'CONDITIONNEMENT',
+        date_livraison: dlc.display,
+        libelle,
+        gtin,
+        date_expiration: dlc.gs1,
+        lot,
+        num_lot_display: `LOT ${lot} ${dlc.display}`,
+        quantite
+    };
+}
+
+function updateConditionnementPreview() {
+    const ticket = getConditionnementCustomTicket();
+    const image = document.getElementById('conditionnement-preview-image');
+    const empty = document.getElementById('conditionnement-preview-empty');
+    if (!image || !empty) return;
+
+    if (!ticket) {
+        image.style.display = 'none';
+        empty.style.display = 'flex';
+        return;
+    }
+
+    const requestId = Date.now();
+    image.dataset.requestId = requestId;
+    fetch('/api/conditionnement/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket })
+    }).then(async response => {
+        if (!response.ok) throw new Error((await response.json()).detail || 'Aperçu indisponible');
+        return response.blob();
+    }).then(blob => {
+        if (image.dataset.requestId !== String(requestId)) return;
+        if (conditionnementPreviewUrl) URL.revokeObjectURL(conditionnementPreviewUrl);
+        conditionnementPreviewUrl = URL.createObjectURL(blob);
+        image.src = conditionnementPreviewUrl;
+        image.style.display = 'block';
+        empty.style.display = 'none';
+    }).catch(error => console.warn('Aperçu Conditionnement indisponible:', error));
+}
+
+function renderConditionnementQueue() {
+    const queueCard = document.getElementById('conditionnement-queue-card');
+    const queue = document.getElementById('conditionnement-queue');
+    const count = document.getElementById('conditionnement-queue-count');
+    const total = document.getElementById('conditionnement-queue-total');
+    if (!queueCard || !queue || !count || !total) return;
+
+    queue.innerHTML = '';
+    let totalLabels = 0;
+    conditionnementQueue.forEach((ticket, index) => {
+        totalLabels += ticket.quantite;
+        const li = document.createElement('li');
+        li.innerHTML = `<span><strong>${ticket.quantite}×</strong> ${ticket.libelle}<small style="display:block;color:#82948d;margin-top:3px;">Lot ${ticket.lot} · DLC ${ticket.date_livraison}</small></span>`;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-remove';
+        remove.title = 'Retirer cette ligne';
+        remove.innerHTML = '<i data-lucide="trash-2"></i>';
+        remove.onclick = () => {
+            conditionnementQueue.splice(index, 1);
+            renderConditionnementQueue();
+        };
+        li.appendChild(remove);
+        queue.appendChild(li);
+    });
+
+    count.textContent = conditionnementQueue.length;
+    total.textContent = totalLabels;
+    queueCard.style.display = conditionnementQueue.length ? 'block' : 'none';
+    lucide.createIcons();
+}
+
+async function refreshConditionnementPrinterStatus() {
+    const name = document.getElementById('conditionnement-printer-name');
+    const status = document.getElementById('conditionnement-printer-status');
+    const dot = document.getElementById('conditionnement-status-dot');
+    if (!name || !status || !dot) return;
+
+    try {
+        const response = await fetch('/api/conditionnement/printer');
+        const data = await response.json();
+        name.textContent = data.configured ? `${data.name} · ${data.dpi} dpi` : 'Zebra Conditionnement';
+        status.textContent = data.configured ? data.message : 'À installer dans l’espace technicien';
+        dot.classList.remove('is-ready', 'is-offline');
+        if (data.ready) dot.classList.add('is-ready');
+        else if (data.configured) dot.classList.add('is-offline');
+    } catch (error) {
+        status.textContent = 'Statut indisponible';
+        dot.classList.remove('is-ready');
+        dot.classList.add('is-offline');
+    }
+}
+
+function initConditionnementSection() {
+    if (conditionnementInitialized) {
+        refreshConditionnementPrinterStatus();
+        return;
+    }
+    conditionnementInitialized = true;
+
+    const customBtn = document.getElementById('conditionnement-method-custom-btn');
+    const erpBtn = document.getElementById('conditionnement-method-erp-btn');
+    const customPanel = document.getElementById('conditionnement-panel-custom');
+    const erpPanel = document.getElementById('conditionnement-panel-erp');
+    const switchMethod = (method) => {
+        const custom = method === 'custom';
+        customBtn.classList.toggle('active', custom);
+        erpBtn.classList.toggle('active', !custom);
+        customBtn.setAttribute('aria-selected', custom ? 'true' : 'false');
+        erpBtn.setAttribute('aria-selected', custom ? 'false' : 'true');
+        customPanel.style.display = custom ? 'block' : 'none';
+        erpPanel.style.display = custom ? 'none' : 'block';
+    };
+    customBtn.onclick = () => switchMethod('custom');
+    erpBtn.onclick = () => switchMethod('erp');
+
+    ['conditionnement-product', 'conditionnement-gtin', 'conditionnement-dlc', 'conditionnement-lot', 'conditionnement-qty'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.addEventListener('input', () => {
+            clearTimeout(conditionnementPreviewTimer);
+            conditionnementPreviewTimer = setTimeout(updateConditionnementPreview, 180);
+        });
+    });
+
+    document.getElementById('conditionnement-add-btn').onclick = () => {
+        const ticket = getConditionnementCustomTicket();
+        if (!ticket) {
+            Modal.error('Informations incomplètes', 'Renseignez un produit, un GTIN valide, une DLC, un lot et une quantité supérieure à zéro.');
+            return;
+        }
+        conditionnementQueue.push(ticket);
+        renderConditionnementQueue();
+        addLog(`Étiquette Conditionnement ajoutée : ${ticket.libelle}`, 'success');
+    };
+
+    document.getElementById('conditionnement-print-btn').onclick = async () => {
+        if (!conditionnementQueue.length) return;
+        const total = conditionnementQueue.reduce((sum, ticket) => sum + ticket.quantite, 0);
+        if (!await Modal.confirm('Lancer l’impression', `Vous allez imprimer ${total} étiquette(s) Conditionnement. Confirmez-vous ?`, 'printer', 'icon-info')) return;
+
+        try {
+            const response = await fetch('/api/conditionnement/print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: conditionnementQueue })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'Erreur d’impression');
+            addLog(result.message, 'success');
+            conditionnementQueue = [];
+            renderConditionnementQueue();
+            Modal.alert('Impression envoyée', result.message, 'check-circle', 'icon-success');
+        } catch (error) {
+            Modal.error('Impression impossible', error.message);
+        }
+    };
+
+    const erpInput = document.getElementById('conditionnement-api-order-number');
+    const erpButton = document.getElementById('conditionnement-api-fetch-btn');
+    const fetchConditionnementOrder = async () => {
+        const orderNumber = erpInput.value.trim();
+        if (!orderNumber) return Modal.error('Numéro manquant', 'Veuillez saisir un numéro de commande.');
+        const original = erpButton.innerHTML;
+        erpButton.disabled = true;
+        erpButton.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Recherche...';
+        lucide.createIcons();
+        try {
+            const response = await fetch(`/api/commande/${encodeURIComponent(orderNumber)}`);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || `Erreur API (${response.status})`);
+            if (!data.length) throw new Error(`La commande ${orderNumber} est vide ou introuvable.`);
+            currentData = aggregateOrderData(data);
+            currentData.forEach(item => item._selected = true);
+            displayEditSection();
+        } catch (error) {
+            Modal.error('Import Business Central impossible', error.message);
+        } finally {
+            erpButton.disabled = false;
+            erpButton.innerHTML = original;
+            lucide.createIcons();
+        }
+    };
+    erpButton.onclick = fetchConditionnementOrder;
+    erpInput.addEventListener('keypress', event => {
+        if (event.key === 'Enter') fetchConditionnementOrder();
+    });
+
+    refreshConditionnementPrinterStatus();
+    renderConditionnementQueue();
+    lucide.createIcons();
 }
 
 // ETAPE 3 : Gestion du format d'impression
@@ -478,6 +801,8 @@ async function initFromisSection() {
                 if (p.name && p.name.includes('FLIPOU')) opt.selected = true;
                 fromisPrinterSelect.appendChild(opt);
             });
+            const sectorPrinter = toshibas.find(p => p.sector === currentSector);
+            if (sectorPrinter) fromisPrinterSelect.value = sectorPrinter.ip;
         }
     }
 
@@ -1715,6 +2040,7 @@ function displayEditSection() {
     lucide.createIcons();
     
     uploadSection.style.display = 'none';
+    if (conditionnementSection) conditionnementSection.style.display = 'none';
     editSection.style.display = 'block';
     
     // Règle métier : la palettisation est inutile pour Gravigny (on la masque)
@@ -1852,7 +2178,12 @@ cancelBtn.onclick = async () => {
 
 function closeEditSection() {
     editSection.style.display = 'none';
-    uploadSection.style.display = 'block';
+    if (currentSector === 'conditionnement') {
+        if (conditionnementSection) conditionnementSection.style.display = 'block';
+        uploadSection.style.display = 'none';
+    } else {
+        uploadSection.style.display = 'block';
+    }
     fileInput.value = '';
     currentData = [];
     isPrinting = false;
@@ -1860,7 +2191,7 @@ function closeEditSection() {
 }
 
 printBtn.onclick = () => startPrint(false);
-printAllBtn.onclick = () => startPrint(true);
+
 
 const btnPaletisationOrder = document.getElementById('btn-paletisation-order');
 const paletisationModal = document.getElementById('paletisation-modal');
@@ -1930,6 +2261,10 @@ if (btnPaletisationOrder) {
 }
 
 async function startPrint(all = false) {
+    if (currentSector === 'conditionnement') {
+        return startConditionnementApiPrint(all);
+    }
+
     if (!isPrinterReady) {
         Modal.error("Imprimante indisponible", "L'imprimante n'est pas prête. Veuillez vérifier l'écran de l'imprimante.");
         return;
@@ -2040,6 +2375,52 @@ async function startPrint(all = false) {
         isPrinting = false;
         Modal.error("Problème réseau", e.message);
         progressContainer.style.display = 'none';
+    }
+}
+
+async function startConditionnementApiPrint(all = false) {
+    const updatedData = currentData.filter(item => all || item._selected);
+    if (!updatedData.length) {
+        Modal.alert('Rien à imprimer', 'Sélectionnez au moins une ligne à imprimer.', 'alert-circle', 'icon-warning');
+        return;
+    }
+
+    const items = updatedData.map(item => {
+        const lot = String(item.CodeBarre10 || item.Numlot || '').replaceAll('/', '');
+        return {
+            client: item.Client || '',
+            commande: item.Commande || '',
+            date_livraison: item.DateLivraison || item.CodeBarre17 || '',
+            libelle: item.Libelle || item.Designation || '',
+            gtin: normalizeConditionnementGtin(item.CodeBarre01 || item.GTIN || item.gtin || ''),
+            date_expiration: item.CodeBarre17 || '',
+            lot,
+            num_lot_display: item.Numlot || `LOT ${lot}`,
+            quantite: parseInt(item.Quantite, 10) || 0
+        };
+    });
+    const total = items.reduce((sum, item) => sum + item.quantite, 0);
+    if (!total) {
+        Modal.error('Quantités invalides', 'Toutes les quantités importées sont nulles.');
+        return;
+    }
+
+    if (!await Modal.confirm('Lancer l’impression', `Vous allez imprimer ${total} étiquette(s) Conditionnement. Confirmez-vous ?`, 'printer', 'icon-info')) return;
+
+    try {
+        const response = await fetch('/api/conditionnement/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Erreur d’impression');
+        addLog(result.message, 'success');
+        Modal.alert('Impression envoyée', result.message, 'check-circle', 'icon-success');
+        currentData.forEach(item => item._selected = false);
+        displayEditSection();
+    } catch (error) {
+        Modal.error('Impression impossible', error.message);
     }
 }
 
@@ -2540,37 +2921,28 @@ const methodFileBtn = document.getElementById('method-file-btn');
 const panel3upCustom = document.getElementById('panel-3up-custom');
 const panelErpFile = document.getElementById('panel-erp-file');
 
-if (methodCustomBtn) {
-    methodCustomBtn.addEventListener('click', () => {
-        methodCustomBtn.classList.add('active');
-        methodErpBtn.classList.remove('active');
-        methodFileBtn.classList.remove('active');
-        panel3upCustom.style.display = 'block';
-        panelErpFile.style.display = 'none';
+function selectUploadMethod(method) {
+    [[methodCustomBtn, 'custom'], [methodErpBtn, 'erp'], [methodFileBtn, 'file']].forEach(([button, name]) => {
+        if (!button) return;
+        button.classList.toggle('active', name === method);
+        button.setAttribute('aria-pressed', String(name === method));
     });
+    panel3upCustom.style.display = method === 'custom' ? 'block' : 'none';
+    panelErpFile.style.display = method === 'custom' ? 'none' : 'flex';
+    document.getElementById('panel-erp').style.display = method === 'erp' ? 'flex' : 'none';
+    document.getElementById('panel-file').style.display = method === 'file' ? 'flex' : 'none';
+
+    if (document.body.classList.contains('dedicated-tool-ligne1-prepa')) {
+        panelErpFile.querySelector('.help-text').innerHTML = method === 'erp'
+            ? '<i data-lucide="info"></i> Recherchez la commande dans Business Central, puis vérifiez les données avant impression.'
+            : '<i data-lucide="info"></i> Importez votre fichier CSV ou TXT, puis vérifiez les données avant impression.';
+        lucide.createIcons();
+    }
 }
-if (methodErpBtn) {
-    methodErpBtn.addEventListener('click', () => {
-        methodErpBtn.classList.add('active');
-        methodCustomBtn.classList.remove('active');
-        methodFileBtn.classList.remove('active');
-        panel3upCustom.style.display = 'none';
-        panelErpFile.style.display = 'flex';
-        document.getElementById('panel-file').style.display = 'none';
-        document.getElementById('panel-erp').style.display = 'flex';
-    });
-}
-if (methodFileBtn) {
-    methodFileBtn.addEventListener('click', () => {
-        methodFileBtn.classList.add('active');
-        methodCustomBtn.classList.remove('active');
-        methodErpBtn.classList.remove('active');
-        panel3upCustom.style.display = 'none';
-        panelErpFile.style.display = 'flex';
-        document.getElementById('panel-erp').style.display = 'none';
-        document.getElementById('panel-file').style.display = 'flex';
-    });
-}
+
+if (methodCustomBtn) methodCustomBtn.addEventListener('click', () => selectUploadMethod('custom'));
+if (methodErpBtn) methodErpBtn.addEventListener('click', () => selectUploadMethod('erp'));
+if (methodFileBtn) methodFileBtn.addEventListener('click', () => selectUploadMethod('file'));
 
 // --- CRUD Parfums 3-up ---
 const parfum3UpSelect = document.getElementById('parfum-3up-select');
@@ -2915,3 +3287,299 @@ window.openSamadaTopViewModal = function(tour) {
     modal.style.display = 'grid';
     modal.style.placeItems = 'start center';
 };
+
+// ────────────────────────────────────────────────────
+// ÉCRITURE LIBRE — éditeur commun aux formats Toshiba
+// ────────────────────────────────────────────────────
+(() => {
+    const modal = document.getElementById('free-text-modal');
+    const input = document.getElementById('free-text-input');
+    const sizeInput = document.getElementById('free-text-font-size');
+    const quantityInput = document.getElementById('free-text-quantity');
+    const previewImg = document.getElementById('free-text-preview-img');
+    const previewEmpty = document.getElementById('free-text-preview-empty');
+    const previewFrame = document.getElementById('free-text-preview-frame');
+    const fitStatus = document.getElementById('free-text-fit-status');
+    const charCount = document.getElementById('free-text-char-count');
+    const formatLabel = document.getElementById('free-text-format-label');
+    const printButton = document.getElementById('free-text-print');
+    if (!modal || !input) return;
+
+    const labels = {
+        '3up': 'Format X3 — 115 × 30 mm',
+        '4up': 'Format X4 — 43 × 21 mm',
+        'fromis': 'Format Fromis — 50 × 30 mm'
+    };
+    const defaults = {
+        '3up': { text: '', font_size: 36, bold: false, italic: false, underline: false, align: 'left', quantity: 3 },
+        '4up': { text: '', font_size: 24, bold: false, italic: false, underline: false, align: 'left', quantity: 4 },
+        'fromis': { text: '', font_size: 24, bold: false, italic: false, underline: false, align: 'left', quantity: 3 }
+    };
+
+    let activeFormat = '3up';
+    let state = { ...defaults['3up'] };
+    let previewTimer = null;
+    let previewController = null;
+    let previewUrl = null;
+    let previewRevision = 0;
+
+    const storageKey = format => `scalyTicket.freeText.v1.${format}`;
+
+    function loadState(format) {
+        try {
+            const cached = JSON.parse(localStorage.getItem(storageKey(format)) || 'null');
+            return { ...defaults[format], ...(cached || {}) };
+        } catch (_) {
+            return { ...defaults[format] };
+        }
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem(storageKey(activeFormat), JSON.stringify(state));
+        } catch (_) {
+            // Le cache navigateur peut être désactivé : l'éditeur reste utilisable.
+        }
+    }
+
+    function readControls() {
+        state.text = input.value;
+        state.font_size = Math.max(10, Math.min(96, parseInt(sizeInput.value, 10) || defaults[activeFormat].font_size));
+        state.quantity = Math.max(1, Math.min(9999, parseInt(quantityInput.value, 10) || 1));
+        charCount.textContent = `${state.text.length} / 2000`;
+        saveState();
+    }
+
+    function applyControls() {
+        input.value = state.text || '';
+        sizeInput.value = state.font_size;
+        quantityInput.value = state.quantity;
+        document.querySelectorAll('.free-text-style-btn').forEach(button => {
+            button.classList.toggle('active', Boolean(state[button.dataset.style]));
+        });
+        document.querySelectorAll('.free-text-align-btn').forEach(button => {
+            button.classList.toggle('active', state.align === button.dataset.align);
+        });
+        charCount.textContent = `${input.value.length} / 2000`;
+    }
+
+    function requestBody(includePrinter = false) {
+        readControls();
+        const body = {
+            format: activeFormat,
+            text: state.text,
+            font_size: state.font_size,
+            bold: state.bold,
+            italic: state.italic,
+            underline: state.underline,
+            align: state.align,
+            quantity: state.quantity
+        };
+        const printerIp = getSelectedPrinterIp();
+        if (includePrinter || printerIp) body.printer_ip = printerIp;
+        return body;
+    }
+
+    function getSelectedPrinterIp() {
+        if (activeFormat === 'fromis') {
+            return document.getElementById('fromis-printer-select')?.value || '';
+        }
+        return printerSelect?.value || '';
+    }
+
+    function setPreviewError(message) {
+        previewFrame.classList.remove('is-loading');
+        previewImg.style.display = 'none';
+        previewEmpty.style.display = 'block';
+        previewEmpty.textContent = message;
+        fitStatus.textContent = message;
+        fitStatus.className = 'is-error';
+    }
+
+    async function updatePreview() {
+        const revision = ++previewRevision;
+        if (previewController) previewController.abort();
+
+        const body = requestBody();
+        if (!body.text.trim()) {
+            setPreviewError('Commencez à écrire pour afficher l’aperçu.');
+            fitStatus.className = '';
+            return;
+        }
+
+        previewController = new AbortController();
+        previewFrame.classList.add('is-loading');
+        previewEmpty.style.display = 'none';
+        fitStatus.textContent = 'Calcul de la mise en page…';
+        fitStatus.className = '';
+
+        try {
+            const response = await fetch('/api/free-text/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: previewController.signal
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.detail || 'Impossible de générer l’aperçu');
+            }
+
+            const effectiveSize = parseInt(response.headers.get('X-Effective-Font-Size'), 10);
+            const blob = await response.blob();
+            const nextUrl = URL.createObjectURL(blob);
+            const nextImage = new Image();
+            nextImage.src = nextUrl;
+            if (typeof nextImage.decode === 'function') {
+                await nextImage.decode();
+            } else {
+                await new Promise((resolve, reject) => {
+                    nextImage.onload = resolve;
+                    nextImage.onerror = reject;
+                });
+            }
+
+            if (revision !== previewRevision || previewController.signal.aborted) {
+                URL.revokeObjectURL(nextUrl);
+                return;
+            }
+
+            const previousUrl = previewUrl;
+            previewUrl = nextUrl;
+            previewImg.src = nextUrl;
+            previewImg.dataset.format = activeFormat;
+            previewImg.style.display = 'block';
+            previewEmpty.style.display = 'none';
+            if (previousUrl) URL.revokeObjectURL(previousUrl);
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => previewFrame.classList.remove('is-loading'));
+            });
+
+            if (effectiveSize && effectiveSize < body.font_size) {
+                fitStatus.textContent = `Police ajustée à ${effectiveSize} pour éviter tout débordement.`;
+                fitStatus.className = 'is-adjusted';
+            } else {
+                fitStatus.textContent = 'Tout le texte tient dans l’étiquette.';
+                fitStatus.className = '';
+            }
+        } catch (error) {
+            if (error.name !== 'AbortError' && revision === previewRevision) setPreviewError(error.message);
+        }
+    }
+
+    function schedulePreview() {
+        clearTimeout(previewTimer);
+        previewRevision += 1;
+        if (previewController) previewController.abort();
+        readControls();
+        if (input.value.trim() && previewImg.style.display === 'block') {
+            previewFrame.classList.add('is-loading');
+        }
+        previewTimer = setTimeout(updatePreview, 250);
+    }
+
+    function openEditor(format) {
+        if (previewImg.dataset.format && previewImg.dataset.format !== format) {
+            previewImg.style.display = 'none';
+            previewEmpty.style.display = 'block';
+        }
+        activeFormat = format;
+        state = loadState(format);
+        formatLabel.textContent = labels[format];
+        applyControls();
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        lucide.createIcons();
+        input.focus();
+        updatePreview();
+    }
+
+    function closeEditor() {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+        if (previewController) previewController.abort();
+        previewFrame.classList.remove('is-loading');
+    }
+
+    document.querySelectorAll('[data-free-text-format]').forEach(button => {
+        button.addEventListener('click', () => openEditor(button.dataset.freeTextFormat));
+    });
+    document.getElementById('free-text-close').addEventListener('click', closeEditor);
+    document.getElementById('free-text-cancel').addEventListener('click', closeEditor);
+    modal.addEventListener('click', event => {
+        if (event.target === modal) closeEditor();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && modal.style.display !== 'none') closeEditor();
+    });
+
+    input.addEventListener('input', schedulePreview);
+    sizeInput.addEventListener('input', schedulePreview);
+    quantityInput.addEventListener('input', readControls);
+    printerSelect?.addEventListener('change', () => {
+        if (modal.style.display !== 'none' && activeFormat !== 'fromis') schedulePreview();
+    });
+    document.getElementById('fromis-printer-select')?.addEventListener('change', () => {
+        if (modal.style.display !== 'none' && activeFormat === 'fromis') schedulePreview();
+    });
+
+    document.querySelectorAll('.free-text-style-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const key = button.dataset.style;
+            state[key] = !state[key];
+            button.classList.toggle('active', state[key]);
+            schedulePreview();
+        });
+    });
+
+    document.querySelectorAll('.free-text-align-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            state.align = button.dataset.align;
+            document.querySelectorAll('.free-text-align-btn').forEach(item => item.classList.toggle('active', item === button));
+            schedulePreview();
+        });
+    });
+
+    printButton.addEventListener('click', async () => {
+        const body = requestBody(true);
+        if (!body.text.trim()) {
+            Modal.error('Texte manquant', 'Saisissez le texte à imprimer.');
+            return;
+        }
+        if (!body.printer_ip) {
+            Modal.error('Imprimante introuvable', 'Sélectionnez une imprimante Toshiba.');
+            return;
+        }
+
+        const printerName = activeFormat === 'fromis'
+            ? document.getElementById('fromis-printer-select')?.selectedOptions[0]?.textContent
+            : printerSelect?.selectedOptions[0]?.textContent;
+        const confirmed = await Modal.confirm(
+            'Confirmer l’impression',
+            `Imprimer ${body.quantity} étiquette(s) en écriture libre sur ${printerName || body.printer_ip} ?`,
+            'printer', 'icon-info'
+        );
+        if (!confirmed) return;
+
+        printButton.disabled = true;
+        printButton.innerHTML = '<i data-lucide="loader"></i> Envoi en cours…';
+        lucide.createIcons();
+        try {
+            const response = await fetch('/api/free-text/print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.detail || 'Échec de l’impression');
+            Modal.alert('Impression envoyée', result.message, 'check-circle', 'icon-success');
+        } catch (error) {
+            Modal.error('Erreur', error.message);
+        } finally {
+            printButton.disabled = false;
+            printButton.innerHTML = '<i data-lucide="printer"></i> Imprimer';
+            lucide.createIcons();
+        }
+    });
+})();

@@ -892,3 +892,3704 @@ td {
     border-color: var(--primary);
     background: #f0fdf4;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Accueil - sélection de l'atelier                                           */
+/* -------------------------------------------------------------------------- */
+
+/* Le portail occupe tout l'écran uniquement tant que l'accueil est visible. */
+body:has(#hub-sector-choice:not([style*="display: none"])) {
+    padding: 0;
+    display: block;
+    overflow: auto;
+    overflow-x: hidden;
+    background: #ffffff;
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .container {
+    max-width: none;
+    min-height: 100vh;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .container > header {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    height: 100vh;
+    margin: 0;
+    padding: 26px 34px;
+    border: 0;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .header-main {
+    display: none;
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .header-main p {
+    display: none;
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .logo-peuplier {
+    width: clamp(108px, 10vw, 148px);
+    height: auto;
+    opacity: 0.9;
+    filter: drop-shadow(0 7px 14px rgba(40, 70, 20, 0.12));
+}
+
+.landing-brand {
+    position: absolute;
+    right: 0;
+    bottom: 25px;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.landing-brand img {
+    width: clamp(108px, 10vw, 148px);
+    height: auto;
+    opacity: 0.9;
+    filter: drop-shadow(0 7px 14px rgba(40, 70, 20, 0.12));
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .header-actions {
+    position: absolute;
+    top: 26px;
+    right: 34px;
+    pointer-events: auto;
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .header-actions .btn-icon {
+    min-height: 42px;
+    padding: 10px 14px;
+    color: #36521d;
+    background: rgba(255, 255, 255, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.86);
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(62, 93, 36, 0.08);
+    backdrop-filter: blur(16px) saturate(145%);
+    -webkit-backdrop-filter: blur(16px) saturate(145%);
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .header-actions .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.82);
+    color: #263b16;
+}
+
+body:has(#hub-sector-choice:not([style*="display: none"])) .container > main {
+    min-height: 100vh;
+}
+
+.landing-screen {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+    margin: 0;
+    padding: clamp(84px, 10vh, 116px) clamp(24px, 7vw, 108px) clamp(120px, 15vh, 168px);
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background:
+        radial-gradient(circle at 8% 8%, rgba(140, 198, 63, 0.13), transparent 34%),
+        radial-gradient(circle at 93% 18%, rgba(112, 182, 72, 0.10), transparent 30%),
+        linear-gradient(135deg, #ffffff 0%, #fbfef8 52%, #f7fcf1 100%);
+}
+
+.landing-screen::before,
+.landing-screen::after {
+    position: absolute;
+    z-index: -1;
+    content: "";
+    pointer-events: none;
+    border-radius: 999px;
+    filter: blur(6px);
+}
+
+.landing-screen::before {
+    top: -17vw;
+    right: 20vw;
+    width: 42vw;
+    height: 38vw;
+    background: radial-gradient(circle, rgba(140, 198, 63, 0.22) 0%, rgba(140, 198, 63, 0.07) 46%, transparent 72%);
+}
+
+.landing-screen::after {
+    bottom: -23vw;
+    left: 9vw;
+    width: 44vw;
+    height: 36vw;
+    background: radial-gradient(circle, rgba(86, 169, 117, 0.13) 0%, rgba(140, 198, 63, 0.07) 48%, transparent 74%);
+}
+
+.landing-screen > .step-header,
+.landing-screen > .help-text,
+.landing-screen > .sector-buttons {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 1040px);
+}
+
+.landing-screen > .step-header {
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 14px;
+    text-align: center;
+}
+
+.landing-screen > .step-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    color: #172411;
+    font-size: clamp(1.8rem, 3.3vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.045em;
+}
+
+.landing-screen > .step-header h2 svg {
+    width: 0.95em;
+    height: 0.95em;
+    color: var(--primary);
+    stroke-width: 1.8;
+}
+
+.landing-screen > .help-text {
+    justify-content: center;
+    max-width: 690px;
+    margin: 0 auto clamp(30px, 5vh, 52px);
+    padding: 0;
+    color: #607052;
+    font-size: clamp(0.88rem, 1.25vw, 1rem);
+    font-weight: 400;
+    line-height: 1.6;
+    text-align: center;
+    background: transparent;
+    border: 0;
+}
+
+.landing-screen > .help-text svg {
+    width: 17px;
+    height: 17px;
+    color: var(--primary);
+    stroke-width: 2;
+}
+
+.landing-screen > .sector-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(14px, 2vw, 24px);
+    align-items: stretch;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.landing-screen .hub-sector-btn {
+    position: relative;
+    isolation: isolate;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 205px;
+    padding: 30px 22px;
+    overflow: hidden;
+    color: #1b2a16;
+    font-size: clamp(1rem, 1.4vw, 1.18rem);
+    font-weight: 600;
+    line-height: 1.35;
+    border: 1px solid rgba(255, 255, 255, 0.84);
+    border-radius: 27px;
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.34));
+    box-shadow:
+        0 20px 45px rgba(56, 88, 35, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.90),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.24);
+    backdrop-filter: blur(22px) saturate(145%);
+    -webkit-backdrop-filter: blur(22px) saturate(145%);
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+
+.landing-screen .hub-sector-btn:not(#tech-mode-btn)::before {
+    position: absolute;
+    z-index: -1;
+    top: 18%;
+    left: 50%;
+    width: 145px;
+    height: 145px;
+    content: "";
+    pointer-events: none;
+    border-radius: 50%;
+    background: var(--sector-glow);
+    filter: blur(24px);
+    opacity: 0.72;
+    transform: translateX(-50%);
+    transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.landing-screen .hub-sector-btn[data-sector="prepa_commande"] {
+    --sector-glow: rgba(140, 198, 63, 0.46);
+}
+
+.landing-screen .hub-sector-btn[data-sector="conditionnement"] {
+    --sector-glow: rgba(41, 191, 166, 0.40);
+}
+
+.landing-screen .hub-sector-btn[data-sector="Gravigny"] {
+    --sector-glow: rgba(139, 92, 246, 0.32);
+}
+
+.landing-screen .hub-sector-btn:not(#tech-mode-btn) svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    padding: 14px;
+    color: var(--primary);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.52);
+    box-shadow: 0 8px 18px rgba(45, 75, 28, 0.08);
+}
+
+.landing-screen .hub-sector-btn[data-sector="conditionnement"] svg {
+    color: #159b82;
+}
+
+.landing-screen .hub-sector-btn[data-sector="Gravigny"] svg {
+    color: #7651d8;
+}
+
+.landing-screen .hub-sector-btn:not(#tech-mode-btn):hover,
+.landing-screen .hub-sector-btn:not(#tech-mode-btn):focus-visible {
+    z-index: 2;
+    border-color: rgba(140, 198, 63, 0.56);
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.48));
+    box-shadow:
+        0 27px 55px rgba(56, 88, 35, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    transform: translateY(-8px);
+}
+
+.landing-screen .hub-sector-btn:not(#tech-mode-btn):hover::before,
+.landing-screen .hub-sector-btn:not(#tech-mode-btn):focus-visible::before {
+    opacity: 0.95;
+    transform: translateX(-50%) scale(1.16);
+}
+
+.landing-screen .hub-sector-btn:not(#tech-mode-btn):focus-visible {
+    outline: 3px solid rgba(140, 198, 63, 0.35);
+    outline-offset: 4px;
+}
+
+.landing-screen #tech-mode-btn {
+    grid-column: 2;
+    flex-direction: row;
+    min-height: auto;
+    width: fit-content;
+    justify-self: center;
+    margin-top: 4px;
+    padding: 10px 16px;
+    color: #4c5d47 !important;
+    font-size: 0.78rem;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.38) !important;
+    border-color: rgba(255, 255, 255, 0.72) !important;
+    border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(56, 88, 35, 0.06);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.landing-screen #tech-mode-btn svg {
+    width: 15px;
+    height: 15px;
+}
+
+.landing-screen #tech-mode-btn:hover,
+.landing-screen #tech-mode-btn:focus-visible {
+    color: #263b16 !important;
+    background: rgba(255, 255, 255, 0.75) !important;
+    border-color: rgba(140, 198, 63, 0.42) !important;
+    transform: translateY(-2px);
+}
+
+@media (max-width: 760px) {
+    body:has(#hub-sector-choice:not([style*="display: none"])) .container > header {
+        padding: 18px 20px;
+    }
+
+    body:has(#hub-sector-choice:not([style*="display: none"])) .header-actions {
+        top: 18px;
+        right: 20px;
+    }
+
+    .landing-screen {
+        justify-content: flex-start;
+        padding-top: 112px;
+        padding-bottom: 124px;
+        overflow-y: auto;
+    }
+
+    .landing-screen > .step-header h2 {
+        flex-direction: column;
+        gap: 8px;
+        letter-spacing: -0.035em;
+    }
+
+    .landing-screen > .help-text {
+        margin-bottom: 28px;
+    }
+
+    .landing-screen > .sector-buttons {
+        grid-template-columns: 1fr;
+        max-width: 430px;
+    }
+
+    .landing-screen .hub-sector-btn {
+        min-height: 145px;
+    }
+
+    .landing-brand {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        left: auto;
+        flex: 0 0 auto;
+        margin-top: 24px;
+    }
+
+    .landing-screen #tech-mode-btn {
+        grid-column: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-screen .hub-sector-btn,
+    .landing-screen .hub-sector-btn::before {
+        transition: none;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Portail - écran des outils                                                 */
+/* -------------------------------------------------------------------------- */
+
+.landing-screen {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 420ms ease, transform 620ms cubic-bezier(0.22, 1, 0.36, 1), visibility 420ms ease;
+}
+
+.landing-screen.hub-screen-exit {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: scale(1.035) translateY(-18px);
+}
+
+.hub-tools-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    display: none;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100vh;
+    margin: 0;
+    padding: clamp(92px, 11vh, 126px) clamp(30px, 8vw, 132px) 72px;
+    overflow-y: auto;
+    border: 0;
+    border-radius: 0;
+    background:
+        radial-gradient(circle at 12% 12%, rgba(140, 198, 63, 0.15), transparent 30%),
+        radial-gradient(circle at 88% 28%, rgba(65, 180, 149, 0.11), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #fbfef8 56%, #f6fbf0 100%);
+    animation: none;
+}
+
+.hub-tools-screen[style*="display: block"] {
+    animation: hubScreenIn 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hubScreenIn {
+    from {
+        opacity: 0;
+        transform: scale(0.985) translateY(24px);
+        filter: blur(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+    }
+}
+
+.hub-tools-screen::before,
+.hub-tools-screen::after {
+    position: absolute;
+    z-index: -1;
+    content: "";
+    pointer-events: none;
+    border-radius: 999px;
+    filter: blur(12px);
+}
+
+.hub-tools-screen::before {
+    top: -18vw;
+    right: 15vw;
+    width: 42vw;
+    height: 34vw;
+    background: radial-gradient(circle, rgba(140, 198, 63, 0.17) 0%, transparent 70%);
+}
+
+.hub-tools-screen::after {
+    bottom: -22vw;
+    left: 14vw;
+    width: 42vw;
+    height: 34vw;
+    background: radial-gradient(circle, rgba(59, 177, 143, 0.12) 0%, transparent 70%);
+}
+
+.hub-tools-nav,
+.hub-tools-screen > .step-header,
+.hub-tools-screen > .help-text,
+.hub-tools-screen > .hub-grid {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 1080px);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.hub-tools-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 38px;
+}
+
+.hub-back-btn {
+    padding: 10px 15px;
+    color: #43553b;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.56);
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 999px;
+    box-shadow: 0 10px 25px rgba(62, 93, 36, 0.08);
+    backdrop-filter: blur(16px) saturate(145%);
+    -webkit-backdrop-filter: blur(16px) saturate(145%);
+}
+
+.hub-back-btn:hover,
+.hub-back-btn:focus-visible {
+    color: #263b16;
+    background: rgba(255, 255, 255, 0.88);
+    transform: translateX(-3px);
+}
+
+.hub-back-btn:focus-visible {
+    outline: 3px solid rgba(140, 198, 63, 0.32);
+    outline-offset: 4px;
+}
+
+.hub-tools-context {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #77906a;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.hub-tools-context svg {
+    width: 15px;
+    height: 15px;
+    color: var(--primary);
+}
+
+.hub-tools-screen > .step-header {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.hub-tools-screen > .step-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    color: #172411;
+    font-size: clamp(1.8rem, 3vw, 2.8rem);
+    letter-spacing: -0.045em;
+}
+
+.hub-tools-screen > .step-header h2 svg {
+    width: 0.95em;
+    height: 0.95em;
+    color: var(--primary);
+    stroke-width: 1.8;
+}
+
+.hub-tools-screen > .help-text {
+    justify-content: center;
+    max-width: 690px;
+    margin-top: 0;
+    margin-bottom: 42px;
+    padding: 0;
+    color: #607052;
+    font-size: 0.98rem;
+    font-weight: 400;
+    line-height: 1.6;
+    text-align: center;
+    background: transparent;
+    border: 0;
+}
+
+.hub-tools-screen > .help-text svg {
+    width: 17px;
+    height: 17px;
+    color: var(--primary);
+}
+
+.hub-tools-screen > .hub-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 0;
+}
+
+.hub-tools-screen .hub-card {
+    position: relative;
+    isolation: isolate;
+    min-height: 190px;
+    box-sizing: border-box;
+    padding: 30px 24px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.86);
+    border-radius: 24px;
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.42));
+    box-shadow:
+        0 18px 40px rgba(56, 88, 35, 0.09),
+        inset 0 1px 0 rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.hub-tools-screen .hub-card::before {
+    position: absolute;
+    z-index: -1;
+    top: 16%;
+    left: 50%;
+    width: 150px;
+    height: 150px;
+    content: "";
+    pointer-events: none;
+    border-radius: 50%;
+    background: var(--tool-glow);
+    filter: blur(26px);
+    opacity: 0.68;
+    transform: translateX(-50%);
+    transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.hub-tools-screen .hub-card[data-tool="toshiba_3up"] {
+    --tool-glow: rgba(140, 198, 63, 0.42);
+    --tool-accent-rgb: 140, 198, 63;
+}
+
+.hub-tools-screen .hub-card[data-tool="toshiba_4up"] {
+    --tool-glow: rgba(41, 191, 166, 0.36);
+    --tool-accent-rgb: 41, 191, 166;
+}
+
+.hub-tools-screen .hub-card[data-tool="fromis"] {
+    --tool-glow: rgba(239, 106, 106, 0.30);
+    --tool-accent-rgb: 239, 106, 106;
+}
+
+.hub-tools-screen .hub-card[data-tool="zebra"] {
+    --tool-glow: rgba(245, 158, 11, 0.34);
+    --tool-accent-rgb: 245, 158, 11;
+}
+
+.hub-tools-screen[style*="display: block"] .hub-card:nth-child(1) { animation: hubCardIn 520ms 100ms both; }
+.hub-tools-screen[style*="display: block"] .hub-card:nth-child(2) { animation: hubCardIn 520ms 160ms both; }
+.hub-tools-screen[style*="display: block"] .hub-card:nth-child(3) { animation: hubCardIn 520ms 220ms both; }
+.hub-tools-screen[style*="display: block"] .hub-card:nth-child(4) { animation: hubCardIn 520ms 280ms both; }
+.hub-tools-screen[style*="display: block"] .hub-card:nth-child(5) { animation: hubCardIn 520ms 340ms both; }
+.hub-tools-screen[style*="display: block"] .hub-card:nth-child(6) { animation: hubCardIn 520ms 400ms both; }
+
+@keyframes hubCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.hub-tools-screen .hub-card:hover,
+.hub-tools-screen .hub-card:focus-visible {
+    border-color: rgba(var(--tool-accent-rgb, 140, 198, 63), 0.58);
+    box-shadow:
+        0 26px 52px rgba(var(--tool-accent-rgb, 140, 198, 63), 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    transform: translateY(-7px);
+}
+
+.hub-tools-screen .hub-card:hover::before,
+.hub-tools-screen .hub-card:focus-visible::before {
+    opacity: 0.92;
+    transform: translateX(-50%) scale(1.14);
+}
+
+.hub-tools-screen .hub-card:focus-visible {
+    outline: 3px solid rgba(var(--tool-accent-rgb, 140, 198, 63), 0.30);
+    outline-offset: 4px;
+}
+
+.hub-tools-screen .hub-card h3 {
+    margin-bottom: 8px;
+    color: #1b2a16;
+    font-size: 1.12rem;
+}
+
+.hub-tools-screen .hub-card p {
+    color: #65745e;
+}
+
+.hub-tools-screen .hub-icon {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.54);
+}
+
+.hub-tools-screen .hub-card .labels-visual {
+    position: relative;
+    z-index: 1;
+    min-height: 66px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.hub-tools-screen .hub-card .label-box {
+    border-color: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.54);
+    box-shadow: 0 8px 18px rgba(45, 75, 28, 0.08);
+}
+
+.hub-tools-screen .hub-card:hover .label-box,
+.hub-tools-screen .hub-card:focus-visible .label-box {
+    border-color: rgba(140, 198, 63, 0.62);
+    background: rgba(255, 255, 255, 0.76);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-screen,
+    .hub-tools-screen,
+    .hub-tools-screen .hub-card,
+    .hub-back-btn {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Conditionnement - poste Zebra 300 dpi                                     */
+/* -------------------------------------------------------------------------- */
+
+body.dedicated-tool-conditionnement {
+    background:
+        radial-gradient(circle at 8% 3%, rgba(140, 198, 63, 0.18), transparent 30%),
+        radial-gradient(circle at 93% 16%, rgba(56, 189, 248, 0.14), transparent 34%),
+        linear-gradient(135deg, #f8fbff 0%, #f4faf2 52%, #eef7f8 100%);
+}
+
+body.dedicated-tool-conditionnement .container {
+    max-width: 1480px;
+}
+
+body.dedicated-tool-conditionnement #wizard-section {
+    display: block;
+}
+
+body.dedicated-tool-conditionnement #conditionnement-section {
+    display: block;
+    padding: 30px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    border-radius: 28px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(246, 252, 249, 0.66));
+    box-shadow: 0 22px 60px rgba(42, 88, 76, 0.11), inset 0 1px 0 #fff;
+    backdrop-filter: blur(20px) saturate(135%);
+    -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+.conditionnement-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 4px 0 26px;
+}
+
+.conditionnement-kicker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #23806a;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+}
+
+.conditionnement-kicker svg {
+    width: 16px;
+    height: 16px;
+}
+
+.conditionnement-hero .step-header {
+    margin: 0 0 8px;
+}
+
+.conditionnement-hero .step-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    color: #16352e;
+    font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+    letter-spacing: -0.04em;
+}
+
+.conditionnement-hero .step-header h2 svg {
+    width: 28px;
+    height: 28px;
+    color: #78b93e;
+}
+
+.conditionnement-hero .help-text {
+    max-width: 720px;
+    margin: 0;
+    padding: 0;
+    color: #647a73;
+    background: transparent;
+}
+
+.conditionnement-printer-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 255px;
+    padding: 14px 16px;
+    border: 1px solid rgba(120, 185, 62, 0.23);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 12px 26px rgba(51, 89, 69, 0.08);
+}
+
+.conditionnement-printer-orb {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    place-items: center;
+    color: #fff;
+    border-radius: 13px;
+    background: linear-gradient(145deg, #8bc946, #34a889);
+    box-shadow: 0 7px 15px rgba(52, 168, 137, 0.24);
+}
+
+.conditionnement-printer-orb svg {
+    width: 20px;
+    height: 20px;
+}
+
+.conditionnement-printer-card strong,
+.conditionnement-printer-card span {
+    display: block;
+}
+
+.conditionnement-printer-card strong {
+    color: #23433a;
+    font-size: 0.92rem;
+}
+
+.conditionnement-printer-card #conditionnement-printer-status {
+    margin-top: 3px;
+    color: #70837d;
+    font-size: 0.74rem;
+}
+
+.conditionnement-status-dot {
+    width: 9px;
+    height: 9px;
+    margin-left: auto;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.12);
+}
+
+.conditionnement-status-dot.is-ready {
+    background: #50b86b;
+    box-shadow: 0 0 0 5px rgba(80, 184, 107, 0.13);
+}
+
+.conditionnement-status-dot.is-offline {
+    background: #ef6b67;
+    box-shadow: 0 0 0 5px rgba(239, 107, 103, 0.12);
+}
+
+.conditionnement-methods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.conditionnement-method {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 16px 18px;
+    text-align: left;
+    color: #5b7169;
+    border: 1px solid rgba(111, 147, 130, 0.18);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.48);
+    cursor: pointer;
+    transition: 180ms ease;
+}
+
+.conditionnement-method:hover,
+.conditionnement-method.active {
+    color: #1d5142;
+    border-color: rgba(93, 179, 133, 0.52);
+    background: rgba(242, 255, 247, 0.9);
+    box-shadow: 0 9px 22px rgba(57, 133, 97, 0.09);
+    transform: translateY(-1px);
+}
+
+.conditionnement-method > svg {
+    width: 24px;
+    height: 24px;
+    color: #56ae72;
+}
+
+.conditionnement-method span,
+.conditionnement-method strong,
+.conditionnement-method small {
+    display: block;
+}
+
+.conditionnement-method strong {
+    font-size: 0.92rem;
+}
+
+.conditionnement-method small {
+    margin-top: 4px;
+    color: #80958d;
+    font-size: 0.74rem;
+}
+
+.conditionnement-work-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+    gap: 18px;
+}
+
+.conditionnement-form-card,
+.conditionnement-preview-card,
+.conditionnement-erp-card,
+.conditionnement-queue-card {
+    border: 1px solid rgba(116, 154, 138, 0.16);
+    border-radius: 21px;
+    background: rgba(255, 255, 255, 0.68);
+    box-shadow: 0 12px 30px rgba(51, 89, 69, 0.06);
+}
+
+.conditionnement-form-card,
+.conditionnement-preview-card,
+.conditionnement-erp-card {
+    padding: 23px;
+}
+
+.conditionnement-panel-heading,
+.conditionnement-queue-header > div:first-child {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.conditionnement-index {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    place-items: center;
+    color: #32836a;
+    border: 1px solid rgba(74, 165, 125, 0.25);
+    border-radius: 10px;
+    background: #effaf2;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.conditionnement-panel-heading h3,
+.conditionnement-queue-header h3 {
+    margin: 1px 0 4px;
+    color: #24463b;
+    font-size: 1.04rem;
+}
+
+.conditionnement-panel-heading p,
+.conditionnement-queue-header p {
+    margin: 0;
+    color: #82948d;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.conditionnement-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 22px 0 18px;
+}
+
+.conditionnement-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: #526b61;
+    font-size: 0.79rem;
+    font-weight: 600;
+}
+
+.conditionnement-fields label:first-child {
+    grid-column: 1 / -1;
+}
+
+.conditionnement-fields .large-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.conditionnement-add-btn,
+.conditionnement-print-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.conditionnement-preview-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.conditionnement-preview-frame {
+    display: grid;
+    min-height: 250px;
+    margin: 22px 0 13px;
+    place-items: center;
+    overflow: hidden;
+    border: 1px dashed rgba(96, 160, 127, 0.35);
+    border-radius: 16px;
+    background:
+        linear-gradient(45deg, rgba(112, 173, 141, 0.045) 25%, transparent 25%, transparent 75%, rgba(112, 173, 141, 0.045) 75%),
+        linear-gradient(45deg, rgba(112, 173, 141, 0.045) 25%, transparent 25%, transparent 75%, rgba(112, 173, 141, 0.045) 75%),
+        #fbfffc;
+    background-position: 0 0, 10px 10px;
+    background-size: 20px 20px;
+}
+
+.conditionnement-preview-frame img {
+    width: min(92%, 420px);
+    height: auto;
+    border: 1px solid #d3ded7;
+    box-shadow: 0 8px 24px rgba(37, 65, 49, 0.14);
+    image-rendering: auto;
+}
+
+.conditionnement-preview-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: #9aac9f;
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.conditionnement-preview-empty svg {
+    width: 30px;
+    height: 30px;
+    color: #83be94;
+}
+
+.conditionnement-preview-note,
+.conditionnement-erp-note {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #6c8679;
+    font-size: 0.74rem;
+}
+
+.conditionnement-preview-note svg,
+.conditionnement-erp-note svg {
+    width: 15px;
+    height: 15px;
+    color: #55ae78;
+}
+
+.conditionnement-queue-card {
+    margin-top: 18px;
+    padding: 20px 23px 23px;
+}
+
+.conditionnement-queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.conditionnement-queue-total {
+    color: #32836a;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.conditionnement-queue-card ul {
+    display: grid;
+    gap: 8px;
+    margin: 17px 0;
+    padding: 0;
+    list-style: none;
+}
+
+.conditionnement-queue-card li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 13px;
+    color: #476258;
+    border: 1px solid #e1ebe4;
+    border-radius: 11px;
+    background: #fbfefc;
+    font-size: 0.82rem;
+}
+
+.conditionnement-queue-card li strong {
+    color: #244d3e;
+}
+
+.conditionnement-erp-card {
+    max-width: 850px;
+}
+
+.conditionnement-erp-input-row {
+    display: flex;
+    gap: 10px;
+    margin: 24px 0 17px;
+}
+
+.conditionnement-erp-input-row .large-input {
+    flex: 1;
+}
+
+@media (max-width: 820px) {
+    .conditionnement-hero,
+    .conditionnement-work-grid {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+    }
+
+    .conditionnement-printer-card {
+        width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+@media (max-width: 560px) {
+    body.dedicated-tool-conditionnement #conditionnement-section {
+        padding: 20px 15px;
+    }
+
+    .conditionnement-methods,
+    .conditionnement-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .conditionnement-fields label:first-child {
+        grid-column: auto;
+    }
+
+    .conditionnement-erp-input-row {
+        flex-direction: column;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Outil Etiquette X3 - interface opérateur                                  */
+/* -------------------------------------------------------------------------- */
+
+body.dedicated-tool-page {
+    display: block;
+    min-height: 100vh;
+    padding: 28px 32px 48px;
+    background:
+        radial-gradient(circle at 8% 4%, rgba(140, 198, 63, 0.14), transparent 32%),
+        radial-gradient(circle at 94% 18%, rgba(67, 181, 147, 0.10), transparent 30%),
+        linear-gradient(135deg, #ffffff 0%, #fbfef8 54%, #f5faef 100%);
+}
+
+body.dedicated-tool-page .container {
+    max-width: 1480px;
+    box-sizing: border-box;
+    padding: 28px 34px 44px;
+    background: rgba(255, 255, 255, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 30px;
+    box-shadow: 0 24px 70px rgba(56, 88, 35, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+    backdrop-filter: blur(22px) saturate(130%);
+    -webkit-backdrop-filter: blur(22px) saturate(130%);
+}
+
+body.dedicated-tool-page header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 28px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid rgba(140, 198, 63, 0.16);
+}
+
+body.dedicated-tool-page .logo-peuplier {
+    width: 188px;
+    filter: drop-shadow(0 7px 14px rgba(40, 70, 20, 0.10));
+}
+
+body.dedicated-tool-page header p {
+    color: #687862;
+    font-size: 0.94rem;
+}
+
+body.dedicated-tool-page .header-actions .btn-icon {
+    color: #43553b;
+    background: rgba(255, 255, 255, 0.62);
+    border-color: rgba(255, 255, 255, 0.88);
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(62, 93, 36, 0.07);
+    backdrop-filter: blur(16px) saturate(145%);
+    -webkit-backdrop-filter: blur(16px) saturate(145%);
+}
+
+body.dedicated-tool-page .header-actions .btn-icon:hover {
+    color: #263b16;
+    background: rgba(255, 255, 255, 0.88);
+}
+
+body.dedicated-tool-page main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+body.dedicated-tool-page #wizard-section {
+    display: block;
+}
+
+body.dedicated-tool-page #step2,
+body.dedicated-tool-page #upload-section,
+body.dedicated-tool-page #log-container {
+    box-sizing: border-box;
+    margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.84);
+    border-radius: 25px;
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.43));
+    box-shadow: 0 17px 42px rgba(56, 88, 35, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+    backdrop-filter: blur(20px) saturate(135%);
+    -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+body.dedicated-tool-page #step2 {
+    padding: 25px 30px;
+}
+
+body.dedicated-tool-page #step2 .step-header,
+body.dedicated-tool-page #upload-section > .step-header,
+body.dedicated-tool-page #log-container .step-header {
+    margin-bottom: 10px;
+}
+
+body.dedicated-tool-page #step2 .step-header h2,
+body.dedicated-tool-page #upload-section > .step-header h2,
+body.dedicated-tool-page #log-container .step-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: #1b2a16;
+    font-size: 1.45rem;
+    letter-spacing: -0.025em;
+}
+
+body.dedicated-tool-page #step2 .step-header h2::before,
+body.dedicated-tool-page #upload-section > .step-header h2::before,
+body.dedicated-tool-page #log-container .step-header h2::before {
+    display: block;
+    width: 8px;
+    height: 8px;
+    content: "";
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 6px rgba(140, 198, 63, 0.13);
+}
+
+body.dedicated-tool-page #step2 .step-header h2 svg,
+body.dedicated-tool-page #upload-section > .step-header h2 svg,
+body.dedicated-tool-page #log-container .step-header h2 svg {
+    width: 24px;
+    height: 24px;
+    color: var(--primary);
+    stroke-width: 2;
+}
+
+body.dedicated-tool-page #step2 > .help-text,
+body.dedicated-tool-page #upload-section > .help-text,
+body.dedicated-tool-page #log-container > .help-text {
+    max-width: 840px;
+    margin: 0 0 20px;
+    padding: 0;
+    color: #64745f;
+    font-size: 0.9rem;
+    font-weight: 400;
+    line-height: 1.55;
+    background: transparent;
+    border: 0;
+}
+
+body.dedicated-tool-page #step2 > .help-text svg,
+body.dedicated-tool-page #upload-section > .help-text svg,
+body.dedicated-tool-page #log-container > .help-text svg {
+    width: 17px;
+    height: 17px;
+    color: var(--primary);
+}
+
+body.dedicated-tool-page .printer-selection-box {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.84);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.38);
+}
+
+body.dedicated-tool-page .printer-selection-box > div:first-of-type {
+    width: auto !important;
+}
+
+body.dedicated-tool-page select.large-select,
+body.dedicated-tool-page input.large-input {
+    box-sizing: border-box;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: inset 0 1px 2px rgba(40, 70, 20, 0.03);
+}
+
+body.dedicated-tool-page select.large-select:focus,
+body.dedicated-tool-page input.large-input:focus {
+    border-color: rgba(140, 198, 63, 0.74);
+    box-shadow: 0 0 0 4px rgba(140, 198, 63, 0.13);
+}
+
+body.dedicated-tool-page #printer-status {
+    margin: 0;
+    white-space: nowrap;
+    border: 1px solid rgba(140, 198, 63, 0.25);
+    border-radius: 999px;
+    background: rgba(239, 252, 226, 0.72);
+    color: #4f7132;
+}
+
+body.dedicated-tool-page #upload-section {
+    padding: 30px;
+}
+
+body.dedicated-tool-page #upload-method-selector {
+    display: flex;
+    gap: 8px !important;
+    margin: 0 0 26px !important;
+    padding: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.84);
+    border-radius: 18px;
+    background: rgba(228, 241, 218, 0.48);
+}
+
+body.dedicated-tool-page #upload-method-selector button {
+    flex: 1;
+    min-height: 46px;
+    padding: 11px 16px;
+    color: #65745e;
+    font-size: 0.88rem;
+    background: transparent !important;
+    border: 1px solid transparent;
+    border-radius: 13px;
+}
+
+body.dedicated-tool-page #upload-method-selector button:hover,
+body.dedicated-tool-page #upload-method-selector button.active {
+    color: #35531e;
+    background: rgba(255, 255, 255, 0.78) !important;
+    border-color: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 8px 18px rgba(56, 88, 35, 0.08);
+}
+
+body.dedicated-tool-page #panel-3up-custom > .help-text {
+    margin: 0 0 20px;
+    padding: 0;
+    color: #6a7a64;
+    font-size: 0.88rem;
+    background: transparent;
+    border: 0;
+}
+
+body.dedicated-tool-page #panel-3up-custom > .nature-body {
+    display: block;
+}
+
+body.dedicated-tool-page #panel-3up-custom .form-group {
+    width: 100% !important;
+    box-sizing: border-box;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+}
+
+body.dedicated-tool-page #panel-3up-custom .form-group > label:first-child {
+    color: #263b20;
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
+}
+
+body.dedicated-tool-page #parfum-3up-select {
+    margin-bottom: 4px;
+}
+
+body.dedicated-tool-page .tool-product-actions {
+    display: flex !important;
+    gap: 9px !important;
+    margin: 13px 0 25px !important;
+    padding-bottom: 22px;
+    border-bottom: 1px solid rgba(140, 198, 63, 0.14);
+}
+
+body.dedicated-tool-page .tool-product-actions button {
+    padding: 10px 14px;
+    color: #51634a;
+    font-size: 0.84rem;
+    background: rgba(255, 255, 255, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.86);
+    border-radius: 12px;
+}
+
+body.dedicated-tool-page .tool-product-actions button:hover {
+    color: #35531e;
+    background: rgba(255, 255, 255, 0.86);
+}
+
+body.dedicated-tool-page .tool-product-actions #delete-parfum-3up-btn {
+    color: #b64444 !important;
+    background: rgba(255, 242, 242, 0.62) !important;
+    border-color: rgba(252, 165, 165, 0.56) !important;
+}
+
+body.dedicated-tool-page .tool-custom-fields {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px !important;
+    margin-top: 2px;
+}
+
+body.dedicated-tool-page .tool-custom-fields label {
+    color: #43543c;
+    font-size: 0.82rem;
+}
+
+body.dedicated-tool-page .tool-custom-fields small {
+    display: block;
+    margin-top: 7px;
+    color: #7c8b76 !important;
+    line-height: 1.35;
+}
+
+body.dedicated-tool-page #add-to-batch-3up-btn {
+    margin-top: 25px !important;
+    color: #ffffff;
+    background: var(--secondary);
+    border-radius: 14px;
+    box-shadow: 0 10px 22px rgba(5, 150, 105, 0.16);
+}
+
+body.dedicated-tool-page #add-to-batch-3up-btn:hover {
+    background: var(--secondary-hover);
+    transform: translateY(-2px);
+}
+
+body.dedicated-tool-page .tool-batch-queue {
+    margin-top: 18px !important;
+    padding: 19px !important;
+    border: 1px solid rgba(255, 255, 255, 0.86) !important;
+    border-radius: 18px !important;
+    background: rgba(244, 250, 239, 0.62) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+body.dedicated-tool-page .tool-batch-queue h4 {
+    color: #43543c !important;
+    letter-spacing: 0.01em;
+}
+
+body.dedicated-tool-page .tool-batch-queue > div {
+    border-color: rgba(140, 198, 63, 0.20) !important;
+    color: #43543c !important;
+}
+
+body.dedicated-tool-page #print-3up-custom-btn {
+    background: var(--primary);
+    box-shadow: 0 12px 24px rgba(140, 198, 63, 0.22);
+}
+
+body.dedicated-tool-page #print-3up-custom-btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+}
+
+body.dedicated-tool-page #log-container {
+    padding: 24px 30px 28px;
+}
+
+body.dedicated-tool-page #log-container .log-box {
+    min-height: 104px;
+    height: 190px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 18px;
+    background: rgba(244, 250, 239, 0.42);
+}
+
+/* Composition dédiée X3 : un poste de travail, pas une succession d'étapes */
+body.dedicated-tool-toshiba_3up {
+    padding: 24px 30px 40px;
+    background:
+        radial-gradient(circle at 74% 0%, rgba(140, 198, 63, 0.16), transparent 30%),
+        radial-gradient(circle at 0% 72%, rgba(41, 191, 166, 0.09), transparent 27%),
+        #fafdF8;
+}
+
+body.dedicated-tool-toshiba_3up .container {
+    max-width: 1500px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.dedicated-tool-toshiba_3up header {
+    min-height: 70px;
+    margin: 0 0 26px;
+    padding: 0 4px 20px;
+    border-bottom: 1px solid rgba(140, 198, 63, 0.18);
+}
+
+body.dedicated-tool-toshiba_3up .logo-peuplier {
+    width: 164px;
+}
+
+body.dedicated-tool-toshiba_3up header p {
+    margin-top: 8px;
+    color: #7a8973;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+body.dedicated-tool-toshiba_3up main {
+    display: grid;
+    grid-template-columns: minmax(245px, 0.52fr) minmax(0, 1.48fr);
+    grid-template-areas:
+        "printer workspace"
+        "history workspace";
+    align-items: start;
+    gap: 20px 24px;
+}
+
+body.dedicated-tool-toshiba_3up #wizard-section {
+    display: contents !important;
+}
+
+body.dedicated-tool-toshiba_3up #step2 {
+    grid-area: printer;
+    align-self: start;
+    min-height: 0;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 25px;
+    background: linear-gradient(155deg, rgba(255, 255, 255, 0.80), rgba(244, 252, 239, 0.58));
+    box-shadow: 0 18px 42px rgba(56, 88, 35, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+body.dedicated-tool-toshiba_3up #step2::before {
+    display: block;
+    margin-bottom: 16px;
+    color: #7b9270;
+    content: "CONFIGURATION ACTIVE";
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+}
+
+body.dedicated-tool-toshiba_3up #step2 .step-header {
+    margin-bottom: 10px;
+}
+
+body.dedicated-tool-toshiba_3up #step2 .step-header h2 {
+    font-size: 1.15rem;
+    letter-spacing: -0.025em;
+}
+
+body.dedicated-tool-toshiba_3up #step2 .step-header h2::before {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #step2 > .help-text {
+    margin-bottom: 20px;
+    color: #73816d;
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+body.dedicated-tool-toshiba_3up .printer-selection-box {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+body.dedicated-tool-toshiba_3up .printer-selection-box > div:first-of-type {
+    display: block !important;
+}
+
+body.dedicated-tool-toshiba_3up .printer-selection-box select {
+    width: 100%;
+    padding: 14px 15px;
+    font-size: 0.86rem;
+}
+
+body.dedicated-tool-toshiba_3up #printer-status {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 12px;
+    padding: 9px 12px;
+    font-size: 0.76rem;
+}
+
+body.dedicated-tool-toshiba_3up #upload-section {
+    grid-area: workspace;
+    align-self: start;
+    min-width: 0;
+    padding: 32px 36px 36px;
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.64);
+    box-shadow: 0 24px 64px rgba(56, 88, 35, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(24px) saturate(135%);
+    -webkit-backdrop-filter: blur(24px) saturate(135%);
+}
+
+body.dedicated-tool-toshiba_3up #upload-section > .step-header {
+    margin-bottom: 6px;
+}
+
+body.dedicated-tool-toshiba_3up #upload-section > .step-header h2 {
+    display: block;
+    font-size: clamp(1.75rem, 2.5vw, 2.45rem);
+    letter-spacing: -0.055em;
+}
+
+body.dedicated-tool-toshiba_3up #upload-section > .step-header h2::before,
+body.dedicated-tool-toshiba_3up #upload-section > .step-header h2 svg {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #upload-section > .step-header h2::after {
+    display: block;
+    margin-top: 9px;
+    color: #7b9270;
+    content: "Préparez les données avant l'envoi vers la Toshiba";
+    font-family: 'Inter', sans-serif;
+    font-size: 0.80rem;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+body.dedicated-tool-toshiba_3up #upload-section > .step-header h2 {
+    color: #172411;
+}
+
+body.dedicated-tool-toshiba_3up #upload-section > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #upload-method-selector {
+    margin: 30px 0 26px !important;
+    padding: 5px;
+    border-radius: 16px;
+    background: rgba(238, 247, 231, 0.74);
+}
+
+body.dedicated-tool-toshiba_3up #upload-method-selector button {
+    justify-content: flex-start;
+    min-height: 42px;
+    padding: 9px 13px;
+    font-size: 0.78rem;
+}
+
+body.dedicated-tool-toshiba_3up #panel-3up-custom > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #panel-3up-custom .form-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.70fr);
+    align-items: start;
+    gap: 18px 28px;
+}
+
+body.dedicated-tool-toshiba_3up #panel-3up-custom .form-group > label:first-child,
+body.dedicated-tool-toshiba_3up #panel-3up-custom .form-group > #parfum-3up-select,
+body.dedicated-tool-toshiba_3up #panel-3up-custom .tool-product-actions,
+body.dedicated-tool-toshiba_3up #panel-3up-custom .tool-custom-fields,
+body.dedicated-tool-toshiba_3up #panel-3up-custom .form-group > .sub-form,
+body.dedicated-tool-toshiba_3up #panel-3up-custom #add-to-batch-3up-btn {
+    grid-column: 1;
+}
+
+body.dedicated-tool-toshiba_3up #panel-3up-custom .tool-custom-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px !important;
+}
+
+body.dedicated-tool-toshiba_3up #panel-3up-custom .tool-batch-queue,
+body.dedicated-tool-toshiba_3up #panel-3up-custom .x3-queue-empty {
+    grid-column: 2;
+    grid-row: 1 / span 6;
+    align-self: stretch;
+}
+
+body.dedicated-tool-toshiba_3up .x3-queue-empty {
+    display: flex;
+    min-height: 250px;
+    box-sizing: border-box;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 26px;
+    color: #6e8068;
+    text-align: center;
+    border: 1px dashed rgba(140, 198, 63, 0.40);
+    border-radius: 22px;
+    background: linear-gradient(155deg, rgba(241, 251, 232, 0.72), rgba(255, 255, 255, 0.42));
+}
+
+body.dedicated-tool-toshiba_3up .x3-queue-empty svg {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 3px;
+    padding: 13px;
+    color: var(--primary);
+    border: 1px solid rgba(255, 255, 255, 0.90);
+    border-radius: 17px;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+body.dedicated-tool-toshiba_3up .x3-queue-empty strong {
+    color: #455b3e;
+    font-size: 0.92rem;
+}
+
+body.dedicated-tool-toshiba_3up .x3-queue-empty span {
+    max-width: 190px;
+    font-size: 0.76rem;
+    line-height: 1.5;
+}
+
+body.dedicated-tool-toshiba_3up #panel-3up-custom .form-group:has(#batch-list-3up-container[style*="display: block"]) .x3-queue-empty {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #panel-3up-custom .tool-batch-queue {
+    min-height: 250px;
+    box-sizing: border-box;
+}
+
+body.dedicated-tool-toshiba_3up #log-container {
+    grid-area: history;
+    align-self: stretch;
+    min-width: 0;
+    padding: 20px 24px 24px;
+}
+
+body.dedicated-tool-toshiba_3up #log-container .step-header h2 {
+    font-size: 1rem;
+}
+
+body.dedicated-tool-toshiba_3up #log-container > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #log-container .log-box {
+    height: 124px;
+    min-height: 0;
+    padding: 12px;
+    font-size: 0.78rem;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section,
+body.dedicated-tool-toshiba_3up #progress-container {
+    grid-column: 1 / -1;
+}
+
+body.dedicated-tool-toshiba_3up #panel-erp-file {
+    display: flex;
+    gap: 18px !important;
+    margin-top: 0 !important;
+}
+
+body.dedicated-tool-toshiba_3up #panel-erp-file > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #panel-erp,
+body.dedicated-tool-toshiba_3up #panel-file {
+    min-height: 260px;
+    box-sizing: border-box;
+    padding: 24px !important;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 22px;
+    background: linear-gradient(155deg, rgba(248, 253, 244, 0.80), rgba(255, 255, 255, 0.45));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 14px 30px rgba(56, 88, 35, 0.06);
+}
+
+body.dedicated-tool-toshiba_3up #panel-erp h3 {
+    margin: 0 0 10px !important;
+    color: #30452a !important;
+    font-size: 1rem !important;
+}
+
+body.dedicated-tool-toshiba_3up #panel-erp h3 svg {
+    color: var(--primary) !important;
+}
+
+body.dedicated-tool-toshiba_3up #panel-erp > p {
+    color: #73816d !important;
+    font-size: 0.82rem !important;
+    line-height: 1.5;
+}
+
+body.dedicated-tool-toshiba_3up #panel-erp > div {
+    align-items: center;
+    margin-top: auto;
+}
+
+body.dedicated-tool-toshiba_3up #api-fetch-btn {
+    min-height: 49px;
+    padding: 0 15px !important;
+    border-radius: 13px;
+    background: var(--secondary);
+}
+
+body.dedicated-tool-toshiba_3up #api-fetch-btn:hover {
+    background: var(--secondary-hover);
+}
+
+body.dedicated-tool-toshiba_3up #panel-file .upload-zone {
+    min-height: 210px !important;
+    height: 100% !important;
+    box-sizing: border-box;
+    padding: 24px !important;
+    border: 1px dashed rgba(140, 198, 63, 0.56);
+    border-radius: 17px;
+    background: rgba(255, 255, 255, 0.45);
+}
+
+body.dedicated-tool-toshiba_3up #panel-file .upload-zone:hover,
+body.dedicated-tool-toshiba_3up #panel-file .upload-zone:focus {
+    background: rgba(239, 252, 226, 0.74);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(140, 198, 63, 0.11);
+}
+
+body.dedicated-tool-toshiba_3up #panel-file .icon-large {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.74);
+}
+
+body.dedicated-tool-toshiba_3up #panel-file .upload-main-text {
+    margin-bottom: 7px;
+    color: #43543c;
+    font-size: 1rem;
+}
+
+body.dedicated-tool-toshiba_3up #panel-file .upload-sub-text {
+    color: #7a8973;
+    font-size: 0.78rem;
+}
+
+/* Ecran de contrôle après chargement de la commande */
+body.dedicated-tool-toshiba_3up #edit-section {
+    grid-column: 1 / -1;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 30px 34px 34px;
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.68);
+    box-shadow: 0 24px 64px rgba(56, 88, 35, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(24px) saturate(135%);
+    -webkit-backdrop-filter: blur(24px) saturate(135%);
+}
+
+body.dedicated-tool-toshiba_3up #edit-section > .step-header {
+    margin-bottom: 6px;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section > .step-header h2 {
+    display: block;
+    color: #172411;
+    font-size: clamp(1.75rem, 2.5vw, 2.45rem);
+    letter-spacing: -0.055em;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section > .step-header h2::after {
+    display: block;
+    margin-top: 9px;
+    color: #7b9270;
+    content: "Vérifiez les produits et les quantités avant de lancer l'impression";
+    font-family: 'Inter', sans-serif;
+    font-size: 0.80rem;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section > .step-header .step-number,
+body.dedicated-tool-toshiba_3up #edit-section > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section > .order-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 28px 0 22px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section .order-info h3,
+body.dedicated-tool-toshiba_3up #edit-section .order-info p {
+    min-width: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 14px 17px;
+    overflow: hidden;
+    color: #43543c;
+    font-size: 0.86rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 15px;
+    background: rgba(239, 249, 232, 0.62);
+}
+
+body.dedicated-tool-toshiba_3up #edit-section .order-info p {
+    color: #687862;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section .order-info svg {
+    width: 17px;
+    height: 17px;
+    margin-right: 7px;
+    color: var(--primary);
+    vertical-align: -4px;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section .table-container {
+    margin-bottom: 20px;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 19px;
+    background: rgba(250, 254, 248, 0.66);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+body.dedicated-tool-toshiba_3up #products-table {
+    min-width: 920px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.82rem;
+}
+
+body.dedicated-tool-toshiba_3up #products-table th {
+    padding: 14px 13px;
+    color: #53654c;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: rgba(231, 244, 222, 0.76) !important;
+    border-bottom: 1px solid rgba(140, 198, 63, 0.22);
+}
+
+body.dedicated-tool-toshiba_3up #products-table th#th-quantite,
+body.dedicated-tool-toshiba_3up #products-table th#th-quantite-pots {
+    color: #4d7031 !important;
+    background: rgba(207, 235, 183, 0.72) !important;
+}
+
+body.dedicated-tool-toshiba_3up #products-table td {
+    padding: 12px 13px;
+    color: #42523c;
+    background: rgba(255, 255, 255, 0.34) !important;
+    border-bottom: 1px solid rgba(140, 198, 63, 0.11);
+}
+
+body.dedicated-tool-toshiba_3up #products-table tbody tr:hover td {
+    background: rgba(239, 250, 231, 0.72) !important;
+}
+
+body.dedicated-tool-toshiba_3up #products-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+body.dedicated-tool-toshiba_3up #products-table input.large-checkbox,
+body.dedicated-tool-toshiba_3up #products-table input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    border: 1.5px solid rgba(110, 135, 96, 0.38);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: inset 0 1px 2px rgba(56, 88, 35, 0.06), 0 1px 0 rgba(255, 255, 255, 0.88);
+    transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+body.dedicated-tool-toshiba_3up #products-table input.large-checkbox:hover,
+body.dedicated-tool-toshiba_3up #products-table input[type="checkbox"]:hover {
+    border-color: rgba(104, 163, 48, 0.72);
+    transform: translateY(-1px);
+}
+
+body.dedicated-tool-toshiba_3up #products-table input.large-checkbox:checked,
+body.dedicated-tool-toshiba_3up #products-table input[type="checkbox"]:checked {
+    border-color: #72ad3e;
+    background-color: #8cc63f;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4.2 4.2L19 6.8'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 14px 14px;
+    box-shadow: 0 5px 12px rgba(112, 173, 62, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+body.dedicated-tool-toshiba_3up #products-table input.large-checkbox:focus-visible,
+body.dedicated-tool-toshiba_3up #products-table input[type="checkbox"]:focus-visible {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(140, 198, 63, 0.16);
+}
+
+body.dedicated-tool-toshiba_3up #products-table input.large-checkbox:disabled,
+body.dedicated-tool-toshiba_3up #products-table input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+body.dedicated-tool-toshiba_3up #products-table td strong {
+    color: #263b20;
+    font-weight: 700;
+}
+
+body.dedicated-tool-toshiba_3up #products-table input[type="text"],
+body.dedicated-tool-toshiba_3up #products-table input[type="number"] {
+    min-height: 34px;
+    box-sizing: border-box;
+    padding: 7px 9px;
+    color: #33452c;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.80) !important;
+}
+
+body.dedicated-tool-toshiba_3up #products-table input:focus {
+    border-color: rgba(140, 198, 63, 0.72);
+    box-shadow: 0 0 0 3px rgba(140, 198, 63, 0.12);
+}
+
+body.dedicated-tool-toshiba_3up #products-table td > div {
+    gap: 7px !important;
+}
+
+body.dedicated-tool-toshiba_3up #products-table td .btn-secondary {
+    padding: 8px !important;
+    color: #587448;
+    border: 1px solid rgba(255, 255, 255, 0.84);
+    border-radius: 10px;
+    background: rgba(239, 249, 232, 0.78);
+}
+
+body.dedicated-tool-toshiba_3up #products-table td .btn-secondary:hover {
+    color: #35531e;
+    background: rgba(220, 241, 203, 0.92);
+}
+
+body.dedicated-tool-toshiba_3up #edit-section .actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section .actions button {
+    min-height: 44px;
+    padding: 11px 16px;
+    border-radius: 13px;
+    font-size: 0.82rem;
+}
+
+body.dedicated-tool-toshiba_3up #btn-paletisation-order {
+    color: #7651a8 !important;
+    background: rgba(249, 244, 255, 0.72) !important;
+    border: 1px solid rgba(167, 139, 250, 0.46) !important;
+}
+
+body.dedicated-tool-toshiba_3up #btn-paletisation-order:hover {
+    background: rgba(241, 232, 255, 0.94) !important;
+    transform: translateY(-2px);
+}
+
+body.dedicated-tool-toshiba_3up #edit-section #print-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-width: 132px;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #10b981 0%, #07866c 100%) !important;
+    border: 1px solid rgba(4, 125, 99, 0.52) !important;
+    box-shadow: 0 13px 26px rgba(5, 150, 105, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    text-shadow: 0 1px 1px rgba(4, 83, 67, 0.24);
+}
+
+body.dedicated-tool-toshiba_3up #edit-section #print-btn:hover {
+    background: linear-gradient(135deg, #18c992 0%, #08745f 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 17px 30px rgba(5, 150, 105, 0.27), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+body.dedicated-tool-toshiba_3up #edit-section #print-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.2;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section #print-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.56;
+    transform: none;
+    box-shadow: none;
+}
+
+body.dedicated-tool-toshiba_3up #edit-section #cancel-btn {
+    background: rgba(255, 242, 242, 0.76);
+    color: #b64444;
+    border: 1px solid rgba(252, 165, 165, 0.54);
+}
+
+body.dedicated-tool-toshiba_3up #edit-section #cancel-btn:hover {
+    background: rgba(254, 226, 226, 0.92);
+    transform: translateY(-2px);
+}
+
+/* Composition dédiée X4 : sélection, aperçu et file de parfums */
+body.dedicated-tool-toshiba_4up {
+    padding: 24px 30px 40px;
+    background:
+        radial-gradient(circle at 76% 0%, rgba(140, 198, 63, 0.16), transparent 30%),
+        radial-gradient(circle at 0% 72%, rgba(41, 191, 166, 0.09), transparent 27%),
+        #fafdF8;
+}
+
+body.dedicated-tool-toshiba_4up .container {
+    max-width: 1500px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.dedicated-tool-toshiba_4up header {
+    min-height: 70px;
+    margin: 0 0 26px;
+    padding: 0 4px 20px;
+    border-bottom: 1px solid rgba(140, 198, 63, 0.18);
+}
+
+body.dedicated-tool-toshiba_4up .logo-peuplier {
+    width: 164px;
+}
+
+body.dedicated-tool-toshiba_4up header p {
+    margin-top: 8px;
+    color: #7a8973;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+body.dedicated-tool-toshiba_4up main {
+    display: grid;
+    grid-template-columns: minmax(245px, 0.52fr) minmax(0, 1.48fr);
+    grid-template-areas:
+        "printer workspace"
+        "history workspace";
+    align-items: start;
+    gap: 20px 24px;
+}
+
+body.dedicated-tool-toshiba_4up #wizard-section {
+    display: contents !important;
+}
+
+body.dedicated-tool-toshiba_4up #step2 {
+    grid-area: printer;
+    align-self: start;
+    min-height: 0;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 25px;
+    background: linear-gradient(155deg, rgba(255, 255, 255, 0.80), rgba(244, 252, 239, 0.58));
+    box-shadow: 0 18px 42px rgba(56, 88, 35, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+body.dedicated-tool-toshiba_4up #step2::before {
+    display: block;
+    margin-bottom: 16px;
+    color: #7b9270;
+    content: "CONFIGURATION ACTIVE";
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+}
+
+body.dedicated-tool-toshiba_4up #step2 .step-header {
+    margin-bottom: 10px;
+}
+
+body.dedicated-tool-toshiba_4up #step2 .step-header h2 {
+    font-size: 1.15rem;
+    letter-spacing: -0.025em;
+}
+
+body.dedicated-tool-toshiba_4up #step2 .step-header h2::before {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_4up #step2 > .help-text {
+    margin-bottom: 20px;
+    color: #73816d;
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+body.dedicated-tool-toshiba_4up .printer-selection-box {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+body.dedicated-tool-toshiba_4up .printer-selection-box > div:first-of-type {
+    display: block !important;
+}
+
+body.dedicated-tool-toshiba_4up .printer-selection-box select {
+    width: 100%;
+    padding: 14px 15px;
+    font-size: 0.86rem;
+}
+
+body.dedicated-tool-toshiba_4up #printer-status {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 12px;
+    padding: 9px 12px;
+    font-size: 0.76rem;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section {
+    grid-area: workspace;
+    align-self: start;
+    min-width: 0;
+    padding: 32px 36px 36px;
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.64);
+    box-shadow: 0 24px 64px rgba(56, 88, 35, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(24px) saturate(135%);
+    -webkit-backdrop-filter: blur(24px) saturate(135%);
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section > .step-header {
+    margin-bottom: 6px;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section > .step-header h2 {
+    display: block;
+    color: #172411;
+    font-size: clamp(1.75rem, 2.5vw, 2.45rem);
+    letter-spacing: -0.055em;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section > .step-header h2::after {
+    display: block;
+    margin-top: 9px;
+    color: #7b9270;
+    content: "Preparez votre serie de parfums pour l'impression";
+    font-family: 'Inter', sans-serif;
+    font-size: 0.80rem;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section > .step-header .step-number,
+body.dedicated-tool-toshiba_4up #parfum-section > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section > .nature-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.78fr);
+    align-items: stretch;
+    gap: 24px;
+    margin-top: 30px;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .nature-body > .form-group,
+body.dedicated-tool-toshiba_4up #parfum-section .nature-body > .preview-box {
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 22px;
+    background: linear-gradient(155deg, rgba(248, 253, 244, 0.80), rgba(255, 255, 255, 0.47));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 14px 30px rgba(56, 88, 35, 0.06);
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .form-group > label {
+    display: block;
+    color: #43543c;
+    font-size: 0.82rem;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #parfum-select {
+    margin-top: 10px;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .tool-product-actions {
+    margin: 14px 0 24px !important;
+    padding-bottom: 20px;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .tool-product-actions button {
+    min-height: 40px;
+    padding: 9px 12px;
+    font-size: 0.78rem;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #delete-parfum-btn {
+    color: #b64444 !important;
+    background: rgba(255, 242, 242, 0.62) !important;
+    border-color: rgba(252, 165, 165, 0.56) !important;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section label[for="parfum-qty"] {
+    margin-top: 4px;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #parfum-qty {
+    margin-top: 10px;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #add-to-batch-4up-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 48px;
+    margin-top: 22px !important;
+    color: #ffffff;
+    background: linear-gradient(135deg, #10b981 0%, #07866c 100%);
+    border: 1px solid rgba(4, 125, 99, 0.48);
+    border-radius: 14px;
+    box-shadow: 0 11px 23px rgba(5, 150, 105, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #add-to-batch-4up-btn:hover {
+    background: linear-gradient(135deg, #18c992 0%, #08745f 100%);
+    transform: translateY(-2px);
+}
+
+body.dedicated-tool-toshiba_4up .x4-queue-empty {
+    display: flex;
+    min-height: 156px;
+    box-sizing: border-box;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    margin-top: 18px;
+    padding: 24px;
+    color: #6e8068;
+    text-align: center;
+    border: 1px dashed rgba(140, 198, 63, 0.40);
+    border-radius: 19px;
+    background: linear-gradient(155deg, rgba(241, 251, 232, 0.72), rgba(255, 255, 255, 0.42));
+}
+
+body.dedicated-tool-toshiba_4up .x4-queue-empty svg {
+    width: 28px;
+    height: 28px;
+    padding: 11px;
+    color: var(--primary);
+    border: 1px solid rgba(255, 255, 255, 0.90);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+body.dedicated-tool-toshiba_4up .x4-queue-empty strong {
+    color: #455b3e;
+    font-size: 0.88rem;
+}
+
+body.dedicated-tool-toshiba_4up .x4-queue-empty span {
+    max-width: 230px;
+    font-size: 0.75rem;
+    line-height: 1.45;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .form-group:has(#batch-list-4up-container[style*="display: block"]) .x4-queue-empty {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #batch-list-4up-container {
+    margin-top: 18px !important;
+    padding: 19px !important;
+    border: 1px solid rgba(255, 255, 255, 0.86) !important;
+    border-radius: 18px !important;
+    background: rgba(244, 250, 239, 0.62) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+body.dedicated-tool-toshiba_4up #batch-list-4up-container h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #43543c !important;
+    letter-spacing: 0.01em;
+}
+
+body.dedicated-tool-toshiba_4up #batch-list-4up-container h4 svg {
+    width: 18px;
+    height: 18px;
+    color: var(--primary);
+}
+
+body.dedicated-tool-toshiba_4up #batch-list-4up li {
+    padding: 11px 0 !important;
+    color: #43543c;
+    border-bottom-color: rgba(140, 198, 63, 0.18) !important;
+}
+
+body.dedicated-tool-toshiba_4up #batch-list-4up li strong {
+    color: #35531e;
+}
+
+body.dedicated-tool-toshiba_4up #batch-list-4up li .btn-danger {
+    width: 32px;
+    height: 32px;
+    padding: 7px !important;
+    color: #b64444;
+    border: 1px solid rgba(252, 165, 165, 0.48);
+    border-radius: 10px;
+    background: rgba(255, 242, 242, 0.72);
+}
+
+body.dedicated-tool-toshiba_4up #batch-list-4up-container > div {
+    color: #43543c !important;
+    border-top-color: rgba(140, 198, 63, 0.20) !important;
+}
+
+body.dedicated-tool-toshiba_4up #print-4up-btn {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #10b981 0%, #07866c 100%) !important;
+    border: 1px solid rgba(4, 125, 99, 0.52) !important;
+    border-radius: 14px;
+    box-shadow: 0 13px 26px rgba(5, 150, 105, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    text-shadow: 0 1px 1px rgba(4, 83, 67, 0.24);
+}
+
+body.dedicated-tool-toshiba_4up #print-4up-btn:hover {
+    background: linear-gradient(135deg, #18c992 0%, #08745f 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 17px 30px rgba(5, 150, 105, 0.27), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+body.dedicated-tool-toshiba_4up #print-4up-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.2;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .preview-box {
+    min-height: 100%;
+    text-align: left;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .preview-title {
+    justify-content: flex-start;
+    margin: 0 0 16px;
+    color: #43543c;
+    font-size: 0.88rem;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .preview-title svg {
+    width: 18px;
+    height: 18px;
+    color: var(--primary);
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section .preview-image-container {
+    min-height: 326px;
+    box-sizing: border-box;
+    padding: 18px;
+    border: 1px dashed rgba(140, 198, 63, 0.40);
+    border-radius: 18px;
+    background: linear-gradient(155deg, rgba(241, 251, 232, 0.72), rgba(255, 255, 255, 0.48));
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #parfum-preview-empty {
+    max-width: 220px;
+    margin: 0 !important;
+    color: #7b9270 !important;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+body.dedicated-tool-toshiba_4up #parfum-section #parfum-preview-img {
+    max-width: 100%;
+    max-height: 285px;
+    border: 1px solid rgba(255, 255, 255, 0.90);
+    border-radius: 14px;
+    box-shadow: 0 16px 30px rgba(56, 88, 35, 0.12);
+}
+
+body.dedicated-tool-toshiba_4up #log-container {
+    grid-area: history;
+    align-self: stretch;
+    min-width: 0;
+    padding: 20px 24px 24px;
+}
+
+body.dedicated-tool-toshiba_4up #log-container .step-header h2 {
+    font-size: 1rem;
+}
+
+body.dedicated-tool-toshiba_4up #log-container > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-toshiba_4up #log-container .log-box {
+    height: 124px;
+    min-height: 0;
+    padding: 12px;
+    font-size: 0.78rem;
+}
+
+/* Écriture libre Toshiba */
+.free-text-open-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 18px;
+    border-color: rgba(37, 99, 235, 0.35);
+    color: #1d4ed8;
+    background: #eff6ff;
+}
+
+.free-text-open-btn:hover {
+    border-color: #2563eb;
+    background: #dbeafe;
+}
+
+#free-text-modal {
+    z-index: 1400;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+#custom-modal {
+    z-index: 1600;
+}
+
+.free-text-modal-content {
+    width: min(1120px, 96vw);
+    max-width: 1120px !important;
+    margin: auto;
+    padding: 24px;
+    text-align: left;
+}
+
+.free-text-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.free-text-modal-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+}
+
+.free-text-modal-header p {
+    margin: 5px 0 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.free-text-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 0.8fr) minmax(360px, 1.2fr);
+    gap: 24px;
+    margin-top: 20px;
+}
+
+.free-text-editor-pane,
+.free-text-preview-pane {
+    min-width: 0;
+}
+
+.free-text-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 16px;
+    padding: 9px;
+    border: 1px solid #dbe3ee;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.free-text-toolbar label {
+    margin: 0 2px 0 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+#free-text-font-size {
+    width: 64px;
+    padding: 7px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+}
+
+.free-text-style-btn,
+.free-text-align-btn {
+    display: inline-grid;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    color: #334155;
+    background: white;
+    cursor: pointer;
+}
+
+.free-text-style-btn.active,
+.free-text-align-btn.active {
+    border-color: #2563eb;
+    color: #1d4ed8;
+    background: #dbeafe;
+    box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+.free-text-toolbar-separator {
+    width: 1px;
+    height: 26px;
+    margin: 0 3px;
+    background: #cbd5e1;
+}
+
+#free-text-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 210px;
+    margin-top: 8px;
+    padding: 13px;
+    resize: vertical;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font: 16px/1.45 Inter, sans-serif;
+}
+
+#free-text-input:focus {
+    border-color: #2563eb;
+    outline: 3px solid rgba(37, 99, 235, 0.13);
+}
+
+.free-text-editor-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 22px;
+    margin: 5px 0 14px;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+#free-text-fit-status.is-error {
+    color: #b91c1c;
+    font-weight: 700;
+}
+
+#free-text-fit-status.is-adjusted {
+    color: #b45309;
+    font-weight: 700;
+}
+
+.free-text-cache-note,
+.free-text-preview-help {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 9px 0 0;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.free-text-cache-note svg {
+    width: 15px;
+}
+
+.free-text-preview-pane .preview-title {
+    justify-content: flex-start;
+    margin: 0 0 10px;
+}
+
+.free-text-preview-frame {
+    position: relative;
+    display: flex;
+    min-height: 340px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 22px;
+    overflow: auto;
+    border: 1px dashed #94a3b8;
+    border-radius: 14px;
+    background: #eef2f7;
+    isolation: isolate;
+}
+
+.free-text-preview-frame::after {
+    content: "Mise à jour de l’aperçu…";
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    bottom: 18px;
+    padding: 8px 13px;
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 999px;
+    color: #334155;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 7px 20px rgba(15, 23, 42, 0.13);
+    font-size: 0.76rem;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 7px);
+    transition: opacity 160ms ease, transform 160ms ease;
+    backdrop-filter: blur(8px);
+}
+
+.free-text-preview-frame.is-loading::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    animation: free-text-loading-pulse 1.15s ease-in-out infinite alternate;
+}
+
+#free-text-preview-img {
+    display: none;
+    width: auto;
+    max-width: 100%;
+    max-height: 420px;
+    border: 1px solid #94a3b8;
+    background: white;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.14);
+    image-rendering: pixelated;
+    filter: blur(0);
+    opacity: 1;
+    transform: scale(1);
+    transition: filter 190ms ease, opacity 190ms ease, transform 190ms ease;
+    will-change: filter, opacity, transform;
+}
+
+.free-text-preview-frame.is-loading #free-text-preview-img {
+    filter: blur(6px);
+    opacity: 0.52;
+    transform: scale(0.992);
+}
+
+#free-text-preview-empty {
+    max-width: 260px;
+    color: #64748b;
+    text-align: center;
+}
+
+@keyframes free-text-loading-pulse {
+    from { box-shadow: 0 7px 20px rgba(15, 23, 42, 0.10); }
+    to { box-shadow: 0 9px 25px rgba(37, 99, 235, 0.22); }
+}
+
+.free-text-actions {
+    justify-content: flex-end;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 820px) {
+    .free-text-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .free-text-preview-frame {
+        min-height: 240px;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Thèmes couleur des pages de travail - Prépa commande et Gravigny          */
+/* -------------------------------------------------------------------------- */
+
+body.dedicated-tool-toshiba_3up {
+    --workspace-accent: #8cc63f;
+    --workspace-accent-rgb: 140, 198, 63;
+    --workspace-ink: #3f641f;
+    --workspace-deep: #527e28;
+}
+
+body.dedicated-tool-toshiba_4up {
+    --workspace-accent: #29bfa6;
+    --workspace-accent-rgb: 41, 191, 166;
+    --workspace-ink: #126d61;
+    --workspace-deep: #158a77;
+}
+
+body.dedicated-tool-fromis {
+    --workspace-accent: #ef6a6a;
+    --workspace-accent-rgb: 239, 106, 106;
+    --workspace-ink: #9f3535;
+    --workspace-deep: #c74848;
+}
+
+body.dedicated-tool-zebra {
+    --workspace-accent: #f59e0b;
+    --workspace-accent-rgb: 245, 158, 11;
+    --workspace-ink: #995f05;
+    --workspace-deep: #c77b08;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) {
+    background:
+        radial-gradient(ellipse at 80% 0%, rgba(var(--workspace-accent-rgb), 0.12), transparent 48%),
+        linear-gradient(135deg, #ffffff 0%, rgba(var(--workspace-accent-rgb), 0.04) 100%),
+        #f5f8f4;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) header {
+    border-bottom-color: #e5e9ed;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) .container {
+    margin-inline: auto;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) .printer-selection-box {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) .header-actions .btn-icon:hover {
+    color: var(--workspace-ink);
+    border-color: rgba(var(--workspace-accent-rgb), 0.35);
+    box-shadow: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(#step2, #upload-section, #parfum-section, #fromis-section, #edit-section, #log-container) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* Une seule surface blanche pour le travail ; les sous-blocs restent ouverts. */
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(#upload-section, #parfum-section, #fromis-section, #edit-section) {
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.74);
+    box-shadow: 0 12px 32px rgba(30, 45, 35, 0.045), inset 0 1px 0 #fff;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(#step2, #upload-section, #parfum-section, #fromis-section, #edit-section, #log-container)
+    .step-header h2::before {
+    background: var(--workspace-accent);
+    box-shadow: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(#step2, #upload-section, #parfum-section, #fromis-section, #edit-section, #log-container)
+    .step-header h2 svg,
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) .preview-title svg {
+    color: var(--workspace-accent);
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) .step-number {
+    color: var(--workspace-ink);
+    background: rgba(var(--workspace-accent-rgb), 0.08);
+    box-shadow: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(select.large-select, input.large-input, input[type="text"], input[type="number"]):focus {
+    border-color: rgba(var(--workspace-accent-rgb), 0.72);
+    box-shadow: 0 0 0 4px rgba(var(--workspace-accent-rgb), 0.13);
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.nature-body > .form-group, .nature-body > .preview-box, #panel-erp, #panel-file,
+        #batch-list-3up-container, #parfum-section #batch-list-4up-container, .tool-batch-queue) {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* Boutons inspirés des cartes de l'accueil : verre blanc et halo central. */
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive)
+    :is(i, svg) {
+    position: relative;
+    z-index: 1;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order) {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: #34414d !important;
+    border: 1px solid transparent !important;
+    border-radius: 14px;
+    background: linear-gradient(
+        140deg,
+        rgba(255, 255, 255, 0.86),
+        rgba(255, 255, 255, 0.56)
+    ) !important;
+    box-shadow:
+        0 5px 14px rgba(24, 39, 51, 0.045),
+        inset 0 1px 0 #fff !important;
+    text-shadow: none !important;
+    backdrop-filter: blur(12px) saturate(135%);
+    -webkit-backdrop-filter: blur(12px) saturate(135%);
+    transition:
+        transform 210ms ease,
+        box-shadow 210ms ease,
+        border-color 210ms ease,
+        color 210ms ease;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order)::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    content: "";
+    pointer-events: none;
+    border-radius: inherit;
+    background: radial-gradient(ellipse 80px 48px at 50% 50%, rgba(var(--workspace-accent-rgb), 0.34), transparent 100%);
+    opacity: 0.50;
+    transform: scale(1);
+    transition: opacity 220ms ease, transform 220ms ease;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order):hover,
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order):focus-visible {
+    color: #1f2937 !important;
+    border-color: rgba(var(--workspace-accent-rgb), 0.40) !important;
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.64)) !important;
+    box-shadow:
+        0 5px 12px rgba(24, 39, 51, 0.06),
+        inset 0 1px 0 #fff !important;
+    transform: translateY(-1px) !important;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order):hover::before,
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order):focus-visible::before {
+    opacity: 1;
+    transform: scale(1.12);
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-massive):not(#btn-paletisation-order) {
+    border-color: rgba(var(--workspace-accent-rgb), 0.28) !important;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-massive):not(#btn-paletisation-order)::before {
+    opacity: 0.70;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.btn-primary, .btn-secondary, .btn-massive):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order):disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Le conteneur ne dessine rien : seuls les boutons portent le verre coloré. */
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) #upload-method-selector {
+    gap: 14px !important;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    #upload-method-selector button:not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order) {
+    justify-content: center;
+    min-height: 66px;
+    padding: 16px 14px;
+    border-color: transparent !important;
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(24, 39, 51, 0.05), inset 0 1px 0 #fff !important;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    #upload-method-selector button:not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order)::before {
+    background: radial-gradient(ellipse 95px 58px at 50% 50%, rgba(var(--workspace-accent-rgb), 0.38), transparent 100%);
+    opacity: 0.42;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    #upload-method-selector button:not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order):is(:hover, :focus-visible)::before {
+    opacity: 0.64;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    #upload-method-selector .active:not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order) {
+    color: var(--workspace-ink) !important;
+    border-color: rgba(var(--workspace-accent-rgb), 0.55) !important;
+    box-shadow: 0 6px 18px rgba(24, 39, 51, 0.05), inset 0 1px 0 #fff !important;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    #upload-method-selector .active:not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order)::before {
+    opacity: 0.95;
+}
+
+/* Fromis : formulaire ouvert et aperçu neutre. */
+body.dedicated-tool-fromis .container {
+    max-width: 1420px;
+}
+
+body.dedicated-tool-fromis #fromis-section {
+    padding: 32px 36px 36px;
+    border-radius: 30px;
+}
+
+body.dedicated-tool-fromis #fromis-section > .step-header {
+    margin-bottom: 8px;
+}
+
+body.dedicated-tool-fromis #fromis-section > .step-header h2 {
+    color: #25323d;
+    font-size: clamp(1.75rem, 2.5vw, 2.35rem);
+    letter-spacing: -0.045em;
+}
+
+body.dedicated-tool-fromis #fromis-section > .help-text {
+    padding: 0;
+    color: #74808b;
+    border: 0;
+    background: transparent;
+}
+
+body.dedicated-tool-fromis #fromis-section > .nature-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(310px, 0.9fr);
+    gap: 24px;
+    margin-top: 10px;
+}
+
+body.dedicated-tool-fromis #fromis-section .form-group,
+body.dedicated-tool-fromis #fromis-section .preview-box {
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 0;
+    border: 0;
+}
+
+body.dedicated-tool-fromis #fromis-section .preview-image-container {
+    min-height: 320px;
+    border-color: #e5e9ed;
+    border-radius: 14px;
+    background: #f1f4f6;
+}
+
+body.dedicated-tool-fromis #fromis-section #fromis-preview-img {
+    border-color: #e5e9ed !important;
+    border-radius: 4px !important;
+    box-shadow: 0 5px 15px rgba(24, 39, 51, 0.06);
+}
+
+/* Les postes Ligne 1 restent des informations discrètes. */
+body.dedicated-tool-zebra #ligne1-printer-details .hub-card {
+    border-color: #e5e9ed;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: none;
+}
+
+/* Les zones d'attente et d'aperçu ne rajoutent pas de cartes colorées. */
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(#parfum-section .preview-image-container, .x3-queue-empty, .x4-queue-empty,
+        #panel-file .upload-zone) {
+    color: #74808b;
+    border: 1px dashed #dce2e7;
+    border-radius: 14px;
+    background: #f1f4f6;
+    box-shadow: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.x3-queue-empty, .x4-queue-empty) svg {
+    color: #89949e;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(#step2, #upload-section, #parfum-section, #edit-section, #log-container) .step-header h2 {
+    color: #25323d;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(#upload-section, #parfum-section, #edit-section) .step-header h2::after,
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) #step2::before {
+    color: #74808b;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) #parfum-section #parfum-preview-img {
+    border-color: #e5e9ed;
+    border-radius: 4px;
+    box-shadow: 0 5px 15px rgba(24, 39, 51, 0.06);
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    :is(.tool-product-actions, #edit-section .table-container) {
+    border-color: #e5e9ed;
+    background: transparent;
+    box-shadow: none;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    #edit-section .order-info :is(h3, p) {
+    padding-inline: 0;
+    color: #53616e;
+    border: 0;
+    background: transparent;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+    #products-table :is(th, th#th-quantite, th#th-quantite-pots) {
+    color: #53616e !important;
+    border-bottom-color: #e5e9ed;
+    background: #eef1f4 !important;
+}
+
+body.dedicated-tool-page:not(.dedicated-tool-conditionnement) #products-table tbody tr:hover td {
+    background: #f1f4f6 !important;
+}
+
+@media (max-width: 820px) {
+    body.dedicated-tool-fromis #fromis-section > .nature-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    body.dedicated-tool-page:not(.dedicated-tool-conditionnement) #upload-method-selector {
+        flex-wrap: wrap;
+        gap: 10px !important;
+    }
+
+    body.dedicated-tool-page:not(.dedicated-tool-conditionnement) #upload-method-selector button {
+        flex-basis: 100% !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+        :is(.btn-primary, .btn-secondary, .btn-massive),
+    body.dedicated-tool-page:not(.dedicated-tool-conditionnement)
+        :is(.btn-primary, .btn-secondary, .btn-massive)::before {
+        transition: none !important;
+    }
+}
+
+/* Ligne 1 / Prépa commande : composition du portail, adaptée au poste Zebra. */
+.ligne1-heading,
+.ligne1-brand {
+    display: none;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa {
+    --primary: #f59e0b;
+    --primary-hover: #d48709;
+    --secondary: #c77b08;
+    --secondary-hover: #a86506;
+    position: relative;
+    isolation: isolate;
+    padding: 24px 32px 28px;
+    background:
+        radial-gradient(circle at 8% 8%, rgba(245, 158, 11, 0.13), transparent 34%),
+        radial-gradient(circle at 93% 18%, rgba(227, 171, 73, 0.10), transparent 30%),
+        linear-gradient(135deg, #ffffff 0%, #fffcf7 52%, #fff8ec 100%);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa::before,
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa::after {
+    position: fixed;
+    z-index: -1;
+    content: "";
+    pointer-events: none;
+    border-radius: 999px;
+    filter: blur(6px);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa::before {
+    top: -17vw;
+    right: 20vw;
+    width: 42vw;
+    height: 38vw;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0.07) 46%, transparent 72%);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa::after {
+    bottom: -23vw;
+    left: 9vw;
+    width: 44vw;
+    height: 36vw;
+    background: radial-gradient(circle, rgba(212, 154, 72, 0.13) 0%, rgba(245, 158, 11, 0.07) 48%, transparent 74%);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa .container {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 52px);
+    max-width: 1280px;
+    padding: 0;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa header {
+    justify-content: flex-end;
+    min-height: 36px;
+    margin: 0 0 12px;
+    padding: 0;
+    border: 0;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa header .header-main {
+    display: none;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa .header-actions .btn-icon {
+    color: #1f2937;
+    border-color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: none;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa main {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+    gap: 24px 32px;
+    align-items: start;
+    align-content: start;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #wizard-section {
+    display: contents !important;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa .ligne1-heading {
+    display: block;
+    grid-column: 1 / -1;
+    padding: 0 0 12px;
+}
+
+.ligne1-context {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #8f764e;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.ligne1-context svg {
+    width: 16px;
+    height: 16px;
+    color: #d48709;
+}
+
+.ligne1-heading h1 {
+    margin: 9px 0 10px;
+    color: #1f2937;
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(2.1rem, 4vw, 3rem);
+    letter-spacing: -0.045em;
+}
+
+.ligne1-heading p {
+    margin: 0;
+    color: #74716b;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #step2 {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 24px 0;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #step2 h2 {
+    font-size: 1.1rem;
+    letter-spacing: -0.025em;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #step2 h2::before {
+    display: none;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa .printer-selection-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #printer-status {
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 7px 10px;
+    white-space: normal;
+    color: #8a641d;
+    border: 1px solid rgba(245, 158, 11, 0.18);
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.07);
+    font-size: 0.73rem;
+    line-height: 1.45;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #printer-status svg {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #printer-status.status-error {
+    color: #a33d3d;
+    border-color: rgba(201, 81, 81, 0.22);
+    background: rgba(201, 81, 81, 0.07);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #ligne1-printer-details {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 0 !important;
+}
+
+.ligne1-printer {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-width: 0;
+    padding: 17px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.64);
+}
+
+.ligne1-printer-icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    color: #d48709;
+}
+
+.ligne1-printer-icon svg {
+    width: 26px;
+    height: 26px;
+    stroke-width: 1.7;
+}
+
+.ligne1-printer-copy {
+    min-width: 0;
+}
+
+.ligne1-printer-role {
+    color: #8f764e;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.ligne1-printer h3 {
+    margin: 5px 0;
+    color: #1f2937;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.ligne1-printer p {
+    margin: 0;
+    color: #8a8580;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #upload-section {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 28px 30px 30px;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #upload-section h2 {
+    font-size: 1.55rem;
+    letter-spacing: -0.035em;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #upload-section h2::before,
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #method-custom-btn {
+    display: none;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #upload-method-selector {
+    margin: 24px 0 !important;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa
+    #upload-method-selector button:is(.active, :hover, :focus-visible):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order) {
+    color: #1f2937 !important;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa
+    #upload-method-selector button:not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order)::before {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: 135px;
+    height: 105px;
+    border-radius: 50%;
+    background: rgba(245, 158, 11, 0.38);
+    filter: blur(22px);
+    transform: translate(-50%, -50%);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa
+    #upload-method-selector button:is(:hover, :focus-visible):not(#delete-parfum-btn):not(#delete-parfum-3up-btn):not(#btn-paletisation-order)::before {
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa
+    :is(#step2, #upload-section, #edit-section, #progress-container, #log-container) .help-text {
+    padding: 0;
+    color: #74716b;
+    border: 0;
+    background: transparent;
+    font-size: 0.82rem;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa
+    :is(#step2, #upload-section, #edit-section, #progress-container, #log-container) .help-text svg {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    color: #d48709;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #panel-erp-file {
+    gap: 18px;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #panel-erp-file > .help-text {
+    margin-bottom: 0;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa :is(#panel-erp, #panel-file) {
+    flex-basis: 100% !important;
+    min-width: 0 !important;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #panel-erp h3 {
+    margin-bottom: 0;
+    font-size: 1rem !important;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #panel-erp > p {
+    color: #74716b !important;
+    font-size: 0.82rem !important;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #panel-erp > div {
+    align-items: stretch;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #api-order-number {
+    min-width: 0;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #drop-zone {
+    box-sizing: border-box;
+    min-height: 180px !important;
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(255, 255, 255, 0.65);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #drop-zone:is(:hover, :focus-visible, .dragover) {
+    border-color: #d48709;
+    background: rgba(245, 158, 11, 0.045);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #drop-zone .icon-large {
+    color: #d48709;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa :is(#edit-section, #progress-container, #log-container) {
+    grid-column: 1 / -1;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #log-container {
+    padding: 6px 0 0;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #log-container h2 {
+    font-size: 0.95rem;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #log-container > .help-text {
+    display: none;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #logs {
+    box-sizing: border-box;
+    min-height: 90px;
+    height: 110px;
+    background: rgba(255, 255, 255, 0.55);
+    border-color: rgba(255, 255, 255, 0.85);
+    color: #68645e;
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa #progress-fill {
+    background: var(--primary);
+}
+
+body.dedicated-tool-page.dedicated-tool-ligne1-prepa .ligne1-brand {
+    display: flex;
+    justify-content: center;
+    margin-top: auto;
+    padding-top: 46px;
+}
+
+.ligne1-brand img {
+    width: 190px;
+    max-width: 60vw;
+    height: auto;
+    opacity: 0.8;
+}
+
+@media (max-width: 900px) {
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa {
+        padding: 20px;
+    }
+
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa main {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa :is(#step2, #upload-section) {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa #ligne1-printer-details {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa #step2 {
+        padding: 0;
+    }
+}
+
+@media (max-width: 540px) {
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa #ligne1-printer-details {
+        grid-template-columns: 1fr;
+    }
+
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa #upload-section {
+        padding: 22px 18px;
+    }
+
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa #panel-erp > div {
+        flex-direction: column;
+    }
+
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa #api-fetch-btn {
+        min-height: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.dedicated-tool-page.dedicated-tool-ligne1-prepa #upload-method-selector button::before {
+        transition: none;
+    }
+}

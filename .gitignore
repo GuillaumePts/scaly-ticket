@@ -1,1 +1,10 @@
 *secret.json
+
+# Fichiers générés localement
+__pycache__/
+*.py[cod]
+build/
+dist/
+
+# Bundles/exécutables importés localement, jamais nécessaires au code source
+ScalyTicket/

@@ -7,7 +7,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 def get_base_path():
     if getattr(sys, 'frozen', False):
         return Path(sys._MEIPASS)
-    return Path(os.getcwd())
+    # Ne pas dépendre du dossier courant pour les chemins de l'application.
+    return Path(__file__).resolve().parents[1]
+
+
+def get_runtime_path():
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+base_path = get_base_path()
+runtime_path = get_runtime_path()
 
 class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
@@ -17,13 +28,12 @@ class Settings(BaseSettings):
     # We will fetch printers dynamically from DB, no more JSON property here
     # to avoid state mismatch.
     
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=str(runtime_path / ".env"), extra="ignore")
 
 settings = Settings()
-base_path = get_base_path()
 
 # Le dossier data doit être persistant et situé à côté de l'EXE
-exe_directory = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(os.getcwd())
+exe_directory = runtime_path
 data_path = exe_directory / "data"
 data_path.mkdir(exist_ok=True)
 
@@ -47,4 +57,3 @@ db = DatabaseManager(db_path)
 old_printers_json = exe_directory / "printers.json"
 old_parfums_json = data_path / "parfums_4up.json"
 db.migrate_from_json_if_needed(old_printers_json, old_parfums_json)
-

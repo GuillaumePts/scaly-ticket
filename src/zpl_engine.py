@@ -4,6 +4,7 @@ from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont
 from src.models import TicketData
 import re
+from pathlib import Path
 
 def clean_lot_string(lot_val: str, dlc_val: str) -> str:
     if not lot_val:
@@ -1118,3 +1119,206 @@ class ZPLEngine:
         buf = io.BytesIO()
         preview.save(buf, format="PNG")
         return buf.getvalue()
+
+    # ------------------------------------------------------------------
+    # Écriture libre Toshiba
+    # Ce chemin est volontairement séparé des rendus historiques ci-dessus.
+    # ------------------------------------------------------------------
+    def _free_text_font(self, size: int) -> ImageFont.FreeTypeFont:
+        """Police Unicode livrée par python-barcode, identique sous Linux et Windows."""
+        font_path = Path(barcode.__file__).resolve().parent / "fonts" / "DejaVuSansMono.ttf"
+        if not font_path.exists():
+            raise RuntimeError("Police DejaVuSansMono de python-barcode introuvable")
+        return ImageFont.truetype(str(font_path), size)
+
+    @staticmethod
+    def _free_text_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
+                         bold: bool, italic: bool) -> int:
+        stroke = 1 if bold else 0
+        bbox = draw.textbbox((0, 0), text or " ", font=font, stroke_width=stroke)
+        width = bbox[2] - bbox[0]
+        if italic:
+            width += max(2, int(font.size * 0.24))
+        return width
+
+    def _wrap_free_text(self, text: str, draw: ImageDraw.ImageDraw,
+                        font: ImageFont.FreeTypeFont, max_width: int,
+                        bold: bool, italic: bool) -> list[str]:
+        """Retour à la ligne par mots, puis par caractères pour les mots trop longs."""
+        lines: list[str] = []
+        paragraphs = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+        for paragraph in paragraphs:
+            if not paragraph:
+                lines.append("")
+                continue
+
+            current = ""
+            for word in paragraph.split():
+                candidate = word if not current else f"{current} {word}"
+                if self._free_text_width(draw, candidate, font, bold, italic) <= max_width:
+                    current = candidate
+                    continue
+
+                if current:
+                    lines.append(current)
+                    current = ""
+
+                chunk = ""
+                for char in word:
+                    candidate = chunk + char
+                    if chunk and self._free_text_width(draw, candidate, font, bold, italic) > max_width:
+                        lines.append(chunk)
+                        chunk = char
+                    else:
+                        chunk = candidate
+                current = chunk
+
+            lines.append(current)
+
+        return lines or [""]
+
+    def _render_free_text_label(self, format_name: str, text: str, font_size: int,
+                                bold: bool = False, italic: bool = False,
+                                underline: bool = False, align: str = "left",
+                                label_h_override: int = None) -> tuple[Image.Image, int]:
+        """Rend une étiquette paysage et réduit la police si le texte est trop haut."""
+        dimensions = {
+            "3up": (920, 224, 18, 12),
+            "4up": (344, label_h_override or 168, 10, 8),
+            "fromis": (400, 240, 10, 8),
+        }
+        if format_name not in dimensions:
+            raise ValueError("Format d'étiquette inconnu")
+        if align not in {"left", "center", "right"}:
+            raise ValueError("Alignement inconnu")
+
+        width, height, margin_x, margin_y = dimensions[format_name]
+        max_width = width - (2 * margin_x)
+        max_height = height - (2 * margin_y)
+        probe = Image.new("1", (width, height), color=1)
+        probe_draw = ImageDraw.Draw(probe)
+
+        requested_size = max(10, int(font_size))
+
+        def layout_at(size: int):
+            candidate_font = self._free_text_font(size)
+            candidate_lines = self._wrap_free_text(
+                text, probe_draw, candidate_font, max_width, bold, italic
+            )
+            candidate_line_height = max(size + 3, int(size * 1.28))
+            fits = len(candidate_lines) * candidate_line_height <= max_height
+            return fits, candidate_font, candidate_lines, candidate_line_height
+
+        minimum_layout = layout_at(10)
+        if not minimum_layout[0]:
+            raise ValueError("Le texte est trop long pour tenir sur cette étiquette, même en taille minimale.")
+
+        low, high = 10, requested_size
+        best_size = 10
+        best_layout = minimum_layout
+        while low <= high:
+            candidate_size = (low + high) // 2
+            candidate_layout = layout_at(candidate_size)
+            if candidate_layout[0]:
+                best_size = candidate_size
+                best_layout = candidate_layout
+                low = candidate_size + 1
+            else:
+                high = candidate_size - 1
+
+        effective_size = best_size
+        _, font, lines, line_height = best_layout
+
+        image = Image.new("1", (width, height), color=1)
+        draw = ImageDraw.Draw(image)
+        total_height = len(lines) * line_height
+        y = margin_y + max(0, (max_height - total_height) // 2)
+        stroke = 1 if bold else 0
+
+        for line in lines:
+            line_width = self._free_text_width(draw, line, font, bold, italic)
+            if align == "center":
+                x = margin_x + (max_width - line_width) // 2
+            elif align == "right":
+                x = margin_x + max_width - line_width
+            else:
+                x = margin_x
+
+            if line:
+                bbox = draw.textbbox((0, 0), line, font=font, stroke_width=stroke)
+                glyph_w = max(1, bbox[2] - bbox[0])
+                italic_pad = max(2, int(effective_size * 0.24)) if italic else 0
+                mask = Image.new("L", (glyph_w + italic_pad + 4, line_height), color=0)
+                mask_draw = ImageDraw.Draw(mask)
+                mask_draw.text((2 - bbox[0], 1 - bbox[1]), line, font=font, fill=255,
+                               stroke_width=stroke, stroke_fill=255)
+                if italic:
+                    shear = 0.22
+                    mask = mask.transform(
+                        mask.size,
+                        Image.Transform.AFFINE,
+                        (1, -shear, shear * line_height, 0, 1, 0),
+                        resample=Image.Resampling.BICUBIC,
+                    )
+                image.paste(0, (max(margin_x, x), y), mask)
+
+                if underline:
+                    underline_y = min(height - margin_y - 1, y + line_height - 2)
+                    draw.line((max(margin_x, x), underline_y,
+                               min(width - margin_x, x + line_width), underline_y),
+                              fill=0, width=max(1, effective_size // 18))
+            y += line_height
+
+        return image, effective_size
+
+    def generate_free_text_preview_png(self, format_name: str, text: str, font_size: int,
+                                       bold: bool = False, italic: bool = False,
+                                       underline: bool = False, align: str = "left",
+                                       label_h_override: int = None) -> tuple[bytes, int]:
+        image, effective_size = self._render_free_text_label(
+            format_name, text, font_size, bold, italic, underline, align,
+            label_h_override=label_h_override or (168 if format_name == "4up" else None),
+        )
+        scale = 2 if format_name == "3up" else 3
+        preview = image.resize((image.width * scale, image.height * scale), Image.Resampling.NEAREST).convert("RGB")
+        buf = io.BytesIO()
+        preview.save(buf, format="PNG")
+        return buf.getvalue(), effective_size
+
+    def generate_free_text_tpcl(self, format_name: str, text: str, rows: int, font_size: int,
+                                bold: bool = False, italic: bool = False,
+                                underline: bool = False, align: str = "left",
+                                xpml_pitch: bool = False, d_param: str = None,
+                                offset_x: int = 0, offset_y: int = 0) -> tuple[str, int]:
+        is_bev4 = not xpml_pitch
+        label_h = 168 if format_name == "4up" and is_bev4 else 176 if format_name == "4up" else None
+        label, effective_size = self._render_free_text_label(
+            format_name, text, font_size, bold, italic, underline, align,
+            label_h_override=label_h,
+        )
+        rotated = label.transpose(Image.Transpose.ROTATE_90)
+
+        if format_name == "3up":
+            canvas = Image.new("1", (self.TOSHIBA_CANVAS_W, self.TOSHIBA_CANVAS_H), color=1)
+            for x in (12, 276, 540):
+                canvas.paste(rotated, (x + offset_x, offset_y))
+            ImageDraw.Draw(canvas).rectangle((0, 0, 11, canvas.height - 1), fill=1)
+            job = self._build_tpcl_job([(canvas, rows)], xpml_pitch=xpml_pitch)
+        elif format_name == "4up":
+            canvas_size = (768, 360) if is_bev4 else (800, 344)
+            canvas = Image.new("1", canvas_size, color=1)
+            for x in (0, 200, 400, 600):
+                canvas.paste(rotated, (x + offset_x, offset_y))
+            ImageDraw.Draw(canvas).rectangle((0, 0, 11, canvas.height - 1), fill=1)
+            job = self._build_tpcl_job([(canvas, rows)], xpml_pitch=xpml_pitch, d_param=d_param)
+        elif format_name == "fromis":
+            canvas = Image.new("1", (self.FROMIS_CANVAS_W, self.FROMIS_CANVAS_H), color=1)
+            for x in self.FROMIS_X_OFFSETS:
+                canvas.paste(rotated, (x, 0))
+            ImageDraw.Draw(canvas).rectangle((0, 0, 11, canvas.height - 1), fill=1)
+            job = self._build_fromis_tpcl_job(canvas, rows)
+        else:
+            raise ValueError("Format d'étiquette inconnu")
+
+        return job.decode("latin-1"), effective_size

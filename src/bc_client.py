@@ -9,6 +9,12 @@ logger = logging.getLogger(__name__)
 
 from src.config import exe_directory, base_path
 
+def normalize_lot_number(lot) -> str:
+    """Normalise un lot BC pour le texte imprimé et le GS1-128."""
+    if lot is None:
+        return ""
+    return str(lot).strip().replace("/", "")
+
 def get_secret_file() -> Path:
     # 1. Vérifier à côté de l'exécutable
     p_exe = exe_directory / "secret.json"
@@ -175,7 +181,7 @@ class BusinessCentralClient:
             
             from datetime import datetime
             for c in candidates:
-                lot = c.get('Lot_No', '')
+                lot = normalize_lot_number(c.get('Lot_No', ''))
                 qty = float(c.get('Remaining_Quantity', 0))
                 dlc_raw = c.get('Expiration_Date', '').split('T')[0]
                 
@@ -198,7 +204,7 @@ class BusinessCentralClient:
             
             if candidates:
                 matched_lot = candidates[0]
-                lot_no = matched_lot.get("Lot_No", "")
+                lot_no = normalize_lot_number(matched_lot.get("Lot_No", ""))
                 exp_raw = matched_lot.get("Expiration_Date", "")
                 try:
                     dt_exp = datetime.strptime(exp_raw.split("T")[0], "%Y-%m-%d")

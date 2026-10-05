@@ -155,6 +155,151 @@ class PrintJobRequest(BaseModel):
     lot_bold: bool = False
     items: List[TicketData]
 
+
+class ConditionnementPrintRequest(BaseModel):
+    """Job dédié au conditionnement : une étiquette Zebra 300 dpi par ligne."""
+    items: List[TicketData]
+    offset_x: int | None = None
+    offset_y: int | None = None
+    title_size: int = 0
+    title_bold: bool = False
+    gs1_size: int = 0
+    gs1_bold: bool = False
+    lot_size: int = 0
+    lot_bold: bool = False
+
+
+class ConditionnementPreviewRequest(BaseModel):
+    ticket: TicketData
+    title_size: int = 0
+    title_bold: bool = False
+    gs1_size: int = 0
+    gs1_bold: bool = False
+    lot_size: int = 0
+    lot_bold: bool = False
+
+
+def get_conditionnement_printer() -> dict | None:
+    """Retourne l'unique Zebra 300 dpi prévue pour le conditionnement."""
+    return next(
+        (
+            printer for printer in db.get_printers()
+            if str(printer.get("sector", "")).lower() == "conditionnement"
+            and str(printer.get("language", "")).upper() == "ZPL"
+            and int(printer.get("dpi") or 0) == 300
+        ),
+        None,
+    )
+
+
+def conditionnement_styling(request) -> dict:
+    return {
+        "title_size": request.title_size,
+        "title_bold": request.title_bold,
+        "gs1_size": request.gs1_size,
+        "gs1_bold": request.gs1_bold,
+        "lot_size": request.lot_size,
+        "lot_bold": request.lot_bold,
+    }
+
+
+@app.get("/api/conditionnement/printer")
+async def conditionnement_printer_status():
+    printer = get_conditionnement_printer()
+    if not printer:
+        return {
+            "configured": False,
+            "online": False,
+            "message": "Aucune Zebra 300 dpi n'est configurée pour le conditionnement.",
+        }
+
+    status = PrinterClient(host=printer["ip"], port=printer.get("port", 9100)).get_status()
+    online = "error" not in status
+    return {
+        "configured": True,
+        "online": online,
+        "ready": online and not any(status.get(key) for key in ("paper_out", "pause", "ribbon_out", "head_open")),
+        "simulation": status.get("simulation", False),
+        "name": printer.get("name", "Zebra Conditionnement"),
+        "ip": printer.get("ip"),
+        "dpi": printer.get("dpi", 300),
+        "message": "Zebra prête." if "error" not in status else "Zebra non joignable pour le moment.",
+    }
+
+
+@app.post("/api/conditionnement/preview")
+async def conditionnement_preview(request: ConditionnementPreviewRequest):
+    try:
+        engine = ZPLEngine(dpi=300)
+        image = engine.generate_zebra_1up_preview_png(
+            request.ticket,
+            conditionnement_styling(request),
+        )
+        return Response(content=image, media_type="image/png")
+    except Exception as e:
+        logger.error(f"Erreur aperçu Conditionnement: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/conditionnement/print")
+async def print_conditionnement(request: ConditionnementPrintRequest):
+    try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    printer = get_conditionnement_printer()
+    if not printer:
+        raise HTTPException(
+            status_code=503,
+            detail="Aucune Zebra 300 dpi n'est configurée pour le conditionnement. Configurez-la dans l'espace technicien.",
+        )
+    if not request.items:
+        raise HTTPException(status_code=400, detail="Aucune étiquette à imprimer.")
+
+    try:
+        offset_x = request.offset_x if request.offset_x is not None else printer.get("offset_x", 800)
+        offset_y = request.offset_y if request.offset_y is not None else printer.get("offset_y", 18)
+        engine = ZPLEngine(dpi=300)
+        styling = conditionnement_styling(request)
+        full_flux = ""
+        total_labels = 0
+
+        for ticket in request.items:
+            if ticket.quantite < 1:
+                continue
+            # Le lot est une donnée GS1 : les slashs de saisie ne doivent jamais
+            # arriver dans le champ AI (10) du code-barres.
+            ticket.lot = ticket.lot.replace("/", "")
+            for _ in range(ticket.quantite):
+                full_flux += engine.generate_ticket_zebra_300(
+                    ticket,
+                    offset_x=offset_x,
+                    offset_y=offset_y,
+                    styling=styling,
+                )
+                total_labels += 1
+
+        if not full_flux:
+            raise HTTPException(status_code=400, detail="Les quantités indiquées sont nulles.")
+
+        enqueue_job(
+            printer["ip"],
+            300,
+            "ZPL",
+            full_flux,
+            sleep_time=max(2.0, total_labels * 1.5),
+        )
+        return {
+            "message": f"{total_labels} étiquette(s) Conditionnement ajoutée(s) à la file d'impression.",
+            "printer": printer.get("name", "Zebra Conditionnement"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur impression Conditionnement: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 class PrintNatureRequest(BaseModel):
     printer_ip: str
     printer_dpi: int
@@ -474,6 +619,109 @@ async def print_fromis(request: PrintFromisRequest):
         return {"message": f"{lignes * 3} étiquette(s) (soit {lignes} lignes) '{request.label_name}' envoyée(s) à l'imprimante."}
     except Exception as e:
         logger.error(f"Erreur impression Fromis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ─────────────────────────────────────────────
+# ÉCRITURE LIBRE — tous les formats Toshiba
+# ─────────────────────────────────────────────
+class FreeTextRequest(BaseModel):
+    format: str
+    text: str
+    font_size: int = 24
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+    align: str = "left"
+    quantity: int = 1
+    printer_ip: str = ""
+
+def _validate_free_text_request(request: FreeTextRequest, require_printer: bool = False):
+    if request.format not in {"3up", "4up", "fromis"}:
+        raise HTTPException(status_code=400, detail="Format Toshiba invalide")
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Le texte ne peut pas être vide")
+    if len(request.text) > 2000:
+        raise HTTPException(status_code=400, detail="Le texte est limité à 2 000 caractères")
+    if request.font_size < 10 or request.font_size > 96:
+        raise HTTPException(status_code=400, detail="La taille de police doit être comprise entre 10 et 96")
+    if request.align not in {"left", "center", "right"}:
+        raise HTTPException(status_code=400, detail="Alignement invalide")
+    if request.quantity < 1 or request.quantity > 9999:
+        raise HTTPException(status_code=400, detail="Quantité invalide (1 à 9999)")
+    if require_printer and not request.printer_ip:
+        raise HTTPException(status_code=400, detail="Aucune imprimante Toshiba sélectionnée")
+
+@app.post("/api/free-text/preview")
+async def preview_free_text(request: FreeTextRequest):
+    _validate_free_text_request(request)
+    try:
+        engine = ZPLEngine(dpi=203)
+        label_h_override = None
+        if request.format == "4up" and request.printer_ip:
+            printer_info = next((p for p in db.get_printers() if p.get("ip") == request.printer_ip), {})
+            xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
+            label_h_override = 176 if xpml_pitch else 168
+        image, effective_size = engine.generate_free_text_preview_png(
+            request.format, request.text, request.font_size,
+            request.bold, request.italic, request.underline, request.align,
+            label_h_override=label_h_override,
+        )
+        return Response(
+            content=image,
+            media_type="image/png",
+            headers={"X-Effective-Font-Size": str(effective_size)},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Erreur aperçu écriture libre: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/free-text/print")
+async def print_free_text(request: FreeTextRequest):
+    _validate_free_text_request(request, require_printer=True)
+    try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    printer_info = next((p for p in db.get_printers() if p.get("ip") == request.printer_ip), None)
+    if not printer_info or printer_info.get("language") != "TPCL":
+        raise HTTPException(status_code=400, detail="Cette imprimante n'est pas une Toshiba TPCL configurée")
+
+    xpml_pitch = printer_info.get("sector", "") != "Gravigny" and printer_info.get("name", "") != "TOSHIBA FLIPOU"
+    labels_per_row = 4 if request.format == "4up" else 3
+    rows = (request.quantity + labels_per_row - 1) // labels_per_row
+
+    offset_x = 0
+    offset_y = 0
+    d_param = None
+    if request.format == "4up":
+        offset_x = printer_info.get("offset_x_4up") or 0
+        offset_y = printer_info.get("offset_y_4up") or 0
+        d_param = printer_info.get("d_param_4up")
+    elif request.format == "3up":
+        offset_x = printer_info.get("offset_x") or 0
+        offset_y = printer_info.get("offset_y") or 0
+
+    try:
+        engine = ZPLEngine(dpi=203)
+        flux, effective_size = engine.generate_free_text_tpcl(
+            request.format, request.text, rows, request.font_size,
+            request.bold, request.italic, request.underline, request.align,
+            xpml_pitch=xpml_pitch, d_param=d_param,
+            offset_x=offset_x, offset_y=offset_y,
+        )
+        enqueue_job(request.printer_ip, 203, "TPCL", flux, sleep_time=max(2.0, rows * 0.5))
+        printed = rows * labels_per_row
+        suffix = ""
+        if effective_size != request.font_size:
+            suffix = f" Police ajustée automatiquement à {effective_size}."
+        return {"message": f"{printed} étiquette(s) ajoutée(s) à la file d'impression.{suffix}"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Erreur impression écriture libre: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 def find_ean13_for_libelle(libelle: str, parfums_list: list) -> tuple[str, str]:
@@ -886,7 +1134,7 @@ async def fetch_commande(order_number: str):
 async def get_stock_for_libelle(libelle: str, item_no: str = None):
     """Retourne la liste des lots pertinents avec quantité > 0 pour un produit (filtre sur item_no si fourni)."""
     try:
-        from src.bc_client import BusinessCentralClient
+        from src.bc_client import BusinessCentralClient, normalize_lot_number
         from datetime import datetime
         bc_client = BusinessCentralClient()
         token = bc_client.get_access_token()
@@ -901,7 +1149,7 @@ async def get_stock_for_libelle(libelle: str, item_no: str = None):
         results = []
         for e in candidates:
             dlc_raw = e.get('Expiration_Date', '').split('T')[0]
-            lot = e.get('Lot_No', '')
+            lot = normalize_lot_number(e.get('Lot_No', ''))
             qty = float(e.get('Remaining_Quantity', 0))
             
             # Formater la date en DD/MM/YYYY pour l'affichage, et YYMMDD pour le code barre

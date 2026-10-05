@@ -1,19 +1,6 @@
 import multiprocessing
 import sys
-import os
-import time
-import threading
 import traceback
-import webbrowser
-
-def open_browser(port):
-    """Attend un peu que le serveur démarre, puis ouvre le navigateur par défaut."""
-    time.sleep(1.8)
-    print(f"\n[INFO] Ouverture du navigateur web sur http://127.0.0.1:{port}...")
-    try:
-        webbrowser.open(f"http://127.0.0.1:{port}")
-    except Exception as e:
-        print(f"[WARN] Impossible d'ouvrir le navigateur automatiquement : {e}")
 
 if __name__ == "__main__":
     # OBLIGATOIRE sous Windows avec PyInstaller pour éviter le crash/fermeture immédiate
@@ -31,9 +18,6 @@ if __name__ == "__main__":
         print("           SCALY-TICKET - LA FERME DES PEUPLIERS")
         print("=" * 60)
         print(f"[INFO] Initialisation du serveur sur http://{host}:{port} ...")
-
-        # Lancement du thread qui va ouvrir le navigateur
-        threading.Thread(target=open_browser, args=(port,), daemon=True).start()
 
         is_compiled = getattr(sys, 'frozen', False)
         if is_compiled:
@@ -53,4 +37,3 @@ if __name__ == "__main__":
     print("[INFO] Le serveur s'est arrêté.")
     print("=" * 60)
     input("Appuyez sur la touche Entrée pour fermer cette fenêtre...")
-
