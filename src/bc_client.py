@@ -1,4 +1,5 @@
 import json
+import math
 import logging
 import urllib.request
 import urllib.parse
@@ -67,6 +68,294 @@ class BusinessCentralClient:
             formatted = f"V-{digits.zfill(8)}"
             return formatted, digits
         return clean, clean
+
+    def _get_configured_company_id(self, token: str, tenant_id: str, env: str) -> str:
+        """Résout l'entreprise BC configurée en lecture seule."""
+        configured_id = self._config.get("BC_COMPANY_ID")
+        if configured_id:
+            return configured_id
+
+        company_name = self._config.get("BC_COMPANY", "Ferme des Peupliers")
+        companies_url = f"https://api.businesscentral.dynamics.com/v2.0/{tenant_id}/{env}/api/v2.0/companies"
+        req = urllib.request.Request(companies_url, headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                companies = json.loads(resp.read().decode("utf-8")).get("value", [])
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            logger.error(f"Erreur BC API Companies ({e.code}): {error_body}")
+            raise Exception(f"Échec d'accès aux sociétés BC ({e.code}) dans l'environnement '{env}'.")
+
+        for company in companies:
+            display_name = company.get("displayName", "").strip().lower()
+            name = company.get("name", "").strip().lower()
+            if display_name == company_name.strip().lower() or name == company_name.strip().lower():
+                return company["id"]
+
+        raise Exception(f"La société BC '{company_name}' est introuvable dans l'environnement '{env}'.")
+
+    def fetch_production_order_raw(self, production_order_number: str) -> dict:
+        """Effectue uniquement le GET de test sur un O.F. de Business Central.
+
+        Cette méthode vise l'Analytics API manufacturingProductionOrders et ne fait
+        aucune opération d'écriture dans Business Central.
+        """
+        of_number = str(production_order_number or "").strip()
+        if not of_number:
+            raise ValueError("Le numéro d'O.F. est obligatoire.")
+
+        token = self.get_access_token()
+        tenant_id = self._config["BC_TENANT_ID"]
+        env = self._config.get("BC_ENVIRONMENT", "Dev")
+        if env.strip().lower() not in {"dev", "development", "sandbox", "test"}:
+            raise Exception(
+                f"Appel O.F. bloqué : l'environnement configuré est '{env}', pas un environnement de développement."
+            )
+
+        company_id = self._get_configured_company_id(token, tenant_id, env)
+        escaped_of = of_number.replace("'", "''")
+        filter_expr = urllib.parse.quote(f"no eq '{escaped_of}'", safe="()'$")
+        url = (
+            "https://api.businesscentral.dynamics.com/"
+            f"v2.0/{env}/api/microsoft/analytics/v1.0/companies({company_id})/"
+            f"manufacturingProductionOrders?$filter={filter_expr}"
+        )
+        req = urllib.request.Request(url, headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }, method="GET")
+
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            logger.error(f"Erreur GET O.F. BC ({e.code}): {error_body}")
+            raise Exception(f"Échec du GET O.F. Business Central ({e.code}).")
+
+    def _fetch_production_order_lines_raw(
+        self,
+        production_order_number: str,
+        token: str,
+        tenant_id: str,
+        env: str,
+        company_id: str,
+    ) -> list:
+        """Récupère les lignes d'un O.F. via un GET Analytics API."""
+        escaped_of = production_order_number.replace("'", "''")
+        filter_expr = urllib.parse.quote(f"prodOrderNo eq '{escaped_of}'", safe="()'$")
+        url = (
+            "https://api.businesscentral.dynamics.com/"
+            f"v2.0/{env}/api/microsoft/analytics/v1.0/companies({company_id})/"
+            f"manufacturingProdOrderLines?$filter={filter_expr}"
+        )
+        req = urllib.request.Request(url, headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }, method="GET")
+
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return json.loads(resp.read().decode("utf-8")).get("value", [])
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            logger.error(f"Erreur GET lignes O.F. BC ({e.code}): {error_body}")
+            raise Exception(f"Échec de récupération des lignes de l'O.F. ({e.code}).")
+
+    def _fetch_production_output_lots_raw(
+        self,
+        production_order_number: str,
+        token: str,
+        env: str,
+        company_id: str,
+    ) -> list:
+        """Récupère les lots de sortie déjà enregistrés pour un O.F."""
+        escaped_of = production_order_number.replace("'", "''")
+        filter_expr = urllib.parse.quote(
+            f"orderNo eq '{escaped_of}' and entryType eq 'Output'",
+            safe="()'$",
+        )
+        url = (
+            "https://api.businesscentral.dynamics.com/"
+            f"v2.0/{env}/api/microsoft/analytics/v1.0/companies({company_id})/"
+            f"prodItemLedgerEntries?$filter={filter_expr}"
+        )
+        req = urllib.request.Request(url, headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }, method="GET")
+
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return json.loads(resp.read().decode("utf-8")).get("value", [])
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            logger.warning(f"Impossible de récupérer les lots de sortie de l'O.F. ({e.code}): {error_body}")
+            return []
+
+    @staticmethod
+    def _format_bc_date(value, gs1: bool = False) -> str:
+        """Convertit une date BC ISO en affichage français ou YYMMDD."""
+        raw = str(value or "").strip()
+        if not raw or raw.startswith("0001-01-01"):
+            return ""
+        try:
+            from datetime import datetime
+            date_value = datetime.strptime(raw.split("T")[0], "%Y-%m-%d")
+            return date_value.strftime("%y%m%d" if gs1 else "%d/%m/%Y")
+        except (TypeError, ValueError):
+            return raw
+
+    @staticmethod
+    def _build_production_lot(value) -> str:
+        """Construit un lot de production au format YYLWWDDMM."""
+        raw = str(value or "").strip()
+        if not raw or raw.startswith("0001-01-01"):
+            return ""
+        try:
+            from datetime import datetime
+            date_value = datetime.strptime(raw.split("T")[0], "%Y-%m-%d")
+            iso_week = date_value.isocalendar().week
+            return f"{date_value:%y}L{iso_week:02d}{date_value:%d%m}"
+        except (TypeError, ValueError):
+            return ""
+
+    def fetch_conditionnement_production_order(self, production_order_number: str) -> dict:
+        """Prépare les lignes d'un O.F. pour les étiquettes Conditionnement.
+
+        Les quantités BC sont exprimées en pots. L'impression se fait en cartons
+        de six pots, avec un arrondi systématique à l'entier supérieur.
+        """
+        raw_order = self.fetch_production_order_raw(production_order_number)
+        orders = raw_order.get("value", [])
+        if not orders:
+            return {
+                "items": [],
+                "raw": {
+                    "productionOrders": raw_order,
+                    "productionOrderLines": [],
+                    "prodItemLedgerEntries": [],
+                },
+            }
+
+        header = orders[0]
+        of_number = header.get("no") or str(production_order_number).strip()
+        token = self.get_access_token()
+        tenant_id = self._config["BC_TENANT_ID"]
+        env = self._config.get("BC_ENVIRONMENT", "Dev")
+        company_id = self._get_configured_company_id(token, tenant_id, env)
+        lines = self._fetch_production_order_lines_raw(
+            of_number, token, tenant_id, env, company_id
+        )
+        output_entries = self._fetch_production_output_lots_raw(
+            of_number, token, env, company_id
+        )
+
+        # Un O.F. standard possède normalement au moins une ligne. Le fallback
+        # sur l'en-tête permet de conserver un résultat exploitable si l'API ne
+        # publie pas encore les lignes dans cet environnement de développement.
+        source_lines = lines or [header]
+        from src.config import db
+        from src.main import find_ean13_for_libelle
+
+        parfums_list = db.get_parfums()
+
+        output_by_item = {}
+        for entry in output_entries:
+            item_no = entry.get("itemNo") or ""
+            lot = normalize_lot_number(entry.get("lotNo", ""))
+            if item_no and lot:
+                output_by_item.setdefault(item_no, []).append(entry)
+
+        results = []
+        for line in source_lines:
+            item_no = line.get("itemNo") or line.get("itemNumber") or ""
+            libelle = (
+                line.get("itemDescription")
+                or line.get("description")
+                or header.get("description")
+                or item_no
+                or f"O.F. {of_number}"
+            )
+
+            raw_quantity = (
+                line.get("quantityBase")
+                if line.get("quantityBase") is not None
+                else line.get("quantity")
+            )
+            if raw_quantity is None:
+                raw_quantity = header.get("quantity", 0)
+            try:
+                pots_quantity = float(raw_quantity or 0)
+            except (TypeError, ValueError):
+                pots_quantity = 0
+            if pots_quantity <= 0:
+                continue
+
+            cartons_quantity = int(math.ceil(pots_quantity / 6))
+            match = find_ean13_for_libelle(libelle, parfums_list)
+            gtin = ""
+            if match:
+                gtin = match.get("gtin14") or match.get("ean13", "")
+
+            produced_entries = output_by_item.get(item_no, [])
+            if not produced_entries and len(output_entries) == 1:
+                produced_entries = output_entries
+            available_lots = []
+            for entry in produced_entries:
+                lot = normalize_lot_number(entry.get("lotNo", ""))
+                if lot and not any(option["lot"] == lot for option in available_lots):
+                    available_lots.append({
+                        "lot": lot,
+                        "dlc_display": self._format_bc_date(entry.get("expirationDate")),
+                        "code_barre_17": self._format_bc_date(entry.get("expirationDate"), gs1=True),
+                        "qty": float(entry.get("quantity", 0) or 0),
+                        "blocked": False,
+                    })
+
+            selected_lot = available_lots[0] if available_lots else None
+            due_date_raw = line.get("dueDate") or header.get("dueDate")
+            lot = selected_lot["lot"] if selected_lot else normalize_lot_number(
+                line.get("lotNo") or line.get("lotNumber") or header.get("lotNo") or ""
+            )
+            if not lot:
+                lot = self._build_production_lot(due_date_raw)
+
+            # La DLC n'est pas encore définie par le service qualité : elle doit
+            # rester vide même si BC expose un champ de date sur une écriture.
+            expiration = ""
+            due_date = self._format_bc_date(due_date_raw)
+
+            pot_value = int(pots_quantity) if pots_quantity.is_integer() else pots_quantity
+            results.append({
+                "Client": "Conditionnement",
+                "Commande": of_number,
+                "Libelle": libelle,
+                "DateLivraison": due_date,
+                "Item_No": item_no,
+                "CodeBarre01": gtin,
+                "CodeBarre17": expiration,
+                "CodeBarre10": lot,
+                "Numlot": lot,
+                "Quantite": cartons_quantity,
+                "QuantitePots": pot_value,
+                "QuantiteCartons": cartons_quantity,
+                "available_lots": available_lots,
+                "OFStatut": header.get("status", ""),
+            })
+
+        return {
+            "items": results,
+            "raw": {
+                "productionOrders": raw_order,
+                "productionOrderLines": lines,
+                "prodItemLedgerEntries": output_entries,
+            },
+        }
 
     def fetch_sales_order(self, order_number: str) -> list:
         """

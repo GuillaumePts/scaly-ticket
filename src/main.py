@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from src.config import settings, base_path, data_path, db
 from src.models import TicketData
 from src.zpl_engine import ZPLEngine
@@ -167,6 +167,13 @@ class ConditionnementPrintRequest(BaseModel):
     gs1_bold: bool = False
     lot_size: int = 0
     lot_bold: bool = False
+    title_font_size: int = 45
+    gs1_font_size: int = 25
+    lot_font_size: int = 25
+    title_y: int = 5
+    barcode_y: int = 50
+    gs1_gap: int = 5
+    lot_gap: int = 40
 
 
 class ConditionnementPreviewRequest(BaseModel):
@@ -177,6 +184,37 @@ class ConditionnementPreviewRequest(BaseModel):
     gs1_bold: bool = False
     lot_size: int = 0
     lot_bold: bool = False
+    title_font_size: int = 45
+    gs1_font_size: int = 25
+    lot_font_size: int = 25
+    title_y: int = 5
+    barcode_y: int = 50
+    gs1_gap: int = 5
+    lot_gap: int = 40
+
+
+LABEL_PROFILE_DEFAULTS = {
+    "title_font_size": 45,
+    "gs1_font_size": 25,
+    "lot_font_size": 25,
+    "title_y": 5,
+    "barcode_y": 50,
+    "gs1_gap": 5,
+    "lot_gap": 40,
+}
+
+
+class LabelProfileRequest(BaseModel):
+    sector: str = Field(min_length=1, max_length=80)
+    tool: str = Field(min_length=1, max_length=80)
+    format: str = Field(min_length=1, max_length=80)
+    title_font_size: int = Field(default=45, ge=10, le=120)
+    gs1_font_size: int = Field(default=25, ge=10, le=100)
+    lot_font_size: int = Field(default=25, ge=10, le=100)
+    title_y: int = Field(default=5, ge=0, le=320)
+    barcode_y: int = Field(default=50, ge=0, le=320)
+    gs1_gap: int = Field(default=5, ge=0, le=160)
+    lot_gap: int = Field(default=40, ge=0, le=200)
 
 
 def get_conditionnement_printer() -> dict | None:
@@ -192,14 +230,61 @@ def get_conditionnement_printer() -> dict | None:
     )
 
 
+def normalize_label_profile_scope(value: str) -> str:
+    return value.strip().casefold()
+
+
+@app.get("/api/label-settings/{sector}/{tool}/{format_name}")
+async def get_label_settings(sector: str, tool: str, format_name: str):
+    scope = {
+        "sector": normalize_label_profile_scope(sector),
+        "tool": normalize_label_profile_scope(tool),
+        "format": normalize_label_profile_scope(format_name),
+    }
+    profile = db.get_label_profile(scope["sector"], scope["tool"], scope["format"])
+    return {
+        **scope,
+        **(profile or LABEL_PROFILE_DEFAULTS),
+        "persisted": profile is not None,
+    }
+
+
+@app.post("/api/label-settings")
+async def save_label_settings(request: LabelProfileRequest):
+    scope = {
+        "sector": normalize_label_profile_scope(request.sector),
+        "tool": normalize_label_profile_scope(request.tool),
+        "format": normalize_label_profile_scope(request.format),
+    }
+    settings = {
+        key: getattr(request, key)
+        for key in LABEL_PROFILE_DEFAULTS
+    }
+    profile = db.save_label_profile(
+        scope["sector"],
+        scope["tool"],
+        scope["format"],
+        settings,
+    )
+    return {**profile, "persisted": True}
+
+
 def conditionnement_styling(request) -> dict:
     return {
+        "conditionnement_layout": True,
         "title_size": request.title_size,
         "title_bold": request.title_bold,
         "gs1_size": request.gs1_size,
         "gs1_bold": request.gs1_bold,
         "lot_size": request.lot_size,
         "lot_bold": request.lot_bold,
+        "title_font_size": request.title_font_size,
+        "gs1_font_size": request.gs1_font_size,
+        "lot_font_size": request.lot_font_size,
+        "title_y": request.title_y,
+        "barcode_y": request.barcode_y,
+        "gs1_gap": request.gs1_gap,
+        "lot_gap": request.lot_gap,
     }
 
 
@@ -225,6 +310,48 @@ async def conditionnement_printer_status():
         "dpi": printer.get("dpi", 300),
         "message": "Zebra prête." if "error" not in status else "Zebra non joignable pour le moment.",
     }
+
+
+@app.get("/api/conditionnement/test-of/{of_number}")
+async def conditionnement_test_of(of_number: str):
+    """Test temporaire en lecture seule de l'Analytics API des O.F. BC."""
+    try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    try:
+        from src.bc_client import BusinessCentralClient
+        bc_client = BusinessCentralClient()
+        return bc_client.fetch_production_order_raw(of_number)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Le fichier secret.json est introuvable.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Erreur GET O.F. Conditionnement: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.get("/api/conditionnement/of/{of_number}")
+async def conditionnement_of(of_number: str):
+    """Récupère un O.F. et prépare ses lignes pour l'impression Conditionnement."""
+    try:
+        check_licence()
+    except LicenceError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    try:
+        from src.bc_client import BusinessCentralClient
+        bc_client = BusinessCentralClient()
+        return bc_client.fetch_conditionnement_production_order(of_number)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Le fichier secret.json est introuvable.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Erreur préparation O.F. Conditionnement: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @app.post("/api/conditionnement/preview")

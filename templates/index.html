@@ -13,7 +13,7 @@
         rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="/static/style.css?v=26">
+    <link rel="stylesheet" href="/static/style.css?v=37">
 </head>
 
 <body>
@@ -362,17 +362,17 @@
                 </div>
 
                 <div class="conditionnement-methods" role="tablist" aria-label="Source des données">
-                    <button type="button" class="conditionnement-method active" id="conditionnement-method-custom-btn" role="tab" aria-selected="true">
+                    <button type="button" class="conditionnement-method" id="conditionnement-method-custom-btn" role="tab" aria-selected="false">
                         <i data-lucide="wand-sparkles"></i>
                         <span><strong>Création personnalisée</strong><small>Construire une étiquette à la volée</small></span>
                     </button>
-                    <button type="button" class="conditionnement-method" id="conditionnement-method-erp-btn" role="tab" aria-selected="false">
+                    <button type="button" class="conditionnement-method active" id="conditionnement-method-erp-btn" role="tab" aria-selected="true">
                         <i data-lucide="cloud-download"></i>
-                        <span><strong>Depuis l'API Business Central</strong><small>Importer une commande automatiquement</small></span>
+                        <span><strong>Depuis l'API Business Central</strong><small>Importer un O.F. automatiquement</small></span>
                     </button>
                 </div>
 
-                <div id="conditionnement-panel-custom" class="conditionnement-panel">
+                <div id="conditionnement-panel-custom" class="conditionnement-panel" style="display:none;">
                     <div class="conditionnement-work-grid">
                         <div class="conditionnement-form-card">
                             <div class="conditionnement-panel-heading"><span class="conditionnement-index">01</span><div><h3>Composer l'étiquette</h3><p>Les champs alimentent le même moteur Zebra 300 dpi que la Ligne 1.</p></div></div>
@@ -386,7 +386,7 @@
                             <button type="button" class="btn-primary conditionnement-add-btn" id="conditionnement-add-btn"><i data-lucide="plus"></i> Ajouter à la file</button>
                         </div>
                         <div class="conditionnement-preview-card">
-                            <div class="conditionnement-panel-heading"><span class="conditionnement-index">02</span><div><h3>Aperçu instantané</h3><p>Rendu fidèle de l'étiquette 115 × 30 mm.</p></div></div>
+                            <div class="conditionnement-panel-heading"><span class="conditionnement-index">02</span><div><h3>Aperçu instantané</h3><p>Rendu fidèle de l'étiquette 115 × 30 mm.</p></div><button type="button" id="conditionnement-custom-edit-btn" class="conditionnement-label-edit-btn" title="Modifier le rendu de l'étiquette"><i data-lucide="sliders-horizontal"></i><span>Modifier</span></button></div>
                             <div class="conditionnement-preview-frame" id="conditionnement-preview-frame">
                                 <div class="conditionnement-preview-empty" id="conditionnement-preview-empty"><i data-lucide="image"></i><span>Renseignez les champs<br>pour afficher l'aperçu</span></div>
                                 <img id="conditionnement-preview-image" alt="Aperçu de l'étiquette Conditionnement" style="display:none;">
@@ -402,10 +402,10 @@
                     </div>
                 </div>
 
-                <div id="conditionnement-panel-erp" class="conditionnement-panel" style="display:none;">
+                <div id="conditionnement-panel-erp" class="conditionnement-panel">
                     <div class="conditionnement-erp-card">
-                        <div class="conditionnement-panel-heading"><span class="conditionnement-index">01</span><div><h3>Importer une commande</h3><p>Business Central fournit les produits, les DLC et les lots à contrôler avant impression.</p></div></div>
-                        <div class="conditionnement-erp-input-row"><input type="text" id="conditionnement-api-order-number" class="large-input" placeholder="N° de commande (Ex : CDE-12345)"><button type="button" class="btn-primary" id="conditionnement-api-fetch-btn"><i data-lucide="search"></i> Rechercher</button></div>
+                        <div class="conditionnement-panel-heading"><span class="conditionnement-index">01</span><div><h3>Importer un O.F.</h3><p>Les lignes de production et les quantités sont préparées pour l'impression. La quantité BC reste affichée en pots.</p></div></div>
+                        <div class="conditionnement-erp-input-row"><input type="text" id="conditionnement-api-order-number" class="large-input" placeholder="N° d'O.F. (Ex : OF-12345)"><button type="button" class="btn-primary" id="conditionnement-api-fetch-btn"><i data-lucide="cloud-download"></i> Importer l'O.F.</button></div>
                         <div class="conditionnement-erp-note"><i data-lucide="shield-check"></i><span>Les lots issus de Business Central sont normalisés avant la génération du code-barres.</span></div>
                     </div>
                 </div>
@@ -637,6 +637,21 @@
                     <p id="order-id"><i data-lucide="file-text"></i> Commande : -</p>
                 </div>
 
+                <div id="conditionnement-api-preview-card" class="conditionnement-api-preview-card" style="display: none;">
+                    <div class="conditionnement-api-preview-heading">
+                        <span class="conditionnement-index">02</span>
+                        <div>
+                            <h3>Aperçu de l'étiquette</h3>
+                            <p id="conditionnement-api-preview-status">L'aperçu utilise le rendu Zebra 300 dpi destiné à l'impression.</p>
+                        </div>
+                        <button type="button" id="conditionnement-api-edit-btn" class="conditionnement-label-edit-btn" title="Modifier le rendu de l'étiquette"><i data-lucide="sliders-horizontal"></i><span>Modifier</span></button>
+                    </div>
+                    <div id="conditionnement-api-preview-frame" class="conditionnement-api-preview-frame">
+                        <div id="conditionnement-api-preview-empty">Renseignez la DLC pour afficher l'étiquette complète.</div>
+                        <img id="conditionnement-api-preview-image" alt="Aperçu de l'étiquette Conditionnement importée" style="display: none;">
+                    </div>
+                </div>
+
                 <div class="table-container">
                     <table id="products-table">
                         <thead>
@@ -689,6 +704,58 @@
         <footer class="ligne1-brand">
             <img src="/static/img/logo-center.png" alt="Ferme des Peupliers">
         </footer>
+    </div>
+
+    <!-- Réglages temporaires de l'étiquette Conditionnement -->
+    <div id="conditionnement-label-settings-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content conditionnement-label-settings-content">
+            <div class="conditionnement-label-settings-header">
+                <div>
+                    <span class="conditionnement-settings-kicker">Conditionnement · Zebra 300 dpi</span>
+                    <h3><i data-lucide="sliders-horizontal"></i> Ajuster l'étiquette</h3>
+                    <p>Modifiez le rendu visuel de cette session. Aucun réglage n'est enregistré dans la base ni dans un fichier.</p>
+                </div>
+                <button type="button" id="conditionnement-label-settings-close" class="btn-icon" aria-label="Fermer"><i data-lucide="x"></i></button>
+            </div>
+
+            <div class="conditionnement-label-settings-layout">
+                <div class="conditionnement-label-settings-groups">
+                    <section class="conditionnement-settings-group">
+                        <div class="conditionnement-settings-group-title"><i data-lucide="type"></i><span>Textes</span></div>
+                        <label>Libellé · taille <output id="conditionnement-title-font-size-value">45 px</output><input type="range" id="conditionnement-title-font-size" min="24" max="80" step="1" value="45"></label>
+                        <label>Texte GS1 · taille <output id="conditionnement-gs1-font-size-value">25 px</output><input type="range" id="conditionnement-gs1-font-size" min="14" max="48" step="1" value="25"></label>
+                        <label>Lot / DLC · taille <output id="conditionnement-lot-font-size-value">25 px</output><input type="range" id="conditionnement-lot-font-size" min="14" max="52" step="1" value="25"></label>
+                    </section>
+
+                    <section class="conditionnement-settings-group">
+                        <div class="conditionnement-settings-group-title"><i data-lucide="move-vertical"></i><span>Positionnement</span></div>
+                        <label>Libellé · position verticale <output id="conditionnement-title-y-value">5 px</output><input type="range" id="conditionnement-title-y" min="0" max="120" step="1" value="5"></label>
+                        <label>Code-barres · position verticale <output id="conditionnement-barcode-y-value">50 px</output><input type="range" id="conditionnement-barcode-y" min="20" max="150" step="1" value="50"></label>
+                    </section>
+
+                    <section class="conditionnement-settings-group">
+                        <div class="conditionnement-settings-group-title"><i data-lucide="between-horizontal-start"></i><span>Espacements</span></div>
+                        <label>Code-barres → texte GS1 <output id="conditionnement-gs1-gap-value">5 px</output><input type="range" id="conditionnement-gs1-gap" min="0" max="60" step="1" value="5"></label>
+                        <label>Code-barres → lot / DLC <output id="conditionnement-lot-gap-value">40 px</output><input type="range" id="conditionnement-lot-gap" min="10" max="120" step="1" value="40"></label>
+                    </section>
+                </div>
+
+                <div class="conditionnement-settings-preview">
+                    <div class="conditionnement-settings-preview-heading"><i data-lucide="eye"></i><strong>Aperçu en direct</strong></div>
+                    <div id="conditionnement-settings-preview-frame" class="conditionnement-settings-preview-frame">
+                        <div id="conditionnement-settings-preview-empty">L'aperçu apparaîtra ici.</div>
+                        <img id="conditionnement-settings-preview-image" alt="Aperçu de l'étiquette en cours de réglage" style="display: none;">
+                    </div>
+                    <p>L'étiquette est régénérée à chaque réglage avec le même rendu que l'impression.</p>
+                </div>
+            </div>
+
+            <div class="conditionnement-label-settings-actions">
+                <button type="button" id="conditionnement-label-settings-reset" class="btn-secondary"><i data-lucide="rotate-ccw"></i> Valeurs par défaut</button>
+                <button type="button" id="conditionnement-label-settings-done" class="btn-secondary"><i data-lucide="x"></i> Fermer</button>
+                <button type="button" id="conditionnement-label-settings-save" class="btn-primary"><i data-lucide="save"></i> Enregistrer</button>
+            </div>
+        </div>
     </div>
 
     <!-- Éditeur d'étiquette en écriture libre -->
@@ -1028,6 +1095,6 @@
         </div>
     </div>
     
-    <script src="/static/script.js?v=23"></script>
+    <script src="/static/script.js?v=34"></script>
 </body>
 </html>

@@ -15,13 +15,15 @@ class DatabaseManager:
         self._init_db()
 
     def get_connection(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10)
+        conn.execute("PRAGMA busy_timeout = 10000")
         conn.row_factory = sqlite3.Row
         return conn
 
     def _init_db(self):
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("PRAGMA journal_mode = WAL")
             
             # Table Printers
             cursor.execute("""
@@ -78,6 +80,27 @@ class DatabaseManager:
                     nom TEXT,
                     nom_impression TEXT,
                     ean13 TEXT
+                )
+            """)
+
+            # Profils de rendu des étiquettes.
+            # La clé secteur/outil/format isole les réglages des futurs outils.
+            # Les colonnes restent explicites : aucun blob JSON n'est utilisé.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS label_profiles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sector TEXT NOT NULL,
+                    tool TEXT NOT NULL,
+                    format TEXT NOT NULL,
+                    title_font_size INTEGER NOT NULL DEFAULT 45,
+                    gs1_font_size INTEGER NOT NULL DEFAULT 25,
+                    lot_font_size INTEGER NOT NULL DEFAULT 25,
+                    title_y INTEGER NOT NULL DEFAULT 5,
+                    barcode_y INTEGER NOT NULL DEFAULT 50,
+                    gs1_gap INTEGER NOT NULL DEFAULT 5,
+                    lot_gap INTEGER NOT NULL DEFAULT 40,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (sector, tool, format)
                 )
             """)
             conn.commit()
@@ -199,6 +222,54 @@ class DatabaseManager:
             conn.commit()
             return cursor.rowcount > 0
 
+    # Profils de rendu des étiquettes
+    def get_label_profile(self, sector: str, tool: str, format_name: str) -> Dict | None:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT sector, tool, format, title_font_size, gs1_font_size,
+                       lot_font_size, title_y, barcode_y, gs1_gap, lot_gap,
+                       updated_at
+                FROM label_profiles
+                WHERE sector=? AND tool=? AND format=?
+            """, (sector, tool, format_name))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def save_label_profile(self, sector: str, tool: str, format_name: str, settings: dict) -> Dict:
+        values = (
+            sector,
+            tool,
+            format_name,
+            int(settings["title_font_size"]),
+            int(settings["gs1_font_size"]),
+            int(settings["lot_font_size"]),
+            int(settings["title_y"]),
+            int(settings["barcode_y"]),
+            int(settings["gs1_gap"]),
+            int(settings["lot_gap"]),
+        )
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO label_profiles (
+                    sector, tool, format, title_font_size, gs1_font_size,
+                    lot_font_size, title_y, barcode_y, gs1_gap, lot_gap,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(sector, tool, format) DO UPDATE SET
+                    title_font_size=excluded.title_font_size,
+                    gs1_font_size=excluded.gs1_font_size,
+                    lot_font_size=excluded.lot_font_size,
+                    title_y=excluded.title_y,
+                    barcode_y=excluded.barcode_y,
+                    gs1_gap=excluded.gs1_gap,
+                    lot_gap=excluded.lot_gap,
+                    updated_at=CURRENT_TIMESTAMP
+            """, values)
+            conn.commit()
+        return self.get_label_profile(sector, tool, format_name)
+
     # Parfums CRUD
     def get_parfums(self) -> List[Dict]:
         with self.get_connection() as conn:
@@ -300,4 +371,3 @@ class DatabaseManager:
                 ON CONFLICT(nom_client) DO UPDATE SET jours_dlc_min=excluded.jours_dlc_min
             """, (nom_client, jours_dlc_min))
             conn.commit()
-

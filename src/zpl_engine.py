@@ -33,6 +33,24 @@ class ZPLEngine:
     def mm_to_dots(self, mm: float) -> int:
         return int(mm * self.dots_per_mm)
 
+    @staticmethod
+    def _conditionnement_font_path(bold: bool = False) -> str:
+        """Police embarquée pour garantir le même rendu sur Windows et Linux."""
+        filename = "ScalySans-Bold.ttf" if bold else "ScalySans.ttf"
+        bundled = Path(__file__).resolve().parents[1] / "static" / "fonts" / filename
+        if bundled.exists():
+            return str(bundled)
+
+        # Repli utile si l'application est lancée sans les assets statiques.
+        system_candidates = [
+            Path("/usr/share/fonts/truetype/dejavu") / filename.replace("ScalySans", "DejaVuSans"),
+            Path("C:/Windows/Fonts") / ("arialbd.ttf" if bold else "arial.ttf"),
+        ]
+        for candidate in system_candidates:
+            if candidate.exists():
+                return str(candidate)
+        raise FileNotFoundError(f"Police Conditionnement introuvable : {filename}")
+
     def generate_separator_zpl(self, next_product_name: str) -> str:
         """Génère une étiquette de séparation visuelle pour l'opérateur."""
         width_dots = self.mm_to_dots(115)
@@ -728,34 +746,49 @@ class ZPLEngine:
     def _draw_zebra_single_label_1up(self, data: TicketData, styling: dict = None) -> Image.Image:
         """Dessine une étiquette individuelle Zebra (115x30mm) en paysage puis la pivote."""
         styling = styling or {}
+        is_conditionnement = bool(styling.get("conditionnement_layout"))
         img_w, img_h = 1144, 352
         img = Image.new('1', (img_w, img_h), color=1)
         draw = ImageDraw.Draw(img)
         
         try:
-            t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
-            g_font = "arialbd.ttf" if styling.get("gs1_bold") else "arial.ttf"
-            l_font = "arialbd.ttf" if styling.get("lot_bold") else "arial.ttf"
-            
-            font_title  = ImageFont.truetype(t_font, max(10, 45 + styling.get("title_size", 0)))
-            font_normal = ImageFont.truetype(l_font, max(10, 25 + styling.get("lot_size", 0)))
-            font_small  = ImageFont.truetype(g_font, max(10, 25 + styling.get("gs1_size", 0)))
+            if is_conditionnement:
+                font_title = ImageFont.truetype(
+                    self._conditionnement_font_path(bool(styling.get("title_bold"))),
+                    max(10, min(120, int(styling.get("title_font_size", 45))))
+                )
+                font_normal = ImageFont.truetype(
+                    self._conditionnement_font_path(bool(styling.get("lot_bold"))),
+                    max(10, min(100, int(styling.get("lot_font_size", 25))))
+                )
+                font_small = ImageFont.truetype(
+                    self._conditionnement_font_path(bool(styling.get("gs1_bold"))),
+                    max(10, min(100, int(styling.get("gs1_font_size", 25))))
+                )
+            else:
+                t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
+                g_font = "arialbd.ttf" if styling.get("gs1_bold") else "arial.ttf"
+                l_font = "arialbd.ttf" if styling.get("lot_bold") else "arial.ttf"
+                font_title  = ImageFont.truetype(t_font, max(10, 45 + styling.get("title_size", 0)))
+                font_normal = ImageFont.truetype(l_font, max(10, 25 + styling.get("lot_size", 0)))
+                font_small  = ImageFont.truetype(g_font, max(10, 25 + styling.get("gs1_size", 0)))
         except IOError:
             font_title  = ImageFont.load_default()
             font_normal = ImageFont.load_default()
             font_small  = ImageFont.load_default()
 
         # Libellé (collé en haut)
-        libelle = data.libelle.encode('latin-1', 'ignore').decode('latin-1')
+        libelle = data.libelle if is_conditionnement else data.libelle.encode('latin-1', 'ignore').decode('latin-1')
         try:
             bbox = draw.textbbox((0, 0), libelle, font=font_title)
             tw = bbox[2] - bbox[0]
         except AttributeError:
             tw, _ = draw.textsize(libelle, font=font_title)
-        draw.text(((img_w - tw)//2, 5), libelle, fill=0, font=font_title)
+        title_y = max(0, min(img_h - 10, int(styling.get("title_y", 5)))) if is_conditionnement else 5
+        draw.text(((img_w - tw)//2, title_y), libelle, fill=0, font=font_title)
 
         # Code-barres
-        barcode_y = 50
+        barcode_y = max(0, min(img_h - 20, int(styling.get("barcode_y", 50)))) if is_conditionnement else 50
         barcode_data = f"01{data.gtin}17{data.date_expiration}10{data.lot}"
         stream = io.BytesIO()
         fp = barcode.get('gs1_128', barcode_data, writer=ImageWriter())
@@ -778,10 +811,11 @@ class ZPLEngine:
             tw = bbox[2] - bbox[0]
         except AttributeError:
             tw, _ = draw.textsize(gs1_text, font=font_small)
-        draw.text(((img_w - tw)//2, barcode_bottom + 5), gs1_text, fill=0, font=font_small)
+        gs1_gap = max(0, min(120, int(styling.get("gs1_gap", 5)))) if is_conditionnement else 5
+        draw.text(((img_w - tw)//2, barcode_bottom + gs1_gap), gs1_text, fill=0, font=font_small)
 
         # Lot et DLC (agrandi et positionné juste en dessous)
-        lot_val = data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
+        lot_val = data.num_lot_display if is_conditionnement else data.num_lot_display.encode('latin-1', 'ignore').decode('latin-1')
         dlc_val = f"{data.date_expiration[4:6]}/{data.date_expiration[2:4]}/{data.date_expiration[0:2]}" if len(data.date_expiration) == 6 else ""
         lot_text = clean_lot_string(lot_val, dlc_val)
             
@@ -790,7 +824,8 @@ class ZPLEngine:
             tw = bbox[2] - bbox[0]
         except AttributeError:
             tw, _ = draw.textsize(lot_text, font=font_normal)
-        draw.text(((img_w - tw)//2, barcode_bottom + 40), lot_text, fill=0, font=font_normal)
+        lot_gap = max(0, min(160, int(styling.get("lot_gap", 40)))) if is_conditionnement else 40
+        draw.text(((img_w - tw)//2, barcode_bottom + lot_gap), lot_text, fill=0, font=font_normal)
         
         # Zebra attend l'image pivotée (352 de large x 1144 de haut)
         return img.transpose(Image.ROTATE_90)

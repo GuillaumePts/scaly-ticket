@@ -97,6 +97,23 @@ let isPrinting = false;
 let currentFormat = '3up'; // Par défaut
 let currentSector = '';
 
+const dedicatedBodyClasses = [
+    'dedicated-tool-page',
+    'dedicated-tool-ligne1-prepa',
+    'dedicated-tool-conditionnement',
+    'dedicated-tool-toshiba_3up',
+    'dedicated-tool-toshiba_4up',
+    'dedicated-tool-fromis',
+    'dedicated-tool-zebra'
+];
+
+function clearDedicatedToolState() {
+    dedicatedBodyClasses.forEach(className => document.body.classList.remove(className));
+    if (hubSectorChoice) hubSectorChoice.classList.remove('hub-screen-exit');
+    const fromisSection = document.getElementById('fromis-section');
+    if (fromisSection) fromisSection.style.display = 'none';
+}
+
 // ETAPE 1 : Gestion des secteurs
 sectorBtns.forEach(btn => {
     btn.onclick = () => {
@@ -119,6 +136,7 @@ function activateSector(sector, saveState = true) {
         activateDedicatedTool('conditionnement', sector);
         return;
     }
+    clearDedicatedToolState();
     currentSector = sector;
     const btn = Array.from(sectorBtns).find(b => b.dataset.sector === sector);
     if (!btn) return;
@@ -130,6 +148,9 @@ function activateSector(sector, saveState = true) {
     currentData = [];
     editSection.style.display = 'none';
     progressContainer.style.display = 'none';
+    hubSectorChoice.style.display = 'none';
+    hubToolsChoice.style.display = 'none';
+    wizardSection.style.display = 'block';
     
     filterPrinters(sector);
     
@@ -149,6 +170,7 @@ function activateSector(sector, saveState = true) {
 }
 
 function resetToHome(saveState = true) {
+    clearDedicatedToolState();
     sectorBtns.forEach(b => b.classList.remove('active'));
     const allHubBtns = document.querySelectorAll('.hub-sector-btn');
     if(allHubBtns) allHubBtns.forEach(b => b.classList.remove('active'));
@@ -158,6 +180,8 @@ function resetToHome(saveState = true) {
 
     step2.style.display = 'none';
     step3.style.display = 'none';
+    wizardSection.style.display = 'none';
+    hubSectorChoice.style.display = 'block';
     uploadSection.style.display = 'none';
     parfumSection.style.display = 'none';
     if (conditionnementSection) conditionnementSection.style.display = 'none';
@@ -166,26 +190,29 @@ function resetToHome(saveState = true) {
     
     const techSection = document.getElementById('technician-section');
     if (techSection) techSection.style.display = 'none';
+    logContainer.style.display = 'none';
     
     if (saveState) {
         history.pushState(null, "", window.location.pathname);
     }
 }
 
-// Gestion popstate (Bouton Précédent/Suivant)
-window.addEventListener('popstate', (e) => {
-    if (e.state && e.state.sector) {
-        activateSector(e.state.sector, false);
+function restoreNavigationState() {
+    const params = new URLSearchParams(window.location.search);
+    const tool = params.get('tool');
+    const sector = params.get('sector');
+
+    if (tool && sector) {
+        activateDedicatedTool(tool, sector);
+    } else if (sector) {
+        activateSector(sector, false);
     } else {
-        const params = new URLSearchParams(window.location.search);
-        const urlSector = params.get('sector');
-        if (urlSector) {
-            activateSector(urlSector, false);
-        } else {
-            resetToHome(false);
-        }
+        resetToHome(false);
     }
-});
+}
+
+// Gestion popstate (Bouton Précédent/Suivant) : l'URL détermine toujours la vue.
+window.addEventListener('popstate', restoreNavigationState);
 
 const hubSectorChoice = document.getElementById('hub-sector-choice');
 const hubToolsChoice = document.getElementById('hub-tools-choice');
@@ -210,7 +237,7 @@ hubSectorBtns.forEach(btn => {
 
         // Transition vers le second écran du portail (SPA visuelle).
         hubSectorChoice.classList.add('hub-screen-exit');
-        
+
         // Affiche la grille des outils
         hubToolsChoice.style.display = 'block';
         
@@ -308,10 +335,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 function activateDedicatedTool(tool, sector) {
     // Classe d'état dédiée à la présentation de l'outil, sans modifier la logique métier.
+    clearDedicatedToolState();
     document.body.classList.add('dedicated-tool-page', `dedicated-tool-${tool}`);
     const isLigne1Prepa = tool === 'zebra' && sector === 'prepa_commande';
     document.body.classList.toggle('dedicated-tool-ligne1-prepa', isLigne1Prepa);
     currentSector = sector;
+    currentData = [];
+    isPrinting = false;
     hubSectorChoice.style.display = 'none';
     hubToolsChoice.style.display = 'none';
     
@@ -514,6 +544,24 @@ let conditionnementInitialized = false;
 let conditionnementQueue = [];
 let conditionnementPreviewTimer = null;
 let conditionnementPreviewUrl = null;
+let conditionnementApiPreviewTimer = null;
+let conditionnementApiPreviewUrl = null;
+let conditionnementApiPreviewRequestId = 0;
+const conditionnementLabelDefaults = {
+    title_font_size: 45,
+    gs1_font_size: 25,
+    lot_font_size: 25,
+    title_y: 5,
+    barcode_y: 50,
+    gs1_gap: 5,
+    lot_gap: 40
+};
+let conditionnementLabelSettings = { ...conditionnementLabelDefaults };
+const conditionnementLabelProfileScope = {
+    sector: 'conditionnement',
+    tool: 'conditionnement',
+    format: 'zebra_300_1up'
+};
 
 function normalizeConditionnementDlc(value) {
     const raw = String(value || '').trim();
@@ -572,20 +620,26 @@ function updateConditionnementPreview() {
     const ticket = getConditionnementCustomTicket();
     const image = document.getElementById('conditionnement-preview-image');
     const empty = document.getElementById('conditionnement-preview-empty');
+    const frame = document.getElementById('conditionnement-preview-frame');
     if (!image || !empty) return;
 
     if (!ticket) {
         image.style.display = 'none';
         empty.style.display = 'flex';
+        if (frame) frame.classList.remove('is-loading');
+        setConditionnementSettingsPreviewLoading(false);
+        syncConditionnementSettingsPreview('', false, 'Renseignez les champs pour afficher l\'aperçu.');
         return;
     }
 
     const requestId = Date.now();
     image.dataset.requestId = requestId;
+    if (frame) frame.classList.add('is-loading');
+    setConditionnementSettingsPreviewLoading(true);
     fetch('/api/conditionnement/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticket })
+        body: JSON.stringify({ ticket, ...conditionnementLabelSettings })
     }).then(async response => {
         if (!response.ok) throw new Error((await response.json()).detail || 'Aperçu indisponible');
         return response.blob();
@@ -596,7 +650,260 @@ function updateConditionnementPreview() {
         image.src = conditionnementPreviewUrl;
         image.style.display = 'block';
         empty.style.display = 'none';
-    }).catch(error => console.warn('Aperçu Conditionnement indisponible:', error));
+        if (frame) frame.classList.remove('is-loading');
+        syncConditionnementSettingsPreview(conditionnementPreviewUrl, true);
+        setConditionnementSettingsPreviewLoading(false);
+    }).catch(error => {
+        if (image.dataset.requestId === String(requestId) && frame) frame.classList.remove('is-loading');
+        setConditionnementSettingsPreviewLoading(false);
+        console.warn('Aperçu Conditionnement indisponible:', error);
+    });
+}
+
+function getConditionnementApiPreviewTicket(item) {
+    const gtin = normalizeConditionnementGtin(item.CodeBarre01 || item.GTIN || item.gtin || '');
+    const lot = String(item.CodeBarre10 || item.Numlot || '').replaceAll('/', '').trim();
+    const dlc = String(item.CodeBarre17 || '').trim();
+
+    return {
+        client: item.Client || 'Conditionnement',
+        commande: item.Commande || 'CONDITIONNEMENT',
+        date_livraison: item.DateLivraison || '',
+        libelle: item.Libelle || item.Designation || '',
+        gtin,
+        date_expiration: dlc,
+        lot,
+        num_lot_display: item.Numlot || lot,
+        quantite: parseInt(item.Quantite, 10) || 1
+    };
+}
+
+async function updateConditionnementApiPreview() {
+    const card = document.getElementById('conditionnement-api-preview-card');
+    const image = document.getElementById('conditionnement-api-preview-image');
+    const empty = document.getElementById('conditionnement-api-preview-empty');
+    const status = document.getElementById('conditionnement-api-preview-status');
+    const frame = document.getElementById('conditionnement-api-preview-frame');
+    if (!card || !image || !empty || !status || !frame) return;
+
+    if (currentSector !== 'conditionnement' || !currentData.length) {
+        card.style.display = 'none';
+        frame.classList.remove('is-loading');
+        setConditionnementSettingsPreviewLoading(false);
+        syncConditionnementSettingsPreview('', false);
+        return;
+    }
+
+    card.style.display = 'grid';
+    const requestId = ++conditionnementApiPreviewRequestId;
+    const item = currentData.find(row => row._selected) || currentData[0];
+    const ticket = getConditionnementApiPreviewTicket(item);
+
+    if (!ticket.libelle || ![13, 14].includes(ticket.gtin.length) || !ticket.lot) {
+        image.style.display = 'none';
+        empty.style.display = 'flex';
+        empty.textContent = 'Données insuffisantes pour afficher l\'aperçu.';
+        status.textContent = 'L’aperçu apparaîtra dès que le GTIN et le lot seront disponibles.';
+        frame.classList.remove('is-loading');
+        setConditionnementSettingsPreviewLoading(false);
+        syncConditionnementSettingsPreview('', false, 'Données insuffisantes pour afficher l\'aperçu.');
+        return;
+    }
+
+    const hadPreviousPreview = Boolean(image.src && image.style.display !== 'none');
+    image.style.display = hadPreviousPreview ? 'block' : 'none';
+    empty.style.display = hadPreviousPreview ? 'none' : 'flex';
+    empty.textContent = 'Mise à jour de l’aperçu…';
+    frame.classList.add('is-loading');
+    setConditionnementSettingsPreviewLoading(true);
+    status.textContent = ticket.date_expiration
+        ? `Aperçu de ${ticket.libelle} — lot ${ticket.lot}`
+        : `Aperçu de ${ticket.libelle} — DLC à renseigner`;
+
+    try {
+        const response = await fetch('/api/conditionnement/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticket, ...conditionnementLabelSettings })
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || 'Aperçu indisponible');
+        }
+        const blob = await response.blob();
+        if (requestId !== conditionnementApiPreviewRequestId) return;
+
+        if (conditionnementApiPreviewUrl) URL.revokeObjectURL(conditionnementApiPreviewUrl);
+        conditionnementApiPreviewUrl = URL.createObjectURL(blob);
+        image.src = conditionnementApiPreviewUrl;
+        image.style.display = 'block';
+        empty.style.display = 'none';
+        frame.classList.remove('is-loading');
+        syncConditionnementSettingsPreview(conditionnementApiPreviewUrl, true);
+        setConditionnementSettingsPreviewLoading(false);
+        status.textContent = ticket.date_expiration
+            ? `Aperçu de ${ticket.libelle} — lot ${ticket.lot}`
+            : `Aperçu de ${ticket.libelle} — DLC à renseigner`;
+    } catch (error) {
+        if (requestId !== conditionnementApiPreviewRequestId) return;
+        image.style.display = hadPreviousPreview ? 'block' : 'none';
+        empty.style.display = hadPreviousPreview ? 'none' : 'flex';
+        empty.textContent = 'Aperçu indisponible pour ces données.';
+        status.textContent = 'Le rendu de cette étiquette n’a pas pu être généré.';
+        frame.classList.remove('is-loading');
+        setConditionnementSettingsPreviewLoading(false);
+        console.warn('Aperçu O.F. Conditionnement indisponible:', error);
+    }
+}
+
+function scheduleConditionnementApiPreview() {
+    clearTimeout(conditionnementApiPreviewTimer);
+    conditionnementApiPreviewTimer = setTimeout(updateConditionnementApiPreview, 180);
+}
+
+function getConditionnementSettingsPreviewElements() {
+    return {
+        frame: document.getElementById('conditionnement-settings-preview-frame'),
+        image: document.getElementById('conditionnement-settings-preview-image'),
+        empty: document.getElementById('conditionnement-settings-preview-empty')
+    };
+}
+
+function setConditionnementSettingsPreviewLoading(isLoading) {
+    const { frame } = getConditionnementSettingsPreviewElements();
+    if (frame) frame.classList.toggle('is-loading', isLoading);
+}
+
+function syncConditionnementSettingsPreview(url, visible, emptyMessage = 'L\'aperçu apparaîtra ici.') {
+    const { image, empty } = getConditionnementSettingsPreviewElements();
+    if (!image || !empty) return;
+    image.style.display = visible && url ? 'block' : 'none';
+    if (visible && url) {
+        image.src = url;
+        empty.style.display = 'none';
+    } else {
+        empty.style.display = 'flex';
+        empty.textContent = emptyMessage;
+    }
+}
+
+function refreshConditionnementPreview() {
+    if (currentSector === 'conditionnement' && currentData.length) {
+        scheduleConditionnementApiPreview();
+    } else {
+        clearTimeout(conditionnementPreviewTimer);
+        conditionnementPreviewTimer = setTimeout(updateConditionnementPreview, 180);
+    }
+}
+
+function initConditionnementLabelSettings() {
+    const modal = document.getElementById('conditionnement-label-settings-modal');
+    const closeBtn = document.getElementById('conditionnement-label-settings-close');
+    const doneBtn = document.getElementById('conditionnement-label-settings-done');
+    const resetBtn = document.getElementById('conditionnement-label-settings-reset');
+    const saveBtn = document.getElementById('conditionnement-label-settings-save');
+    const editButtons = [
+        document.getElementById('conditionnement-custom-edit-btn'),
+        document.getElementById('conditionnement-api-edit-btn')
+    ].filter(Boolean);
+    if (!modal || !editButtons.length) return;
+
+    const fields = Object.keys(conditionnementLabelDefaults).map(key => ({
+        key,
+        input: document.getElementById(`conditionnement-${key.replaceAll('_', '-')}`),
+        output: document.getElementById(`conditionnement-${key.replaceAll('_', '-')}-value`)
+    })).filter(field => field.input && field.output);
+
+    const syncControls = () => {
+        fields.forEach(({ key, input, output }) => {
+            input.value = conditionnementLabelSettings[key];
+            output.textContent = `${conditionnementLabelSettings[key]} px`;
+        });
+    };
+
+    const close = () => {
+        modal.style.display = 'none';
+    };
+
+    const open = () => {
+        syncControls();
+        const sourceImage = currentData.length
+            ? document.getElementById('conditionnement-api-preview-image')
+            : document.getElementById('conditionnement-preview-image');
+        const sourceFrame = currentData.length
+            ? document.getElementById('conditionnement-api-preview-frame')
+            : document.getElementById('conditionnement-preview-frame');
+        const sourceEmpty = currentData.length
+            ? document.getElementById('conditionnement-api-preview-empty')
+            : document.getElementById('conditionnement-preview-empty');
+        const sourceVisible = Boolean(sourceImage && sourceImage.src && sourceImage.style.display !== 'none');
+        syncConditionnementSettingsPreview(
+            sourceVisible ? sourceImage.src : '',
+            sourceVisible,
+            sourceEmpty?.textContent || 'L\'aperçu apparaîtra ici.'
+        );
+        setConditionnementSettingsPreviewLoading(Boolean(sourceFrame?.classList.contains('is-loading')));
+        modal.style.display = 'flex';
+        lucide.createIcons();
+    };
+
+    fields.forEach(({ key, input, output }) => {
+        input.addEventListener('input', () => {
+            conditionnementLabelSettings[key] = parseInt(input.value, 10);
+            output.textContent = `${conditionnementLabelSettings[key]} px`;
+            refreshConditionnementPreview();
+        });
+    });
+
+    editButtons.forEach(button => button.addEventListener('click', open));
+    closeBtn.addEventListener('click', close);
+    doneBtn.addEventListener('click', close);
+    modal.addEventListener('click', event => {
+        if (event.target === modal) close();
+    });
+    resetBtn.addEventListener('click', () => {
+        conditionnementLabelSettings = { ...conditionnementLabelDefaults };
+        syncControls();
+        refreshConditionnementPreview();
+    });
+
+    saveBtn.addEventListener('click', async () => {
+        const original = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Enregistrement...';
+        lucide.createIcons();
+        try {
+            const response = await fetch('/api/label-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...conditionnementLabelProfileScope, ...conditionnementLabelSettings })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.detail || 'Impossible d’enregistrer les réglages.');
+            close();
+            Modal.alert('Réglages enregistrés', 'Les réglages Conditionnement seront réutilisés par les prochains opérateurs.', 'save', 'icon-success');
+        } catch (error) {
+            Modal.error('Enregistrement impossible', error.message);
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = original;
+            lucide.createIcons();
+        }
+    });
+
+    fetch(`/api/label-settings/${conditionnementLabelProfileScope.sector}/${conditionnementLabelProfileScope.tool}/${conditionnementLabelProfileScope.format}`)
+        .then(async response => {
+            if (!response.ok) throw new Error(`Erreur API (${response.status})`);
+            return response.json();
+        })
+        .then(saved => {
+            conditionnementLabelSettings = Object.fromEntries(
+                Object.keys(conditionnementLabelDefaults).map(key => [key, Number(saved[key] ?? conditionnementLabelDefaults[key])])
+            );
+            syncControls();
+            refreshConditionnementPreview();
+        })
+        .catch(error => console.warn('Réglages Conditionnement non chargés:', error));
 }
 
 function renderConditionnementQueue() {
@@ -674,6 +981,8 @@ function initConditionnementSection() {
     };
     customBtn.onclick = () => switchMethod('custom');
     erpBtn.onclick = () => switchMethod('erp');
+    switchMethod('erp');
+    initConditionnementLabelSettings();
 
     ['conditionnement-product', 'conditionnement-gtin', 'conditionnement-dlc', 'conditionnement-lot', 'conditionnement-qty'].forEach(id => {
         const input = document.getElementById(id);
@@ -703,7 +1012,7 @@ function initConditionnementSection() {
             const response = await fetch('/api/conditionnement/print', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: conditionnementQueue })
+                body: JSON.stringify({ items: conditionnementQueue, ...conditionnementLabelSettings })
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.detail || 'Erreur d’impression');
@@ -719,22 +1028,30 @@ function initConditionnementSection() {
     const erpInput = document.getElementById('conditionnement-api-order-number');
     const erpButton = document.getElementById('conditionnement-api-fetch-btn');
     const fetchConditionnementOrder = async () => {
-        const orderNumber = erpInput.value.trim();
-        if (!orderNumber) return Modal.error('Numéro manquant', 'Veuillez saisir un numéro de commande.');
+        const ofNumber = erpInput.value.trim();
+        if (!ofNumber) return Modal.error('Numéro manquant', "Veuillez saisir un numéro d'O.F.");
         const original = erpButton.innerHTML;
         erpButton.disabled = true;
         erpButton.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Recherche...';
         lucide.createIcons();
         try {
-            const response = await fetch(`/api/commande/${encodeURIComponent(orderNumber)}`);
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || `Erreur API (${response.status})`);
-            if (!data.length) throw new Error(`La commande ${orderNumber} est vide ou introuvable.`);
-            currentData = aggregateOrderData(data);
+            const response = await fetch(`/api/conditionnement/of/${encodeURIComponent(ofNumber)}`);
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.detail || `Erreur API (${response.status})`);
+            const data = Array.isArray(payload) ? payload : payload.items;
+            console.group(`[Conditionnement] Réponse brute BC — O.F. ${ofNumber}`);
+            console.info('En-tête manufacturingProductionOrders :', payload.raw?.productionOrders || []);
+            console.info('Lignes manufacturingProdOrderLines :', payload.raw?.productionOrderLines || []);
+            console.info('Écritures de production prodItemLedgerEntries :', payload.raw?.prodItemLedgerEntries || []);
+            console.groupEnd();
+            if (!Array.isArray(data) || !data.length) {
+                throw new Error(`L'O.F. ${ofNumber} est vide ou introuvable.`);
+            }
+            currentData = data;
             currentData.forEach(item => item._selected = true);
             displayEditSection();
         } catch (error) {
-            Modal.error('Import Business Central impossible', error.message);
+            Modal.error('Import O.F. Business Central impossible', error.message);
         } finally {
             erpButton.disabled = false;
             erpButton.innerHTML = original;
@@ -1976,8 +2293,13 @@ function aggregateOrderData(data) {
 
 function displayEditSection() {
     if (currentData.length === 0) return;
-    orderClient.innerHTML = `<i data-lucide="user"></i> Client : ${currentData[0].Client || 'Inconnu'}`;
-    orderId.innerHTML = `<i data-lucide="file-text"></i> Commande : ${currentData[0].Commande || 'Inconnue'}`;
+    const isConditionnement = currentSector === 'conditionnement';
+    orderClient.innerHTML = isConditionnement
+        ? `<i data-lucide="factory"></i> Secteur : Conditionnement`
+        : `<i data-lucide="user"></i> Client : ${currentData[0].Client || 'Inconnu'}`;
+    orderId.innerHTML = isConditionnement
+        ? `<i data-lucide="file-text"></i> O.F. : ${currentData[0].Commande || 'Inconnu'}`
+        : `<i data-lucide="file-text"></i> Commande : ${currentData[0].Commande || 'Inconnue'}`;
     
     productsTableBody.innerHTML = '';
     
@@ -1998,6 +2320,14 @@ function displayEditSection() {
         
         thQuantitePots.innerHTML = `<div style="display:flex; align-items:center; gap:5px; justify-content:flex-start;"><input type="checkbox" id="enable-pots" ${potsWasChecked ? 'checked' : ''} class="large-checkbox" title="Activer/Désactiver l'impression Pots x2"> <i data-lucide="box"></i> Qte Pots x2</div>`;
         thQuantitePots.style.display = '';
+    } else if (isConditionnement) {
+        thQuantite.innerHTML = '<i data-lucide="package" style="width:15px;height:15px;vertical-align:-2px;"></i> Qte Cartons';
+        thQuantite.style.backgroundColor = '#fff7ed';
+        thQuantite.style.color = '#9a3412';
+        thQuantitePots.innerHTML = '<i data-lucide="milk" style="width:15px;height:15px;vertical-align:-2px;"></i> Pots reçus (BC)';
+        thQuantitePots.style.display = '';
+        thQuantitePots.style.backgroundColor = '#fffbeb';
+        thQuantitePots.style.color = '#92400e';
     } else {
         thQuantite.textContent = 'Quantité';
         thQuantite.style.backgroundColor = '';
@@ -2010,14 +2340,28 @@ function displayEditSection() {
             item.QuantitePots = (parseInt(item.Quantite) || 0) * 6;
         }
         
-        let qteCartonCol = `<input type="number" value="${item.Quantite || 0}" style="${isLigne1 ? 'background-color: #eef2ff; border-color: #c7d2fe; font-weight: bold; color: #3730a3;' : ''}" oninput="updateRowData(${index}, 'Quantite', this.value)">`;
-        let extraCol = isLigne1 ? `<td style="background-color: #f0fdf4;"><input type="number" id="qte-pots-${index}" value="${item.QuantitePots || 0}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>` : '<td style="display:none;"></td>';
-        
-        const rawDLC = item.CodeBarre17 || item.DateLivraison || '';
+        const quantityStyle = isLigne1
+            ? 'background-color: #eef2ff; border-color: #c7d2fe; font-weight: bold; color: #3730a3;'
+            : isConditionnement
+                ? 'background-color: #fff7ed; border-color: #fed7aa; font-weight: bold; color: #9a3412;'
+                : '';
+        let qteCartonCol = isConditionnement
+            ? `<input type="number" id="qte-cartons-${index}" value="${item.Quantite || 0}" readonly title="Nombre de cartons calculé automatiquement à partir des pots" style="${quantityStyle}">`
+            : `<input type="number" value="${item.Quantite || 0}" style="${quantityStyle}" oninput="updateRowData(${index}, 'Quantite', this.value)">`;
+        let extraCol = isLigne1
+            ? `<td style="background-color: #f0fdf4;"><input type="number" id="qte-pots-${index}" value="${item.QuantitePots || 0}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>`
+            : isConditionnement
+                ? `<td style="background-color: #fffbeb;"><input type="number" id="qte-pots-${index}" value="${item.QuantitePots ?? 0}" min="0" step="1" title="Quantité de pots à imprimer" style="background-color: #fef3c7; border-color: #fde68a; font-weight: bold; color: #92400e;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>`
+                : '<td style="display:none;"></td>';
+
+        const rawDLC = item.CodeBarre17 || (isConditionnement ? '' : item.DateLivraison || '');
         let displayDLC = rawDLC;
         if (rawDLC && rawDLC.length === 6 && !rawDLC.includes('/')) {
             displayDLC = `${rawDLC.substring(4,6)}/${rawDLC.substring(2,4)}/20${rawDLC.substring(0,2)}`;
         }
+        const dlcLookupButton = isConditionnement
+            ? ''
+            : `<button type="button" class="btn btn-secondary" style="padding: 4px; margin: 0; min-height: 0; height: 32px;" onclick="openStockPicker(${index}, '${item.Libelle.replace(/'/g, "\\'")}')" title="Chercher un lot en stock"><i data-lucide="search" style="width:16px;height:16px;"></i></button>`;
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -2026,7 +2370,7 @@ function displayEditSection() {
             <td>
                 <div style="display:flex; align-items:center; gap: 5px;">
                     <input type="text" id="dlc-input-${index}" value="${displayDLC}" style="width: 120px;" onchange="updateDLC(${index}, this.value)">
-                    <button type="button" class="btn btn-secondary" style="padding: 4px; margin: 0; min-height: 0; height: 32px;" onclick="openStockPicker(${index}, '${item.Libelle.replace(/'/g, "\\'")}')" title="Chercher un lot en stock"><i data-lucide="search" style="width:16px;height:16px;"></i></button>
+                    ${dlcLookupButton}
                 </div>
             </td>
             <td><input type="text" id="lot-input-${index}" value="${item.Numlot || ''}" oninput="updateRowData(${index}, 'Numlot', this.value)"></td>
@@ -2042,11 +2386,17 @@ function displayEditSection() {
     uploadSection.style.display = 'none';
     if (conditionnementSection) conditionnementSection.style.display = 'none';
     editSection.style.display = 'block';
+    if (isConditionnement) {
+        updateConditionnementApiPreview();
+    } else {
+        const apiPreviewCard = document.getElementById('conditionnement-api-preview-card');
+        if (apiPreviewCard) apiPreviewCard.style.display = 'none';
+    }
     
     // Règle métier : la palettisation est inutile pour Gravigny (on la masque)
     const btnPalet = document.getElementById('btn-paletisation-order');
     if (btnPalet) {
-        if (currentSector === 'Gravigny') {
+        if (currentSector === 'Gravigny' || currentSector === 'conditionnement') {
             btnPalet.style.display = 'none';
         } else {
             btnPalet.style.display = 'inline-flex';
@@ -2074,13 +2424,25 @@ window.updateRowData = (index, field, value) => {
     if (field === 'Quantite' || field === 'QuantitePots') value = Math.ceil(parseFloat(value.toString().replace(',', '.'))) || 0;
     if (currentData[index]) {
         currentData[index][field] = value;
+        if (field === 'Numlot') currentData[index].CodeBarre10 = value;
+        if (field === 'QuantitePots' && currentSector === 'conditionnement') {
+            const newCartons = Math.ceil(value / 6);
+            currentData[index].Quantite = newCartons;
+            const potsInput = document.getElementById(`qte-pots-${index}`);
+            if (potsInput) potsInput.value = value;
+            const cartonsInput = document.getElementById(`qte-cartons-${index}`);
+            if (cartonsInput) cartonsInput.value = newCartons;
+        }
         if (field === 'Quantite') {
             const potsInput = document.getElementById(`qte-pots-${index}`);
-            if (potsInput) {
+            if (potsInput && currentSector !== 'conditionnement') {
                 const newPots = value * 6;
                 currentData[index]['QuantitePots'] = newPots;
                 potsInput.value = newPots;
             }
+        }
+        if (currentSector === 'conditionnement' && ['_selected', 'Numlot', 'CodeBarre17'].includes(field)) {
+            scheduleConditionnementApiPreview();
         }
     }
 };
@@ -2178,6 +2540,14 @@ cancelBtn.onclick = async () => {
 
 function closeEditSection() {
     editSection.style.display = 'none';
+    conditionnementApiPreviewRequestId += 1;
+    clearTimeout(conditionnementApiPreviewTimer);
+    const apiPreviewCard = document.getElementById('conditionnement-api-preview-card');
+    if (apiPreviewCard) apiPreviewCard.style.display = 'none';
+    if (conditionnementApiPreviewUrl) {
+        URL.revokeObjectURL(conditionnementApiPreviewUrl);
+        conditionnementApiPreviewUrl = null;
+    }
     if (currentSector === 'conditionnement') {
         if (conditionnementSection) conditionnementSection.style.display = 'block';
         uploadSection.style.display = 'none';
@@ -2385,6 +2755,20 @@ async function startConditionnementApiPrint(all = false) {
         return;
     }
 
+    const missingData = updatedData.find(item => {
+        const lot = String(item.CodeBarre10 || item.Numlot || '').replaceAll('/', '').trim();
+        const dlc = String(item.CodeBarre17 || '').trim();
+        const pots = parseFloat(item.QuantitePots);
+        return !lot || !dlc || !Number.isFinite(pots) || pots <= 0;
+    });
+    if (missingData) {
+        Modal.error(
+            'Impression bloquée',
+            'Impossible d’imprimer : chaque ligne doit contenir un lot, une DLC et un nombre de pots supérieur à zéro.'
+        );
+        return;
+    }
+
     const items = updatedData.map(item => {
         const lot = String(item.CodeBarre10 || item.Numlot || '').replaceAll('/', '');
         return {
@@ -2400,18 +2784,29 @@ async function startConditionnementApiPrint(all = false) {
         };
     });
     const total = items.reduce((sum, item) => sum + item.quantite, 0);
+    const totalPots = updatedData.reduce((sum, item) => sum + (parseFloat(item.QuantitePots) || 0), 0);
     if (!total) {
         Modal.error('Quantités invalides', 'Toutes les quantités importées sont nulles.');
         return;
     }
 
-    if (!await Modal.confirm('Lancer l’impression', `Vous allez imprimer ${total} étiquette(s) Conditionnement. Confirmez-vous ?`, 'printer', 'icon-info')) return;
+    const incomplete = items.find(item => !item.gtin || item.gtin.length !== 14 || !item.date_expiration || !item.lot);
+    if (incomplete) {
+        Modal.error(
+            'Données incomplètes',
+            'Chaque ligne doit contenir un GTIN, une DLC et un lot avant de lancer l’impression.'
+        );
+        return;
+    }
+
+    const potSummary = totalPots ? ` pour ${totalPots} pot(s) reçus de BC` : '';
+    if (!await Modal.confirm('Lancer l’impression', `Vous allez imprimer ${total} étiquette(s) carton${total > 1 ? 's' : ''}${potSummary}. Confirmez-vous ?`, 'printer', 'icon-info')) return;
 
     try {
         const response = await fetch('/api/conditionnement/print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items })
+            body: JSON.stringify({ items, ...conditionnementLabelSettings })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Erreur d’impression');
