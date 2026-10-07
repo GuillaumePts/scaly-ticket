@@ -874,6 +874,26 @@ class ZPLEngine:
                 with open(prn_path, "rb") as f:
                     # Lecture en latin-1 pour préserver les éventuels octets binaires du spooler Windows (\x1b...)
                     raw_prn = f.read().decode("latin-1")
+
+                # Les modèles NiceLabel historiques embarquent parfois un
+                # ancien GENCOD dans leurs commandes ^BEN. Le code BC reste
+                # prioritaire : on remplace uniquement la donnée du code-barres
+                # et on conserve le visuel graphique du modèle.
+                barcode_pattern = r"\^BY[^\r\n]*\^FT[^\r\n]*\^BEN[^\r\n]*\r?\n\^FH\\\^FD\d{8,14}\^FS"
+                if ean13:
+                    raw_prn = re.sub(
+                        r"(\^FH\\\^FD)\d{8,14}(\^FS)",
+                        lambda match: f"{match.group(1)}{ean13}{match.group(2)}",
+                        raw_prn,
+                    )
+                    # Cas spécial Figue : son modèle utilise un QR Digital Link.
+                    raw_prn = re.sub(
+                        r"(qrrelai\.fr/01/0)\d{12,14}",
+                        lambda match: f"{match.group(1)}{ean13}",
+                        raw_prn,
+                    )
+                else:
+                    raw_prn = re.sub(barcode_pattern, "", raw_prn)
                 # Remplacer la quantité ^PQ1 (ou autre) par la quantité désirée
                 flux = re.sub(r'\^PQ\d+', f'^PQ{quantity}', raw_prn)
                 return flux
@@ -883,16 +903,118 @@ class ZPLEngine:
 
         # Normalisation propre pour le texte classique
         nom_clean = unicodedata.normalize('NFD', nom).encode('ascii', 'ignore').decode('utf-8')
+        barcode_block = ""
+        if ean13:
+            barcode_block = f"""^BY2,2,56^FT122,106^BEN,,Y,N^FD{ean13}^FS
+^BY2,2,56^FT565,106^BEN,,Y,N^FD{ean13}^FS
+"""
         zpl = f"""^XA
 ^CI28
 ^FO92,16^A0N,25,25^FD{nom_clean}^FS
-^BY2,2,56^FT122,106^BEN,,Y,N^FD{ean13}^FS
 ^FO540,16^A0N,25,25^FD{nom_clean}^FS
-^BY2,2,56^FT565,106^BEN,,Y,N^FD{ean13}^FS
-^PQ{quantity},0,1,Y
+{barcode_block}^PQ{quantity},0,1,Y
 ^XZ
 """
         return zpl
+
+    def generate_zebra_203_order_preview_png(self, nom: str, gencod: str) -> bytes:
+        """Génère un aperçu visuel du rendu Zebra 203 dpi utilisé pour les pots x2.
+
+        Le flux d'impression 203 dpi est du ZPL natif envoyé à la Zebra. Cette
+        méthode reproduit sa structure sur une image : deux emplacements,
+        libellé en tête et GENCOD sous forme de Code 128 dans chaque emplacement.
+        Elle ne communique jamais avec l'imprimante.
+        """
+        import base64
+        import unicodedata
+        import zlib
+
+        canvas_w, canvas_h = 896, 224
+        slot_w = canvas_w // 2
+        image = Image.new('1', (canvas_w, canvas_h), color=1)
+        draw = ImageDraw.Draw(image)
+
+        try:
+            font_title = ImageFont.truetype("DejaVuSans.ttf", 25)
+        except IOError:
+            font_title = ImageFont.load_default()
+
+        title = unicodedata.normalize('NFD', str(nom or '')).encode('ascii', 'ignore').decode('ascii')
+
+        # Les anciens modèles RGF contiennent leur libellé graphique dans un
+        # bloc ^GFA. On le reprend pour que l'aperçu reste proche du .prn
+        # réellement utilisé à l'impression.
+        template_has_graphics = False
+        if "RGF" in str(nom or '').upper():
+            prn_name = str(nom).upper().replace("RGF", "").strip().lower() + ".prn"
+            prn_path = Path(__file__).resolve().parents[1] / "fichierprn" / prn_name
+            if prn_path.exists():
+                raw_prn = prn_path.read_bytes()
+                graphic_pattern = rb"\^FO(\d+),(\d+)\^GFA,(\d+),(\d+),(\d+),:Z64:(.*?)\^FS"
+                for match in re.finditer(graphic_pattern, raw_prn, re.DOTALL):
+                    try:
+                        x = int(match.group(1))
+                        y = int(match.group(2))
+                        uncompressed_size = int(match.group(4))
+                        row_bytes = int(match.group(5))
+                        encoded = match.group(6).replace(b'\r', b'').replace(b'\n', b'')
+                        if encoded[-4:].isalnum():
+                            encoded = encoded[:-4]
+                        pixels = zlib.decompress(base64.b64decode(encoded))
+                        graphic = Image.frombytes(
+                            '1', (row_bytes * 8, uncompressed_size // row_bytes),
+                            bytes(~value & 255 for value in pixels),
+                        )
+                        image.paste(graphic, (x, y))
+                        template_has_graphics = True
+                    except Exception:
+                        # Un aperçu texte reste préférable à une modale vide
+                        # si un vieux modèle PRN est partiellement illisible.
+                        continue
+
+        def draw_centered_text(text: str, center_x: int, y: int):
+            try:
+                bbox = draw.textbbox((0, 0), text, font=font_title)
+                width = bbox[2] - bbox[0]
+            except AttributeError:
+                width, _ = draw.textsize(text, font=font_title)
+            draw.text((center_x - width // 2, y), text, fill=0, font=font_title)
+
+        barcode_image = None
+        if str(gencod or '').strip():
+            stream = io.BytesIO()
+            code128 = barcode.get('code128', str(gencod).strip(), writer=ImageWriter())
+            code128.write(stream, options={
+                'dpi': 203,
+                'module_width': 0.25,
+                'module_height': 7.0,
+                'quiet_zone': 1.0,
+                'write_text': True,
+                'font_size': 10,
+                'text_distance': 2,
+            })
+            stream.seek(0)
+            barcode_image = Image.open(stream).convert('1')
+            max_width = slot_w - 48
+            max_height = 105
+            if barcode_image.width > max_width or barcode_image.height > max_height:
+                ratio = min(max_width / barcode_image.width, max_height / barcode_image.height)
+                barcode_image = barcode_image.resize(
+                    (max(1, int(barcode_image.width * ratio)), max(1, int(barcode_image.height * ratio))),
+                    Image.Resampling.LANCZOS,
+                )
+
+        for slot in range(2):
+            center_x = slot * slot_w + slot_w // 2
+            if not template_has_graphics:
+                draw_centered_text(title, center_x, 16)
+            if barcode_image:
+                x = slot * slot_w + (slot_w - barcode_image.width) // 2
+                image.paste(barcode_image, (x, 70))
+
+        stream = io.BytesIO()
+        image.save(stream, format="PNG")
+        return stream.getvalue()
 
     def generate_zebra_1up_preview_png(self, data: TicketData, styling: dict = None) -> bytes:
         """Génère l'aperçu PNG de l'étiquette Zebra 1-up pour la calibration visuelle."""

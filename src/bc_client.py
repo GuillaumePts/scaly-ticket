@@ -437,10 +437,16 @@ class BusinessCentralClient:
         # 3. Récupérer la table des lots en stock (ItemLedgerEntries) via GET avec filtre STRICT
         stock_lots = self._fetch_stock_lots(tenant_id, env, comp.get("name", company_name), token, item_nos=order_item_nos)
 
-        # 4. Charger la liste des parfums locale pour le GTIN / CodeBarre01
-        from src.config import db
-        from src.main import find_ean13_for_libelle
-        parfums_list = db.get_parfums()
+        # 4. Récupérer les références article BC pour les codes d'étiquette.
+        #    Le service OData est lu en une seule fois pour tous les articles
+        #    de la commande. Aucune référence locale n'est utilisée ici.
+        item_references = self._fetch_item_references(
+            tenant_id,
+            env,
+            comp.get("displayName", company_name),
+            token,
+            item_nos=order_item_nos,
+        )
         
         # 4b. Calculer la date de DLC minimale (strictement >= Date du jour)
         from datetime import datetime
@@ -455,16 +461,24 @@ class BusinessCentralClient:
             if qty <= 0 or not libelle:
                 continue
 
-            # A. Résolution du CodeBarre01 (GTIN carton 14 chiffres)
-            match = find_ean13_for_libelle(libelle, parfums_list)
-            # On cherche le gtin14, sinon fallback sur ean13
-            code_barre_01 = ""
-            if match:
-                code_barre_01 = match.get('gtin14') or match.get('ean13', '')
+            # A. Résolution des références selon l'article et l'unité de la ligne.
+            #    EAN14 sert aux étiquettes carton (300 dpi), GENCOD aux pots (203 dpi).
+            item_no = line.get("lineObjectNumber", line.get("number", ""))
+            unit_of_measure = (line.get("unitOfMeasureCode") or "").strip()
+            code_barre_01 = self._find_item_reference(
+                item_references, item_no, unit_of_measure, "EAN14"
+            )
+            gencod = self._find_item_reference(
+                item_references, item_no, unit_of_measure, "GENCOD"
+            )
+            if not code_barre_01:
+                logger.warning(
+                    "Aucun EAN14 BC pour l'article %s avec l'unité %s",
+                    item_no,
+                    unit_of_measure or "(vide)",
+                )
 
             # B. Recherche du vrai numéro de lot et DLC dans la table BC
-            item_no = line.get("lineObjectNumber", line.get("number", ""))
-            
             candidates = self._get_all_lots_for_libelle(libelle, stock_lots, min_dlc_date, item_no=item_no)
             available_lots = []
             
@@ -517,7 +531,9 @@ class BusinessCentralClient:
                 "Libelle": libelle,
                 "DateLivraison": delivery_date,
                 "Item_No": item_no,
+                "UnitOfMeasureCode": unit_of_measure,
                 "CodeBarre01": code_barre_01,
+                "GENCOD": gencod,
                 "CodeBarre17": code_barre_17,
                 "CodeBarre10": code_barre_10,
                 "Numlot": num_lot_text,
@@ -530,6 +546,70 @@ class BusinessCentralClient:
             results[0]["_raw_bc_order"] = order
 
         return results
+
+    def _fetch_item_references(
+        self,
+        tenant_id: str,
+        env: str,
+        company_name: str,
+        token: str,
+        item_nos: list[str] | None = None,
+    ) -> list[dict]:
+        """Récupère les références article via le service OData BC en lecture seule."""
+        item_nos = sorted({str(item_no).strip() for item_no in (item_nos or []) if str(item_no).strip()})
+        if not item_nos:
+            return []
+
+        filters = " or ".join(
+            f"Item_No eq '{item_no.replace(chr(39), chr(39) * 2)}'"
+            for item_no in item_nos
+        )
+        company = urllib.parse.quote(company_name, safe="")
+        base_url = (
+            f"https://api.businesscentral.dynamics.com/v2.0/{tenant_id}/{env}"
+            f"/ODataV4/Company('{company}')/ScalyItemReferences"
+        )
+        query = urllib.parse.urlencode({"$filter": filters, "$top": "1000", "$format": "json"})
+        url = f"{base_url}?{query}"
+        req = urllib.request.Request(url, method="GET", headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return json.loads(resp.read().decode("utf-8")).get("value", [])
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="replace")
+            logger.error("Erreur GET OData références article (%s): %s", e.code, error_body)
+            raise Exception(
+                f"Impossible de récupérer les références article BC ({e.code}). "
+                "Vérifiez le service OData ScalyItemReferences et ses permissions de lecture."
+            ) from e
+        except Exception as e:
+            logger.error("Erreur GET OData références article: %s", e)
+            raise Exception("Impossible de joindre le service OData des références article BC.") from e
+
+    @staticmethod
+    def _find_item_reference(
+        references: list[dict],
+        item_no: str,
+        unit_of_measure: str,
+        reference_type_no: str,
+    ) -> str:
+        """Sélectionne une référence BC par article, unité et type (EAN14/GENCOD)."""
+        item_no = (item_no or "").strip().upper()
+        unit_of_measure = (unit_of_measure or "").strip().upper()
+        reference_type_no = (reference_type_no or "").strip().upper()
+
+        matches = [
+            ref for ref in references
+            if str(ref.get("Item_No", "")).strip().upper() == item_no
+            and str(ref.get("Unit_of_Measure", "")).strip().upper() == unit_of_measure
+            and str(ref.get("Reference_Type", "")).strip().upper() == "BAR CODE"
+            and str(ref.get("Reference_Type_No", "")).strip().upper() == reference_type_no
+        ]
+        return str(matches[0].get("Reference_No", "")).strip() if matches else ""
 
     def _fetch_stock_lots(self, tenant_id: str, env: str, company_name: str, token: str, item_nos: list = None) -> list:
         """Récupère en lecture seule (GET) les écritures de lots réelles de Business Central."""

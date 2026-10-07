@@ -680,6 +680,49 @@
                 </div>
             </section>
 
+            <!-- Aperçu des étiquettes d'une commande importée depuis BC -->
+            <div id="api-order-label-preview-modal" class="modal-overlay" style="display: none;">
+                <div class="modal-content api-order-label-preview-modal-content">
+                    <div class="api-order-label-preview-header">
+                        <div>
+                            <span class="api-order-label-preview-kicker"><i data-lucide="scan-eye"></i> Prévisualisation sans impression</span>
+                            <h3 id="api-order-label-preview-title">Aperçu du produit</h3>
+                            <p id="api-order-label-preview-meta">Données importées depuis Business Central</p>
+                        </div>
+                        <button type="button" id="api-order-label-preview-close" class="btn-icon" aria-label="Fermer"><i data-lucide="x"></i></button>
+                    </div>
+
+                    <div class="api-order-label-preview-grid">
+                        <section class="api-order-label-preview-card">
+                            <div class="api-order-label-preview-card-heading">
+                                <span class="api-order-label-preview-dot api-order-label-preview-dot-carton"></span>
+                                <div><strong>Zebra 300 dpi</strong><small>Étiquette carton · EAN14 / GS1</small></div>
+                            </div>
+                            <div class="api-order-label-preview-frame">
+                                <img id="api-order-label-preview-300" alt="Prévisualisation étiquette Zebra 300 dpi">
+                                <span class="api-order-label-preview-loading" id="api-order-label-preview-300-loading">Chargement de l'aperçu…</span>
+                            </div>
+                        </section>
+
+                        <section class="api-order-label-preview-card">
+                            <div class="api-order-label-preview-card-heading">
+                                <span class="api-order-label-preview-dot api-order-label-preview-dot-pots"></span>
+                                <div><strong>Zebra 203 dpi</strong><small>Étiquette pots x2 · GENCOD</small></div>
+                            </div>
+                            <div class="api-order-label-preview-frame api-order-label-preview-frame-203">
+                                <img id="api-order-label-preview-203" alt="Prévisualisation étiquette Zebra 203 dpi">
+                                <span class="api-order-label-preview-loading" id="api-order-label-preview-203-loading">Chargement de l'aperçu…</span>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="api-order-label-preview-footer">
+                        <span><i data-lucide="info"></i> Cet aperçu ne lance aucune impression et n'interroge pas Business Central.</span>
+                        <button type="button" id="api-order-label-preview-close-bottom" class="btn-secondary">Fermer</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- En cours d'impression -->
             <section id="progress-container" class="step-section" style="display: none;">
                 <div class="progress-header">

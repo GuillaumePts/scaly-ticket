@@ -90,7 +90,92 @@ const printBtn = document.getElementById('print-btn');
 
 const cancelBtn = document.getElementById('cancel-btn');
 
+const apiOrderLabelPreviewModal = document.getElementById('api-order-label-preview-modal');
+const apiOrderLabelPreviewClose = document.getElementById('api-order-label-preview-close');
+const apiOrderLabelPreviewCloseBottom = document.getElementById('api-order-label-preview-close-bottom');
+let apiOrderLabelPreviewRequestId = 0;
+const apiOrderLabelPreviewUrls = { 203: null, 300: null };
+
+function closeApiOrderLabelPreview() {
+    apiOrderLabelPreviewRequestId += 1;
+    if (apiOrderLabelPreviewModal) apiOrderLabelPreviewModal.style.display = 'none';
+    [203, 300].forEach(dpi => {
+        if (apiOrderLabelPreviewUrls[dpi]) {
+            URL.revokeObjectURL(apiOrderLabelPreviewUrls[dpi]);
+            apiOrderLabelPreviewUrls[dpi] = null;
+        }
+    });
+}
+
+async function loadApiOrderLabelPreview(dpi, ticket, requestId) {
+    const image = document.getElementById(`api-order-label-preview-${dpi}`);
+    const loading = document.getElementById(`api-order-label-preview-${dpi}-loading`);
+    if (!image || !loading) return;
+
+    image.style.display = 'none';
+    loading.textContent = 'Chargement de l’aperçu…';
+    loading.style.display = 'inline';
+
+    try {
+        const response = await fetch(`/api/commande/preview/${dpi}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticket })
+        });
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.detail || `Erreur d’aperçu (${response.status})`);
+        }
+
+        const blob = await response.blob();
+        if (requestId !== apiOrderLabelPreviewRequestId) return;
+        const url = URL.createObjectURL(blob);
+        if (apiOrderLabelPreviewUrls[dpi]) URL.revokeObjectURL(apiOrderLabelPreviewUrls[dpi]);
+        apiOrderLabelPreviewUrls[dpi] = url;
+        image.onload = () => {
+            if (requestId !== apiOrderLabelPreviewRequestId) return;
+            loading.style.display = 'none';
+            image.style.display = 'block';
+        };
+        image.src = url;
+    } catch (error) {
+        if (requestId !== apiOrderLabelPreviewRequestId) return;
+        loading.textContent = `Aperçu indisponible : ${error.message}`;
+        loading.style.display = 'inline';
+    }
+}
+
+window.openApiOrderLabelPreview = (index) => {
+    const item = currentData[index];
+    if (!item || !apiOrderLabelPreviewModal) return;
+
+    const requestId = ++apiOrderLabelPreviewRequestId;
+    const title = document.getElementById('api-order-label-preview-title');
+    const meta = document.getElementById('api-order-label-preview-meta');
+    const ean14 = item.CodeBarre01 || 'non renseigné';
+    const gencod = item.GENCOD || item.gencod || 'non renseigné';
+    const unit = item.UnitOfMeasureCode || 'unité non renseignée';
+    if (title) title.textContent = item.Libelle || 'Produit importé';
+    if (meta) meta.textContent = `Unité : ${unit} · EAN14 : ${ean14} · GENCOD : ${gencod}`;
+    apiOrderLabelPreviewModal.style.display = 'flex';
+    lucide.createIcons();
+
+    // Les deux aperçus sont indépendants : une absence de GENCOD ne bloque
+    // pas l'aperçu carton 300 dpi.
+    loadApiOrderLabelPreview(300, item, requestId);
+    loadApiOrderLabelPreview(203, item, requestId);
+};
+
+if (apiOrderLabelPreviewClose) apiOrderLabelPreviewClose.onclick = closeApiOrderLabelPreview;
+if (apiOrderLabelPreviewCloseBottom) apiOrderLabelPreviewCloseBottom.onclick = closeApiOrderLabelPreview;
+if (apiOrderLabelPreviewModal) {
+    apiOrderLabelPreviewModal.addEventListener('click', event => {
+        if (event.target === apiOrderLabelPreviewModal) closeApiOrderLabelPreview();
+    });
+}
+
 let currentData = [];
+let currentDataSource = null;
 let pollingInterval = null;
 let isPrinterReady = false;
 let isPrinting = false;
@@ -146,6 +231,7 @@ function activateSector(sector, saveState = true) {
     
     fileInput.value = '';
     currentData = [];
+    currentDataSource = null;
     editSection.style.display = 'none';
     progressContainer.style.display = 'none';
     hubSectorChoice.style.display = 'none';
@@ -341,6 +427,7 @@ function activateDedicatedTool(tool, sector) {
     document.body.classList.toggle('dedicated-tool-ligne1-prepa', isLigne1Prepa);
     currentSector = sector;
     currentData = [];
+    currentDataSource = null;
     isPrinting = false;
     hubSectorChoice.style.display = 'none';
     hubToolsChoice.style.display = 'none';
@@ -1048,6 +1135,7 @@ function initConditionnementSection() {
                 throw new Error(`L'O.F. ${ofNumber} est vide ou introuvable.`);
             }
             currentData = data;
+            currentDataSource = 'conditionnement-business-central';
             currentData.forEach(item => item._selected = true);
             displayEditSection();
         } catch (error) {
@@ -2150,6 +2238,7 @@ if (apiFetchBtn) {
                     const aggregated = aggregateOrderData(data);
                     aggregated.forEach(item => item._selected = true);
                     currentData = aggregated;
+                    currentDataSource = 'business-central';
                     displayEditSection();
                 }
             } else if (res.status === 403) {
@@ -2183,6 +2272,7 @@ function handleFile(file) {
         let text = e.target.result;
         text = text.replace(/^\uFEFF/, '');
         currentData = parseCSV(text);
+        currentDataSource = 'file';
         if (currentData.length > 0) {
             displayEditSection();
         } else {
@@ -2291,9 +2381,16 @@ function aggregateOrderData(data) {
     return aggregated;
 }
 
+productsTableBody.addEventListener('click', event => {
+    const trigger = event.target.closest('.api-preview-product');
+    if (!trigger) return;
+    window.openApiOrderLabelPreview(Number(trigger.dataset.index));
+});
+
 function displayEditSection() {
     if (currentData.length === 0) return;
     const isConditionnement = currentSector === 'conditionnement';
+    const showApiLabelPreview = currentDataSource === 'business-central' && currentSector === 'prepa_commande';
     orderClient.innerHTML = isConditionnement
         ? `<i data-lucide="factory"></i> Secteur : Conditionnement`
         : `<i data-lucide="user"></i> Client : ${currentData[0].Client || 'Inconnu'}`;
@@ -2366,7 +2463,7 @@ function displayEditSection() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><input type="checkbox" class="row-select large-checkbox" ${item._selected ? 'checked' : ''} oninput="updateRowData(${index}, '_selected', this.checked)"></td>
-            <td><strong>${item.Libelle}</strong></td>
+            <td data-product-preview-cell></td>
             <td>
                 <div style="display:flex; align-items:center; gap: 5px;">
                     <input type="text" id="dlc-input-${index}" value="${displayDLC}" style="width: 120px;" onchange="updateDLC(${index}, this.value)">
@@ -2378,6 +2475,18 @@ function displayEditSection() {
             ${extraCol}
             <td><button class="btn-remove" onclick="removeLine(${index})" title="Retirer cette ligne"><i data-lucide="trash-2"></i></button></td>
         `;
+        const productCell = tr.querySelector('[data-product-preview-cell]');
+        if (productCell) {
+            const productLabel = document.createElement(showApiLabelPreview ? 'button' : 'strong');
+            productLabel.textContent = item.Libelle || 'Produit sans libellé';
+            if (showApiLabelPreview) {
+                productLabel.type = 'button';
+                productLabel.className = 'api-preview-product';
+                productLabel.dataset.index = String(index);
+                productLabel.title = 'Voir les aperçus des étiquettes 300 dpi et 203 dpi';
+            }
+            productCell.appendChild(productLabel);
+        }
         productsTableBody.appendChild(tr);
     });
     
@@ -2556,6 +2665,7 @@ function closeEditSection() {
     }
     fileInput.value = '';
     currentData = [];
+    currentDataSource = null;
     isPrinting = false;
     step3.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

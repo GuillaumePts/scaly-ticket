@@ -284,6 +284,21 @@ class DatabaseManager:
             row = cursor.fetchone()
             return dict(row) if row else None
 
+    def get_parfum_by_gencod(self, gencod: str) -> Dict:
+        """Retrouve un libellé local par GENCOD exact, sans rapprochement approximatif."""
+        code = str(gencod or "").strip()
+        if not code:
+            return None
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM parfums WHERE ean13=? LIMIT 1", (code,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_parfum_by_ean13(self, ean13: str) -> Dict:
+        """Compatibilité avec l'ancien nom de colonne utilisé par l'application."""
+        return self.get_parfum_by_gencod(ean13)
+
     def add_parfum(self, nom: str, ean13: str, nom_impression: str = None) -> Dict:
         new_id = str(uuid.uuid4())
         if nom_impression is None:

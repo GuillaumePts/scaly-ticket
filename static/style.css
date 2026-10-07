@@ -825,6 +825,166 @@ td {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
+/* Prévisualisation côte à côte des deux formats Zebra d'une commande BC. */
+.api-order-label-preview-modal-content {
+    max-width: 1180px;
+    width: min(94vw, 1180px);
+    padding: 30px;
+    text-align: left;
+}
+
+.api-order-label-preview-header,
+.api-order-label-preview-footer,
+.api-order-label-preview-card-heading {
+    display: flex;
+    align-items: center;
+}
+
+.api-order-label-preview-header {
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.api-order-label-preview-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.api-order-label-preview-kicker svg { width: 16px; height: 16px; }
+
+.api-order-label-preview-header h3 {
+    margin: 8px 0 4px;
+    color: #0f172a;
+    font-size: 25px;
+}
+
+.api-order-label-preview-header p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.api-order-label-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+    padding: 24px 0;
+}
+
+.api-order-label-preview-card {
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #f8fafc;
+}
+
+.api-order-label-preview-card-heading {
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.api-order-label-preview-card-heading strong,
+.api-order-label-preview-card-heading small {
+    display: block;
+}
+
+.api-order-label-preview-card-heading strong { color: #0f172a; font-size: 16px; }
+.api-order-label-preview-card-heading small { margin-top: 3px; color: #64748b; font-size: 13px; }
+
+.api-order-label-preview-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.api-order-label-preview-dot-carton { background: #f59e0b; box-shadow: 0 0 0 5px #fef3c7; }
+.api-order-label-preview-dot-pots { background: #2563eb; box-shadow: 0 0 0 5px #dbeafe; }
+
+.api-order-label-preview-frame {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 265px;
+    padding: 18px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    background: repeating-linear-gradient(135deg, #fff, #fff 8px, #f8fafc 8px, #f8fafc 16px);
+}
+
+.api-order-label-preview-frame img {
+    display: none;
+    width: 100%;
+    height: auto;
+    max-height: 330px;
+    object-fit: contain;
+    image-rendering: auto;
+    filter: drop-shadow(0 8px 14px rgba(15, 23, 42, .14));
+}
+
+.api-order-label-preview-frame-203 img { max-height: 220px; }
+
+.api-order-label-preview-loading {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.api-order-label-preview-footer {
+    justify-content: space-between;
+    gap: 20px;
+    padding-top: 18px;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.api-order-label-preview-footer > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.api-order-label-preview-footer svg { width: 15px; height: 15px; color: #2563eb; }
+
+.api-preview-product {
+    display: inline;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px dashed #64748b;
+    background: transparent;
+    color: #0f172a;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+    transition: color .18s ease, border-color .18s ease;
+}
+
+.api-preview-product:hover,
+.api-preview-product:focus-visible {
+    color: #2563eb;
+    border-color: #2563eb;
+    outline: none;
+}
+
+@media (max-width: 820px) {
+    .api-order-label-preview-modal-content { padding: 22px; }
+    .api-order-label-preview-grid { grid-template-columns: 1fr; }
+    .api-order-label-preview-footer { align-items: flex-start; flex-direction: column; }
+}
+
 .modal-content.large {
     max-width: 100%;
     text-align: left;
@@ -5261,6 +5421,7 @@ body.dedicated-tool-page.dedicated-tool-conditionnement #conditionnement-api-pre
 body.dedicated-tool-page.dedicated-tool-conditionnement .conditionnement-api-preview-heading {
     display: flex;
     align-items: flex-start;
+    flex-direction: column;
     gap: 12px;
     min-width: 0;
 }

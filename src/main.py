@@ -156,6 +156,31 @@ class PrintJobRequest(BaseModel):
     items: List[TicketData]
 
 
+def resolve_zebra_203_label(ticket: TicketData) -> tuple[str, str]:
+    """Résout le libellé 203 dpi sans jamais remplacer le GENCOD BC.
+
+    Le GENCOD reste celui fourni par OData BC. SQLite sert uniquement de
+    dictionnaire local historique pour retrouver le libellé NiceLabel exact.
+    """
+    gencod = (ticket.gencod or "").strip()
+    label = ticket.libelle
+    if gencod:
+        local_label = db.get_parfum_by_gencod(gencod)
+        if local_label:
+            label = local_label.get("nom") or label
+        else:
+            logger.warning(
+                "GENCOD %s absent de la base locale des libellés; utilisation du libellé BC: %s",
+                gencod,
+                ticket.libelle,
+            )
+    return label, gencod
+
+
+class OrderLabelPreviewRequest(BaseModel):
+    ticket: TicketData
+
+
 class ConditionnementPrintRequest(BaseModel):
     """Job dédié au conditionnement : une étiquette Zebra 300 dpi par ligne."""
     items: List[TicketData]
@@ -945,17 +970,16 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
                     remaining -= chunk_qty
             else:
                 if request.printer_dpi == 203:
-                    # Zebra Pots x2 (203 DPI) - Format 2-up avec code-barre EAN13
-                    parfums_list = db.get_parfums() # use standard parfums list
-                    match = find_ean13_for_libelle(ticket.libelle, parfums_list)
-                    nom_match = match.get('nom', ticket.libelle) if match else ticket.libelle
-                    ean13 = match.get('ean13', '0000000000000') if match else '0000000000000'
+                    # Zebra Pots x2 (203 DPI) - le GENCOD vient de BC/OData.
+                    # L'absence de GENCOD est valide pour certains clients :
+                    # le moteur imprimera alors le libellé sans faux code-barres.
+                    nom_match, gencod = resolve_zebra_203_label(ticket)
                     
                     # Le nb_rows correspond aux étiquettes unitaires. Vu que c'est du 2-up, on divise par 2.
                     # Ex: 1080 pots -> 1080 étiquettes unitaires -> 540 lignes imprimées
                     rows_to_print = (nb_rows + 1) // 2
                     if rows_to_print > 0:
-                        flux = engine.generate_ticket_zebra_203_pots(nom_match, ean13, quantity=rows_to_print)
+                        flux = engine.generate_ticket_zebra_203_pots(nom_match, gencod, quantity=rows_to_print)
                         full_flux += flux
                 else:
                     # Zebra Carton (300 DPI) - Format 1-up GS1-128
@@ -1109,6 +1133,27 @@ async def preview_zebra_1up(
     except Exception as e:
         logger.error(f"Erreur preview Zebra: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/commande/preview/{dpi}")
+async def preview_order_label(dpi: int, request: OrderLabelPreviewRequest):
+    """Prévisualise une étiquette de commande sans envoyer de travail d'impression."""
+    try:
+        if dpi == 300:
+            engine = ZPLEngine(dpi=300)
+            image = engine.generate_zebra_1up_preview_png(request.ticket)
+        elif dpi == 203:
+            engine = ZPLEngine(dpi=203)
+            label, gencod = resolve_zebra_203_label(request.ticket)
+            image = engine.generate_zebra_203_order_preview_png(label, gencod)
+        else:
+            raise HTTPException(status_code=400, detail="Résolution d'aperçu non supportée.")
+        return Response(content=image, media_type="image/png")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Erreur aperçu étiquette commande %s dpi: %s", dpi, e)
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/preview-3up")
 async def preview_3up(

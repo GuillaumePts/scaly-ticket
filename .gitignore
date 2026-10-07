@@ -8,3 +8,6 @@ dist/
 
 # Bundles/exécutables importés localement, jamais nécessaires au code source
 ScalyTicket/
+
+# Source de l'extension Absys téléchargée uniquement pour audit local
+warning/ACN FDP_Absys Cyborg_1.0.0.46/
