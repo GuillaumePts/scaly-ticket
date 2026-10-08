@@ -7,13 +7,15 @@
     let selected = null;
     let productIndex = null;
     let productProfile = null;
+    let blockedCategories = new Set();
     let sequence = 0;
     let timer = null;
     let latestDraft = null;
     const urls = new Map();
     const categoryTimers = new Map();
     const categorySequences = new Map();
-    const categories = ['ENTIER', 'GELIFIE', 'PARRAFINE', 'BRASSE', 'MAIGRE', 'DESSERT', 'FF'];
+    const categories = ['ENTIER', 'GELIFIE', 'PARAFFINÉ', 'BRASSE', 'MAIGRE', 'DESSERT', 'FF'];
+    const canonicalCategory = category => String(category || '').trim().toUpperCase() === 'PARRAFINE' ? 'PARAFFINÉ' : String(category || '').trim().toUpperCase();
     const defaultRule = category => ({ category, template_300: '${description}', template_203: '${description}', enabled: true });
     const identity = item => ({ CustomerId: item.CustomerId || '', CustomerNumber: item.CustomerNumber || '', Client: item.Client || '' });
     const flavourWords = ['vanille', 'abricot', 'fraise', 'framboise', 'myrtille', 'nature', 'citron', 'amande', 'chocolat', 'caramel', 'café', 'figue', 'poire', 'cerise', 'noisette', 'miel', 'pêche', 'marron', 'mandarine', 'griotte', 'litchi'];
@@ -253,7 +255,7 @@
                 template_203: templateFromInput(byId('ligne1-template-203'), byId('ligne1-template-203').dataset.sourceTemplate, item, flavours), enabled: true });
             await api(`profiles/${productProfile.id}`, {
                 revision: productProfile.revision, display_name: productProfile.display_name, active: productProfile.active,
-                identity: identity(item), rules,
+                identity: identity(item), rules, blocked_categories: productProfile.blocked_categories || [],
                 flavour: { item_no: item.Item_No, value: byId('ligne1-flavour').value, revision: item.ParfumRevision || 0 }
             }, 'PUT');
             await refresh();
@@ -265,7 +267,7 @@
     };
 
     function readRule(card) {
-        const category = card.dataset.category;
+        const category = canonicalCategory(card.dataset.category);
         const sample = sampleFor(category);
         const flavours = currentData.filter(row => row.ItemCategoryCode === category).map(row => row.Parfum);
         const input300 = card.querySelector('[data-template="300"]');
@@ -304,12 +306,14 @@
 
     function addRule(rule) {
         const container = byId('ligne1-profile-rules');
-        if ([...container.children].some(card => card.dataset.category === rule.category)) return;
-        const card = document.createElement('section'); card.className = 'ligne1-category-rule'; card.dataset.category = rule.category;
-        card.innerHTML = '<div class="ligne1-category-heading"><strong></strong><label><input type="checkbox" data-rule-active> Catégorie active</label></div><div class="ligne1-fields"><label>Texte de l’étiquette carton<input data-template="300" maxlength="500"></label><label>Texte des étiquettes pots<input data-template="203" maxlength="500"></label></div><div class="ligne1-category-previews"><button type="button" class="btn-secondary" data-dpi="300">Aperçu carton</button><button type="button" class="btn-secondary" data-dpi="203">Aperçu pots</button></div><div class="ligne1-small-previews"><img data-preview="300" hidden alt="Aperçu carton"><img data-preview="203" hidden alt="Aperçu pots"></div><p data-preview-message class="ligne1-warning"></p>';
-        card.querySelector('strong').textContent = rule.category;
+        const category = canonicalCategory(rule.category);
+        if ([...container.children].some(card => card.dataset.category === category)) return;
+        const card = document.createElement('section'); card.className = 'ligne1-category-rule'; card.dataset.category = category;
+        card.innerHTML = '<div class="ligne1-category-heading"><strong></strong><div class="ligne1-category-options"><label><input type="checkbox" data-print-enabled> Inclure à l’impression</label><label><input type="checkbox" data-rule-active> Libellé personnalisé</label></div></div><div class="ligne1-fields"><label>Texte de l’étiquette carton<input data-template="300" maxlength="500"></label><label>Texte des étiquettes pots<input data-template="203" maxlength="500"></label></div><div class="ligne1-category-previews"><button type="button" class="btn-secondary" data-dpi="300">Aperçu carton</button><button type="button" class="btn-secondary" data-dpi="203">Aperçu pots</button></div><div class="ligne1-small-previews"><img data-preview="300" hidden alt="Aperçu carton"><img data-preview="203" hidden alt="Aperçu pots"></div><p data-preview-message class="ligne1-warning"></p>';
+        card.querySelector('strong').textContent = category;
         card.querySelector('[data-rule-active]').checked = !!rule.enabled;
-        const sample = sampleFor(rule.category);
+        card.querySelector('[data-print-enabled]').checked = !blockedCategories.has(category);
+        const sample = sampleFor(category);
         const input300 = card.querySelector('[data-template="300"]');
         const input203 = card.querySelector('[data-template="203"]');
         input300.value = showTemplate(rule.template_300, sample);
@@ -332,13 +336,19 @@
 
     function fillProfile(profile) {
         selected = profile;
+        blockedCategories = new Set(profile?.blocked_categories || []);
         byId('ligne1-profile-name').value = profile?.display_name || '';
         byId('ligne1-profile-number').value = profile?.customer_number || '';
         byId('ligne1-profile-bc-id').value = profile?.customer_id || '';
         byId('ligne1-profile-active').checked = profile ? !!profile.active : true;
         byId('ligne1-profile-rules').replaceChildren();
-        const rules = profile?.rules || categories.map(defaultRule);
-        rules.forEach(addRule);
+        const rulesByCategory = new Map();
+        (profile?.rules || categories.map(defaultRule)).forEach(rule => {
+            const category = canonicalCategory(rule.category);
+            const previous = rulesByCategory.get(category);
+            if (!previous || rule.category === category) rulesByCategory.set(category, { ...rule, category });
+        });
+        [...rulesByCategory.values()].forEach(addRule);
         byId('ligne1-profile-message').textContent = '';
     }
 
@@ -362,7 +372,15 @@
     }
 
     byId('ligne1-profile-select').onchange = event => fillProfile(profiles.find(p => p.id === event.target.value));
-    byId('ligne1-new-profile').onclick = () => { byId('ligne1-profile-select').value = ''; fillProfile(null); };
+    byId('ligne1-new-profile').onclick = () => {
+        byId('ligne1-profile-select').value = ''; fillProfile(null);
+        const item = currentData[0];
+        if (item?.BCScope) {
+            byId('ligne1-profile-name').value = item.Client || '';
+            byId('ligne1-profile-number').value = item.CustomerNumber || '';
+            byId('ligne1-profile-bc-id').value = item.CustomerId || '';
+        }
+    };
     byId('ligne1-add-category').onclick = () => {
         const input = byId('ligne1-new-category');
         const category = input.value.trim().toUpperCase();
@@ -376,10 +394,13 @@
             const clientIdentity = { Client: byId('ligne1-profile-name').value, CustomerNumber: byId('ligne1-profile-number').value, CustomerId: byId('ligne1-profile-bc-id').value };
             // Une transaction unique : aucun profil partiellement créé.
             const active = byId('ligne1-profile-active').checked;
+            const blocked = [...byId('ligne1-profile-rules').children]
+                .filter(card => !card.querySelector('[data-print-enabled]').checked)
+                .map(card => card.dataset.category);
             selected = selected
                 ? await api(`profiles/${selected.id}`, { revision: selected.revision, display_name: clientIdentity.Client,
-                    active, identity: clientIdentity, rules }, 'PUT')
-                : await api('profiles', { identity: clientIdentity, active, rules });
+                    active, rules, blocked_categories: blocked }, 'PUT')
+                : await api('profiles', { identity: clientIdentity, active, rules, blocked_categories: blocked });
             await refresh(); displayEditSection(); closeManager();
         } catch (error) { byId('ligne1-profile-message').textContent = error.message; }
         finally { save.disabled = false; }

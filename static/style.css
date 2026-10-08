@@ -5830,6 +5830,14 @@ body.dedicated-tool-ligne1-prepa .ligne1-profile-entry {
 .ligne1-fields input:focus, .ligne1-profiles-layout select:focus, .ligne1-add-category input:focus {
     outline: 2px solid #edaa654d; outline-offset: 1px; border-color: #d69b60;
 }
+.ligne1-fields input[readonly] { background: #f1f5f9; color: #64748b; cursor: default; }
+.ligne1-category-options { display: flex; flex-wrap: wrap; gap: 12px; }
+.ligne1-category-options label { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; font-weight: 500; color: #475569; }
+.ligne1-category-options input { width: auto; }
+.ligne1-category-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 14px 0; color: #334155; font-size: .9rem; }
+.ligne1-category-filter select { min-width: 180px; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: white; color: #111827; font: inherit; }
+#ligne1-category-filter-note, .ligne1-blocked-category-note { color: #64748b; font-size: .8rem; }
+.ligne1-blocked-category-note { margin: 8px 0 14px; }
 .ligne1-fields small, .ligne1-variable-help, .ligne1-variable-values {
     font-size: .75rem; font-weight: 400; color: #64748b; line-height: 1.6; overflow-wrap: anywhere;
 }

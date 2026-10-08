@@ -5,7 +5,7 @@ import unicodedata
 import uuid
 
 DEFAULT_TEMPLATE = "${description}"
-CATEGORIES = ["ENTIER", "GELIFIE", "PARRAFINE", "BRASSE", "MAIGRE", "DESSERT", "FF"]
+CATEGORIES = ["ENTIER", "GELIFIE", "PARAFFINÉ", "BRASSE", "MAIGRE", "DESSERT", "FF"]
 VARIABLES = {"parfum", "description", "description_2", "categorie", "unite", "client", "quantite", "poids"}
 TOKEN = re.compile(r"\$\{([^{}]+)\}")
 SCHEMA = """
@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS ligne1_rules (
     client_id TEXT NOT NULL REFERENCES ligne1_clients(id), category TEXT NOT NULL,
     template_300 TEXT NOT NULL DEFAULT '${description}',
     template_203 TEXT NOT NULL DEFAULT '${description}', enabled INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (client_id, category)
+);
+CREATE TABLE IF NOT EXISTS ligne1_blocked_categories (
+    client_id TEXT NOT NULL REFERENCES ligne1_clients(id), category TEXT NOT NULL,
     PRIMARY KEY (client_id, category)
 );
 CREATE TABLE IF NOT EXISTS ligne1_flavours (
@@ -52,8 +56,9 @@ def make_scope(config):
 
 
 def category_key(value):
-    # Le code BC est conservé : pas d'assimilation arbitraire de catégories.
-    return str(value or "").strip().upper()
+    # Conserver la forme de BC et reconnaître l'ancienne faute sans créer de doublon.
+    category = str(value or "").strip().upper()
+    return "PARAFFINÉ" if category == "PARRAFINE" else category
 
 
 def customer_id(value):
@@ -116,8 +121,17 @@ class ClientLabelStore:
         if row is None:
             raise ValueError("Profil client introuvable dans cette société et cet environnement.")
         result = dict(row)
-        result["rules"] = [dict(r) for r in conn.execute(
+        rules = [dict(r) for r in conn.execute(
             "SELECT category,template_300,template_203,enabled FROM ligne1_rules WHERE client_id=? ORDER BY category", (profile_id,))]
+        canonical_rules = {}
+        for rule in rules:
+            category = category_key(rule["category"])
+            if category not in canonical_rules or rule["category"] == category:
+                rule["category"] = category
+                canonical_rules[category] = rule
+        result["rules"] = list(canonical_rules.values())
+        result["blocked_categories"] = sorted({category_key(r["category"]) for r in conn.execute(
+            "SELECT category FROM ligne1_blocked_categories WHERE client_id=?", (profile_id,))})
         return result
 
     def get(self, profile_id):
@@ -144,7 +158,7 @@ class ClientLabelStore:
                 AND customer_id='' AND customer_number=''""", (self.scope, name)).fetchone()
             return self._get(conn, row["id"]) if row else None
 
-    def create(self, identity, categories=(), rules=(), active=True):
+    def create(self, identity, categories=(), rules=(), active=True, blocked_categories=()):
         name = str(identity.get("Client") or "").strip()
         if not name or len(name) > 200:
             raise ValueError("Le nom du client est obligatoire (200 caractères maximum).")
@@ -170,9 +184,11 @@ class ClientLabelStore:
                 conn.execute("INSERT INTO ligne1_rules(client_id,category,template_300,template_203,enabled) VALUES(?,?,?,?,?)",
                              (profile_id, category, rule.get("template_300", DEFAULT_TEMPLATE),
                               rule.get("template_203", DEFAULT_TEMPLATE), int(rule.get("enabled", True))))
+            for category in sorted({category_key(c) for c in blocked_categories if category_key(c)}):
+                conn.execute("INSERT INTO ligne1_blocked_categories(client_id,category) VALUES(?,?)", (profile_id, category))
             return self._get(conn, profile_id)
 
-    def save(self, profile_id, revision, name, active, rules, identity=None, flavour=None):
+    def save(self, profile_id, revision, name, active, rules, identity=None, flavour=None, blocked_categories=None):
         name = str(name).strip()
         if not name or len(name) > 200:
             raise ValueError("Le nom du client est obligatoire (200 caractères maximum).")
@@ -206,6 +222,10 @@ class ClientLabelStore:
                     ON CONFLICT(client_id,category) DO UPDATE SET template_300=excluded.template_300,
                     template_203=excluded.template_203,enabled=excluded.enabled""",
                     (profile_id, category_key(rule["category"]), rule["template_300"], rule["template_203"], int(rule.get("enabled", True))))
+            if blocked_categories is not None:
+                conn.execute("DELETE FROM ligne1_blocked_categories WHERE client_id=?", (profile_id,))
+                for category in sorted({category_key(c) for c in blocked_categories if category_key(c)}):
+                    conn.execute("INSERT INTO ligne1_blocked_categories(client_id,category) VALUES(?,?)", (profile_id, category))
             if flavour:
                 item_no = str(flavour.get("item_no") or "").strip()
                 text = str(flavour.get("value") or "").strip()
@@ -232,6 +252,7 @@ class ClientLabelStore:
             profile = profiles[key]
             category = category_key(item.get("ItemCategoryCode"))
             item["ItemCategoryCode"] = category
+            item["ClientCategoryBlocked"] = bool(profile and profile["active"] and category in profile.get("blocked_categories", []))
             correction = flavours.get(item.get("Item_No"))
             item["Parfum"] = correction["flavour"] if correction else propose_flavour(item.get("ItemDescription2") or item.get("ItemDescription") or item.get("Libelle"))
             item["ParfumRevision"] = correction["revision"] if correction else 0

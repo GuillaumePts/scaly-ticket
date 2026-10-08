@@ -13,7 +13,7 @@
         rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="/static/style.css?v=38">
+    <link rel="stylesheet" href="/static/style.css?v=40">
 </head>
 
 <body>
@@ -639,6 +639,12 @@
                 </div>
                 <div id="ligne1-client-status" class="ligne1-client-status" hidden></div>
                 <div class="ligne1-profile-entry"><button type="button" class="btn-secondary" data-open-client-profiles><i data-lucide="users"></i> Profils clients</button></div>
+                <div id="ligne1-category-filter" class="ligne1-category-filter" hidden>
+                    <label for="ligne1-category-filter-select">Afficher :</label>
+                    <select id="ligne1-category-filter-select"><option value="">Tous les types</option></select>
+                    <span id="ligne1-category-filter-note"></span>
+                </div>
+                <p id="ligne1-blocked-category-note" class="ligne1-blocked-category-note" hidden></p>
 
                 <div id="conditionnement-api-preview-card" class="conditionnement-api-preview-card" style="display: none;">
                     <div class="conditionnement-api-preview-heading">
@@ -775,12 +781,12 @@
                 <div>
                     <form id="ligne1-profile-form">
                         <div class="ligne1-fields">
-                            <label>Nom du client<input id="ligne1-profile-name" required maxlength="200"></label>
-                            <label>Numéro client BC<input id="ligne1-profile-number" maxlength="20"></label>
-                            <label>Identifiant client BC<input id="ligne1-profile-bc-id" maxlength="50"></label>
+                            <label>Nom du client<input id="ligne1-profile-name" required maxlength="200" readonly></label>
+                            <label>Numéro client<input id="ligne1-profile-number" maxlength="20" readonly></label>
+                            <label>Identifiant client<input id="ligne1-profile-bc-id" maxlength="50" readonly></label>
                         </div>
                         <label class="ligne1-enabled"><input id="ligne1-profile-active" type="checkbox" checked> Profil actif</label>
-                        <p class="ligne1-variable-help">Les textes affichés sont présentés avec un produit exemple. Pour personnaliser un parfum, ouvre son étiquette depuis la commande : le texte s’adaptera aux autres produits de la même catégorie.</p>
+                        <p class="ligne1-variable-help">Aperçus des étiquettes pour chaque catégorie.</p>
                         <div id="ligne1-profile-rules"></div>
                         <div class="ligne1-add-category"><input id="ligne1-new-category" placeholder="Catégorie d’article"><button type="button" id="ligne1-add-category" class="btn-secondary">Ajouter une catégorie</button></div>
                         <p id="ligne1-profile-message" class="ligne1-warning" role="status"></p>
@@ -1178,7 +1184,7 @@
         </div>
     </div>
     
-    <script src="/static/script.js?v=36"></script>
-    <script src="/static/ligne1_profiles.js?v=2"></script>
+    <script src="/static/script.js?v=37"></script>
+    <script src="/static/ligne1_profiles.js?v=3"></script>
 </body>
 </html>

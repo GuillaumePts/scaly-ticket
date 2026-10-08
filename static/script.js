@@ -182,6 +182,7 @@ if (apiOrderLabelPreviewModal) {
 
 let currentData = [];
 let currentDataSource = null;
+let currentCategoryFilter = '';
 let pollingInterval = null;
 let isPrinterReady = false;
 let isPrinting = false;
@@ -2246,6 +2247,7 @@ if (apiFetchBtn) {
                     aggregated.forEach(item => item._selected = true);
                     currentData = aggregated;
                     currentDataSource = 'business-central';
+                    currentCategoryFilter = '';
                     if (ligne1Profiles && window.Ligne1Profiles) {
                         clearTimeout(step2Timeout);
                         loader.style.display = 'none';
@@ -2285,6 +2287,7 @@ function handleFile(file) {
         text = text.replace(/^\uFEFF/, '');
         currentData = parseCSV(text);
         currentDataSource = 'file';
+        currentCategoryFilter = '';
         if (currentData.length > 0) {
             displayEditSection();
         } else {
@@ -2409,6 +2412,35 @@ function displayEditSection() {
     const isConditionnement = currentSector === 'conditionnement';
     const showApiLabelPreview = currentDataSource === 'business-central' && currentSector === 'prepa_commande';
     if (window.Ligne1Profiles) window.Ligne1Profiles.showStatus();
+    const categoryFilterPanel = document.getElementById('ligne1-category-filter');
+    const categoryFilterSelect = document.getElementById('ligne1-category-filter-select');
+    const categoryFilterNote = document.getElementById('ligne1-category-filter-note');
+    const blockedCategoryNote = document.getElementById('ligne1-blocked-category-note');
+    const availableCategories = [...new Set(currentData
+        .filter(item => !item.ClientCategoryBlocked && item.ItemCategoryCode)
+        .map(item => item.ItemCategoryCode))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const blockedCategoryCounts = new Map();
+    currentData.filter(item => item.ClientCategoryBlocked).forEach(item => {
+        const category = item.ItemCategoryCode || 'Type non renseigné';
+        blockedCategoryCounts.set(category, (blockedCategoryCounts.get(category) || 0) + 1);
+    });
+    categoryFilterPanel.hidden = !showApiLabelPreview || availableCategories.length < 2;
+    if (categoryFilterPanel.hidden) currentCategoryFilter = '';
+    if (!availableCategories.includes(currentCategoryFilter)) currentCategoryFilter = '';
+    categoryFilterSelect.replaceChildren(new Option('Tous les types', ''));
+    availableCategories.forEach(category => {
+        const count = currentData.filter(item => !item.ClientCategoryBlocked && item.ItemCategoryCode === category).length;
+        categoryFilterSelect.add(new Option(`${category} (${count})`, category));
+    });
+    categoryFilterSelect.value = currentCategoryFilter;
+    categoryFilterSelect.onchange = () => {
+        currentCategoryFilter = categoryFilterSelect.value;
+        displayEditSection();
+    };
+    categoryFilterNote.textContent = currentCategoryFilter ? 'Filtre temporaire : seules les lignes affichées seront imprimées.' : '';
+    blockedCategoryNote.hidden = !showApiLabelPreview || blockedCategoryCounts.size === 0;
+    blockedCategoryNote.textContent = blockedCategoryCounts.size
+        ? `Types masqués pour ce client : ${[...blockedCategoryCounts].map(([category, count]) => `${category} (${count})`).join(', ')}.` : '';
     orderClient.innerHTML = isConditionnement
         ? `<i data-lucide="factory"></i> Secteur : Conditionnement`
         : `<i data-lucide="user"></i> Client : ${currentData[0].Client || 'Inconnu'}`;
@@ -2451,6 +2483,7 @@ function displayEditSection() {
     }
     
     currentData.forEach((item, index) => {
+        if (item.ClientCategoryBlocked || (currentCategoryFilter && item.ItemCategoryCode !== currentCategoryFilter)) return;
         if (isLigne1 && item.QuantitePots === undefined) {
             item.QuantitePots = (parseInt(item.Quantite) || 0) * 6;
         }
@@ -2507,6 +2540,11 @@ function displayEditSection() {
         }
         productsTableBody.appendChild(tr);
     });
+
+    const visibleItems = currentData.filter(item => !item.ClientCategoryBlocked && (!currentCategoryFilter || item.ItemCategoryCode === currentCategoryFilter));
+    const selectedVisibleCount = visibleItems.filter(item => item._selected).length;
+    selectAllCheckbox.checked = visibleItems.length > 0 && selectedVisibleCount === visibleItems.length;
+    selectAllCheckbox.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleItems.length;
     
     lucide.createIcons();
     
@@ -2641,7 +2679,9 @@ window.selectLot = (index, lot, codeBarre17, dlcDisplay) => {
 
 selectAllCheckbox.onchange = () => {
     const isChecked = selectAllCheckbox.checked;
-    currentData.forEach(item => item._selected = isChecked);
+    currentData.forEach(item => {
+        if (!item.ClientCategoryBlocked && (!currentCategoryFilter || item.ItemCategoryCode === currentCategoryFilter)) item._selected = isChecked;
+    });
     displayEditSection();
 };
 
@@ -2685,6 +2725,7 @@ function closeEditSection() {
     fileInput.value = '';
     currentData = [];
     currentDataSource = null;
+    currentCategoryFilter = '';
     isPrinting = false;
     step3.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -2773,7 +2814,9 @@ async function startPrint(all = false) {
         try { await window.Ligne1Profiles.refresh(); }
         catch (error) { Modal.error('Libellés non actualisés', error.message); return; }
     }
-    const updatedData = currentData.filter(item => all || item._selected);
+    const updatedData = currentData.filter(item => !item.ClientCategoryBlocked
+        && (!currentCategoryFilter || item.ItemCategoryCode === currentCategoryFilter)
+        && (all || item._selected));
 
     if (updatedData.length === 0) {
         Modal.alert("Rien à imprimer", "Vous devez sélectionner (cocher) au moins une ligne à imprimer.", 'alert-circle', 'icon-warning');
