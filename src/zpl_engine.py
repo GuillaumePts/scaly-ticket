@@ -766,19 +766,38 @@ class ZPLEngine:
                     max(10, min(100, int(styling.get("gs1_font_size", 25))))
                 )
             else:
-                t_font = "arialbd.ttf" if styling.get("title_bold") else "arial.ttf"
-                g_font = "arialbd.ttf" if styling.get("gs1_bold") else "arial.ttf"
-                l_font = "arialbd.ttf" if styling.get("lot_bold") else "arial.ttf"
-                font_title  = ImageFont.truetype(t_font, max(10, 45 + styling.get("title_size", 0)))
-                font_normal = ImageFont.truetype(l_font, max(10, 25 + styling.get("lot_size", 0)))
-                font_small  = ImageFont.truetype(g_font, max(10, 25 + styling.get("gs1_size", 0)))
+                # Police embarquée commune à Linux et Windows. L'ancien
+                # chargement d'Arial fonctionnait sur Windows mais tombait
+                # sur la police Pillow par défaut sur Linux.
+                font_title = ImageFont.truetype(
+                    self._conditionnement_font_path(bool(styling.get("title_bold"))),
+                    max(10, 45 + styling.get("title_size", 0)),
+                )
+                font_normal = ImageFont.truetype(
+                    self._conditionnement_font_path(bool(styling.get("lot_bold"))),
+                    max(10, 25 + styling.get("lot_size", 0)),
+                )
+                font_small = ImageFont.truetype(
+                    self._conditionnement_font_path(bool(styling.get("gs1_bold"))),
+                    max(10, 25 + styling.get("gs1_size", 0)),
+                )
         except IOError:
             font_title  = ImageFont.load_default()
             font_normal = ImageFont.load_default()
             font_small  = ImageFont.load_default()
 
         # Libellé (collé en haut)
-        libelle = data.libelle if is_conditionnement else data.libelle.encode('latin-1', 'ignore').decode('latin-1')
+        libelle = data.libelle if is_conditionnement or styling.get("ligne1_profile_layout") else data.libelle.encode('latin-1', 'ignore').decode('latin-1')
+        if styling.get("ligne1_profile_layout"):
+            # Les modèles clients peuvent être longs : réduire le titre,
+            # jamais les modules du code-barres.
+            size = font_title.size
+            while (draw.textbbox((0, 0), libelle, font=font_title)[2] > img_w - 24
+                   or draw.textbbox((0, 0), libelle, font=font_title)[3] > 40) and size > 10:
+                size -= 1
+                font_title = ImageFont.truetype(self._conditionnement_font_path(bool(styling.get("title_bold"))), size)
+            if draw.textbbox((0, 0), libelle, font=font_title)[2] > img_w - 24:
+                raise ValueError("Libellé carton trop long pour l'étiquette.")
         try:
             bbox = draw.textbbox((0, 0), libelle, font=font_title)
             tw = bbox[2] - bbox[0]
@@ -935,9 +954,11 @@ class ZPLEngine:
         draw = ImageDraw.Draw(image)
 
         try:
-            font_title = ImageFont.truetype("DejaVuSans.ttf", 25)
+            font_title = ImageFont.truetype(self._conditionnement_font_path(False), 25)
+            font_barcode_text = ImageFont.truetype(self._conditionnement_font_path(False), 17)
         except IOError:
             font_title = ImageFont.load_default()
+            font_barcode_text = ImageFont.load_default()
 
         title = unicodedata.normalize('NFD', str(nom or '')).encode('ascii', 'ignore').decode('ascii')
 
@@ -972,13 +993,14 @@ class ZPLEngine:
                         # si un vieux modèle PRN est partiellement illisible.
                         continue
 
-        def draw_centered_text(text: str, center_x: int, y: int):
+        def draw_centered_text(text: str, center_x: int, y: int, font=None):
+            font = font or font_title
             try:
-                bbox = draw.textbbox((0, 0), text, font=font_title)
+                bbox = draw.textbbox((0, 0), text, font=font)
                 width = bbox[2] - bbox[0]
             except AttributeError:
-                width, _ = draw.textsize(text, font=font_title)
-            draw.text((center_x - width // 2, y), text, fill=0, font=font_title)
+                width, _ = draw.textsize(text, font=font)
+            draw.text((center_x - width // 2, y), text, fill=0, font=font)
 
         barcode_image = None
         if str(gencod or '').strip():
@@ -989,14 +1011,15 @@ class ZPLEngine:
                 'module_width': 0.25,
                 'module_height': 7.0,
                 'quiet_zone': 1.0,
-                'write_text': True,
-                'font_size': 10,
-                'text_distance': 2,
+                # Le texte est dessiné séparément sous le code-barres pour
+                # éviter le chevauchement produit par python-barcode dans
+                # l'aperçu redimensionné.
+                'write_text': False,
             })
             stream.seek(0)
             barcode_image = Image.open(stream).convert('1')
             max_width = slot_w - 48
-            max_height = 105
+            max_height = 82
             if barcode_image.width > max_width or barcode_image.height > max_height:
                 ratio = min(max_width / barcode_image.width, max_height / barcode_image.height)
                 barcode_image = barcode_image.resize(
@@ -1010,7 +1033,14 @@ class ZPLEngine:
                 draw_centered_text(title, center_x, 16)
             if barcode_image:
                 x = slot * slot_w + (slot_w - barcode_image.width) // 2
-                image.paste(barcode_image, (x, 70))
+                barcode_y = 70
+                image.paste(barcode_image, (x, barcode_y))
+                draw_centered_text(
+                    str(gencod).strip(),
+                    center_x,
+                    barcode_y + barcode_image.height + 4,
+                    font=font_barcode_text,
+                )
 
         stream = io.BytesIO()
         image.save(stream, format="PNG")
@@ -1025,6 +1055,62 @@ class ZPLEngine:
         stream = io.BytesIO()
         img.save(stream, format='PNG')
         return stream.getvalue()
+
+    def _draw_zebra_203_profile_band(self, label: str, gencod: str) -> Image.Image:
+        """Image unique partagée par les aperçus et les impressions profils Ligne 1."""
+        import qrcode
+        canvas = Image.new("1", (896, 224), 1)
+        draw = ImageDraw.Draw(canvas)
+        title_font_path = self._conditionnement_font_path(False)
+        size = 25
+        title_font = ImageFont.truetype(title_font_path, size)
+        while draw.textbbox((0, 0), label, font=title_font)[2] > 392 and size > 12:
+            size -= 1
+            title_font = ImageFont.truetype(title_font_path, size)
+        if draw.textbbox((0, 0), label, font=title_font)[2] > 392:
+            raise ValueError("Libellé pots trop long pour l'étiquette.")
+        code_image = None
+        code = str(gencod or "").strip()
+        if code:
+            if not re.fullmatch(r"\d{13}", code):
+                raise ValueError("Le GENCOD doit comporter 13 chiffres.")
+            if code == "3374270040521":
+                qr = qrcode.QRCode(box_size=3, border=4)
+                qr.add_data("qrrelai.fr/01/0" + code)
+                qr.make(fit=True)
+                code_image = qr.make_image(fill_color="black", back_color="white").convert("1")
+            else:
+                ean = barcode.get("ean13", code)
+                if ean.get_fullcode() != code:
+                    raise ValueError("La clé de contrôle du GENCOD BC est invalide.")
+                modules = ean.build()[0]
+                # Modules de 2 pixels et zones calmes de 11 modules, aucune
+                # interpolation : préserver la lisibilité réelle EAN-13.
+                code_image = Image.new("1", ((len(modules) + 22) * 2, 56), 1)
+                bars = ImageDraw.Draw(code_image)
+                for index, value in enumerate(modules):
+                    if value == "1":
+                        x = (index + 11) * 2
+                        bars.rectangle((x, 0, x + 1, 55), fill=0)
+        number_font = ImageFont.truetype(title_font_path, 17)
+        for center in (224, 672):
+            draw.text((center, 16), label, font=title_font, fill=0, anchor="mt")
+            if code_image is not None:
+                y = 56 if code == "3374270040521" else 70
+                canvas.paste(code_image, (center - code_image.width // 2, y))
+                draw.text((center, y + code_image.height + 8), code, font=number_font, fill=0, anchor="mt")
+        return canvas
+
+    def generate_zebra_203_profile_preview_png(self, label: str, gencod: str) -> bytes:
+        image = self._draw_zebra_203_profile_band(label, gencod)
+        stream = io.BytesIO()
+        image.save(stream, format="PNG")
+        return stream.getvalue()
+
+    def generate_zebra_203_profile_zpl(self, label: str, gencod: str, quantity: int = 1) -> str:
+        image = self._draw_zebra_203_profile_band(label, gencod)
+        flux = self.image_to_zebra_gfa(image, 0, 0)
+        return flux.replace("^PQ1,0,1,Y", f"^PQ{quantity},0,1,Y")
 
     def generate_4up_preview_png(self, parfum: dict) -> bytes:
         """Génère l'aperçu PNG pour l'interface Web d'une seule étiquette 4-up."""

@@ -28,6 +28,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Scaly-Ticket API")
+from src.ligne1_api import router as ligne1_router
+app.include_router(ligne1_router)
 
 # Setup templates and static files
 static_dir = str(base_path / "static")
@@ -163,6 +165,8 @@ def resolve_zebra_203_label(ticket: TicketData) -> tuple[str, str]:
     dictionnaire local historique pour retrouver le libellé NiceLabel exact.
     """
     gencod = (ticket.gencod or "").strip()
+    if ticket.label_203 is not None:
+        return ticket.label_203, gencod
     label = ticket.libelle
     if gencod:
         local_label = db.get_parfum_by_gencod(gencod)
@@ -179,6 +183,12 @@ def resolve_zebra_203_label(ticket: TicketData) -> tuple[str, str]:
 
 class OrderLabelPreviewRequest(BaseModel):
     ticket: TicketData
+    title_size: int = 0
+    title_bold: bool = False
+    gs1_size: int = 0
+    gs1_bold: bool = False
+    lot_size: int = 0
+    lot_bold: bool = False
 
 
 class ConditionnementPrintRequest(BaseModel):
@@ -979,12 +989,18 @@ async def print_json(request: PrintJobRequest, background_tasks: BackgroundTasks
                     # Ex: 1080 pots -> 1080 étiquettes unitaires -> 540 lignes imprimées
                     rows_to_print = (nb_rows + 1) // 2
                     if rows_to_print > 0:
-                        flux = engine.generate_ticket_zebra_203_pots(nom_match, gencod, quantity=rows_to_print)
+                        if ticket.label_203 is not None:
+                            flux = engine.generate_zebra_203_profile_zpl(nom_match, gencod, quantity=rows_to_print)
+                        else:
+                            flux = engine.generate_ticket_zebra_203_pots(nom_match, gencod, quantity=rows_to_print)
                         full_flux += flux
                 else:
                     # Zebra Carton (300 DPI) - Format 1-up GS1-128
                     for _ in range(nb_rows):
-                        flux = engine.generate_ticket_zebra_300(ticket, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
+                        carton_ticket = ticket.model_copy(update={"libelle": ticket.label_300}) if ticket.label_300 is not None else ticket
+                        if ticket.label_300 is not None:
+                            styling["ligne1_profile_layout"] = True
+                        flux = engine.generate_ticket_zebra_300(carton_ticket, offset_x=request.offset_x, offset_y=request.offset_y, styling=styling)
                         full_flux += flux
                     
         # Envoi d'un seul énorme bloc pour éviter la lenteur réseau et les temps morts
@@ -1141,11 +1157,18 @@ async def preview_order_label(dpi: int, request: OrderLabelPreviewRequest):
     try:
         if dpi == 300:
             engine = ZPLEngine(dpi=300)
-            image = engine.generate_zebra_1up_preview_png(request.ticket)
+            ticket = request.ticket
+            if ticket.label_300 is not None:
+                ticket = ticket.model_copy(update={"libelle": ticket.label_300})
+            styling = request.model_dump(exclude={"ticket"})
+            styling["ligne1_profile_layout"] = request.ticket.label_300 is not None
+            image = engine.generate_zebra_1up_preview_png(ticket, styling)
         elif dpi == 203:
             engine = ZPLEngine(dpi=203)
             label, gencod = resolve_zebra_203_label(request.ticket)
-            image = engine.generate_zebra_203_order_preview_png(label, gencod)
+            image = (engine.generate_zebra_203_profile_preview_png(label, gencod)
+                     if request.ticket.label_203 is not None
+                     else engine.generate_zebra_203_order_preview_png(label, gencod))
         else:
             raise HTTPException(status_code=400, detail="Résolution d'aperçu non supportée.")
         return Response(content=image, media_type="image/png")
@@ -1264,7 +1287,7 @@ async def update_printer_offsets(req: PrinterOffsetsRequest):
         raise HTTPException(status_code=404, detail="Imprimante non trouvée")
 
 @app.get("/api/commande/{order_number}")
-async def fetch_commande(order_number: str):
+async def fetch_commande(order_number: str, label_profiles: bool = False):
     """
     Interroge l'API Business Central en temps réel pour récupérer la commande.
     """
@@ -1273,7 +1296,11 @@ async def fetch_commande(order_number: str):
     try:
         from src.bc_client import BusinessCentralClient
         bc_client = BusinessCentralClient()
-        return bc_client.fetch_sales_order(order_number)
+        items = bc_client.fetch_sales_order(order_number, label_profiles=label_profiles)
+        if label_profiles:
+            from src.client_labels import ClientLabelStore, make_scope
+            items = ClientLabelStore(db, make_scope(bc_client._config)).resolve(items)
+        return items
     except FileNotFoundError:
         logger.warning("Fichier secret.json introuvable. Passage en mode simulation.")
     except Exception as e:

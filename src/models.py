@@ -7,6 +7,8 @@ class TicketData(BaseModel):
     libelle: str = Field(alias="Libelle")
     gtin: str = Field(alias="CodeBarre01")
     gencod: str = Field(default="", alias="GENCOD")
+    label_300: str | None = Field(default=None, alias="Libelle300")
+    label_203: str | None = Field(default=None, alias="Libelle203")
     date_expiration: str = Field(alias="CodeBarre17")  # Format YYMMDD
     lot: str = Field(alias="CodeBarre10")
     num_lot_display: str = Field(alias="Numlot")

@@ -105,6 +105,9 @@ class DatabaseManager:
             """)
             conn.commit()
 
+            from src.client_labels import SCHEMA
+            conn.executescript(SCHEMA)
+
     def migrate_from_json_if_needed(self, printers_json_path: Path, parfums_json_path: Path):
         with self.get_connection() as conn:
             cursor = conn.cursor()

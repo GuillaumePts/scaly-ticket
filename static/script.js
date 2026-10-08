@@ -146,8 +146,14 @@ async function loadApiOrderLabelPreview(dpi, ticket, requestId) {
 }
 
 window.openApiOrderLabelPreview = (index) => {
+    if (window.Ligne1Profiles && currentData[index]?.BCScope) {
+        window.Ligne1Profiles.openProduct(index);
+        return;
+    }
     const item = currentData[index];
     if (!item || !apiOrderLabelPreviewModal) return;
+    document.getElementById('ligne1-product-editor').hidden = true;
+    document.getElementById('ligne1-save-product-rule').hidden = true;
 
     const requestId = ++apiOrderLabelPreviewRequestId;
     const title = document.getElementById('api-order-label-preview-title');
@@ -2222,7 +2228,8 @@ if (apiFetchBtn) {
         }, 1200);
 
         try {
-            const res = await fetch(`/api/commande/${encodeURIComponent(orderNumber)}`);
+            const ligne1Profiles = currentSector === 'prepa_commande' && currentFormat === '1up';
+            const res = await fetch(`/api/commande/${encodeURIComponent(orderNumber)}${ligne1Profiles ? '?label_profiles=true' : ''}`);
             if (res.ok) {
                 const data = await res.json();
                 
@@ -2239,6 +2246,11 @@ if (apiFetchBtn) {
                     aggregated.forEach(item => item._selected = true);
                     currentData = aggregated;
                     currentDataSource = 'business-central';
+                    if (ligne1Profiles && window.Ligne1Profiles) {
+                        clearTimeout(step2Timeout);
+                        loader.style.display = 'none';
+                        await window.Ligne1Profiles.onImport();
+                    }
                     displayEditSection();
                 }
             } else if (res.status === 403) {
@@ -2313,7 +2325,9 @@ function aggregateOrderData(data) {
         const dateKey = item.CodeBarre17 || item.Numlot || "";
         if (!lib) return; 
         
-        const key = lib + "_" + dateKey;
+        const key = item.Item_No
+            ? JSON.stringify([item.CustomerId, item.CustomerNumber, item.Item_No, item.UnitOfMeasureCode, item.CodeBarre01, item.GENCOD, item.CodeBarre10 || item.Numlot, dateKey])
+            : lib + "_" + dateKey;
         
         // Convertir la quantité en flottant (ex: 0,16667 -> 0.16667) puis arrondir au supérieur
         const parseQte = (val) => Math.ceil(parseFloat(val.toString().replace(',', '.'))) || 0;
@@ -2349,11 +2363,13 @@ function aggregateOrderData(data) {
         const totalParParfum = {};
         aggregated.forEach(item => {
             const lib = item.Libelle || item.Designation;
-            if (!totalParParfum[lib]) totalParParfum[lib] = { qte: 0, firstItem: item };
-            totalParParfum[lib].qte += item.Quantite;
+            const key = item.Item_No ? JSON.stringify([item.Item_No, item.UnitOfMeasureCode, item.CodeBarre01, item.GENCOD]) : lib;
+            if (!totalParParfum[key]) totalParParfum[key] = { qte: 0, firstItem: item, lib };
+            totalParParfum[key].qte += item.Quantite;
         });
         
-        for (const lib in totalParParfum) {
+        for (const key in totalParParfum) {
+            const lib = totalParParfum[key].lib;
             let colisParCouche = 1;
             const libLower = lib.toLowerCase();
             
@@ -2368,16 +2384,17 @@ function aggregateOrderData(data) {
                 colisParCouche = 13;
             }
             
-            const total = totalParParfum[lib].qte;
+            const total = totalParParfum[key].qte;
             if (colisParCouche > 1 && total % colisParCouche !== 0) {
                 const newTotal = Math.ceil(total / colisParCouche) * colisParCouche;
                 const diff = newTotal - total;
                 // On ajoute la différence à la première ligne trouvée pour ce parfum
-                totalParParfum[lib].firstItem.Quantite += diff;
+                totalParParfum[key].firstItem.Quantite += diff;
             }
         }
     }
     
+    aggregated.forEach(item => { if (item.BCScope) item.QuantiteCartons = item.Quantite; });
     return aggregated;
 }
 
@@ -2391,6 +2408,7 @@ function displayEditSection() {
     if (currentData.length === 0) return;
     const isConditionnement = currentSector === 'conditionnement';
     const showApiLabelPreview = currentDataSource === 'business-central' && currentSector === 'prepa_commande';
+    if (window.Ligne1Profiles) window.Ligne1Profiles.showStatus();
     orderClient.innerHTML = isConditionnement
         ? `<i data-lucide="factory"></i> Secteur : Conditionnement`
         : `<i data-lucide="user"></i> Client : ${currentData[0].Client || 'Inconnu'}`;
@@ -2543,6 +2561,7 @@ window.updateRowData = (index, field, value) => {
             if (cartonsInput) cartonsInput.value = newCartons;
         }
         if (field === 'Quantite') {
+            if (currentData[index].BCScope) currentData[index].QuantiteCartons = value;
             const potsInput = document.getElementById(`qte-pots-${index}`);
             if (potsInput && currentSector !== 'conditionnement') {
                 const newPots = value * 6;
@@ -2750,6 +2769,10 @@ async function startPrint(all = false) {
         return;
     }
 
+    if (currentData[0]?.BCScope && window.Ligne1Profiles) {
+        try { await window.Ligne1Profiles.refresh(); }
+        catch (error) { Modal.error('Libellés non actualisés', error.message); return; }
+    }
     const updatedData = currentData.filter(item => all || item._selected);
 
     if (updatedData.length === 0) {

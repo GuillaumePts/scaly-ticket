@@ -13,7 +13,7 @@
         rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="/static/style.css?v=37">
+    <link rel="stylesheet" href="/static/style.css?v=38">
 </head>
 
 <body>
@@ -217,6 +217,7 @@
                     <span class="step-number">4</span>
                     <h2 id="upload-section-title">Fournir les données de la commande</h2>
                 </div>
+                <div class="ligne1-profile-entry"><button type="button" class="btn-secondary" data-open-client-profiles><i data-lucide="users"></i> Profils clients</button><span>Personnaliser les libellés par catégorie article</span></div>
                 
                 <!-- Sélecteur de méthode (affiché uniquement en 3up et 1up) -->
                 <div id="upload-method-selector" style="display: none; gap: 10px; margin-bottom: 20px;">
@@ -636,6 +637,8 @@
                     <h3 id="order-client"><i data-lucide="user"></i> Client : -</h3>
                     <p id="order-id"><i data-lucide="file-text"></i> Commande : -</p>
                 </div>
+                <div id="ligne1-client-status" class="ligne1-client-status" hidden></div>
+                <div class="ligne1-profile-entry"><button type="button" class="btn-secondary" data-open-client-profiles><i data-lucide="users"></i> Profils clients</button></div>
 
                 <div id="conditionnement-api-preview-card" class="conditionnement-api-preview-card" style="display: none;">
                     <div class="conditionnement-api-preview-heading">
@@ -681,7 +684,7 @@
             </section>
 
             <!-- Aperçu des étiquettes d'une commande importée depuis BC -->
-            <div id="api-order-label-preview-modal" class="modal-overlay" style="display: none;">
+            <div id="api-order-label-preview-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="api-order-label-preview-title">
                 <div class="modal-content api-order-label-preview-modal-content">
                     <div class="api-order-label-preview-header">
                         <div>
@@ -690,6 +693,19 @@
                             <p id="api-order-label-preview-meta">Données importées depuis Business Central</p>
                         </div>
                         <button type="button" id="api-order-label-preview-close" class="btn-icon" aria-label="Fermer"><i data-lucide="x"></i></button>
+                    </div>
+
+                    <div id="ligne1-product-editor" class="ligne1-product-editor" hidden>
+                        <p id="ligne1-editor-category"></p>
+                        <div class="ligne1-fields">
+                            <label>Texte de l’étiquette carton<input id="ligne1-template-300" type="text" maxlength="500"></label>
+                            <label>Texte des étiquettes pots<input id="ligne1-template-203" type="text" maxlength="500"></label>
+                            <label>Nom du parfum<input id="ligne1-flavour" type="text" maxlength="120"><small>Cette correction suivra cet article, quel que soit le client.</small></label>
+                        </div>
+                        <p class="ligne1-variable-help">Écris le texte comme tu veux le voir sur l’étiquette. Le parfum sera adapté automatiquement à chaque produit de cette catégorie.</p>
+                        <div id="ligne1-variable-values" class="ligne1-variable-values"></div>
+                        <p id="ligne1-editor-warnings" class="ligne1-warning" role="status"></p>
+                        <button type="button" id="ligne1-rgf-suggestion" class="btn-secondary" hidden>Utiliser le libellé RGF conseillé</button>
                     </div>
 
                     <div class="api-order-label-preview-grid">
@@ -719,6 +735,7 @@
                     <div class="api-order-label-preview-footer">
                         <span><i data-lucide="info"></i> Cet aperçu ne lance aucune impression et n'interroge pas Business Central.</span>
                         <button type="button" id="api-order-label-preview-close-bottom" class="btn-secondary">Fermer</button>
+                        <button type="button" id="ligne1-save-product-rule" class="btn-primary">Enregistrer pour cette catégorie</button>
                     </div>
                 </div>
             </div>
@@ -749,7 +766,30 @@
         </footer>
     </div>
 
-    <!-- Réglages temporaires de l'étiquette Conditionnement -->
+    <!-- Profils persistants de libellés Ligne 1 -->
+    <div id="ligne1-profiles-modal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ligne1-profiles-title">
+        <div class="modal-content ligne1-profiles-content">
+            <div class="ligne1-profiles-header"><div><h3 id="ligne1-profiles-title">Profils clients</h3><p id="ligne1-profiles-scope"></p></div><button type="button" id="ligne1-profiles-close" class="btn-icon" aria-label="Fermer"><i data-lucide="x"></i></button></div>
+            <div class="ligne1-profiles-layout">
+                <aside><label>Client<select id="ligne1-profile-select"></select></label><button type="button" id="ligne1-new-profile" class="btn-secondary"><i data-lucide="user-plus"></i> Nouveau client</button></aside>
+                <div>
+                    <form id="ligne1-profile-form">
+                        <div class="ligne1-fields">
+                            <label>Nom du client<input id="ligne1-profile-name" required maxlength="200"></label>
+                            <label>Numéro client BC<input id="ligne1-profile-number" maxlength="20"></label>
+                            <label>Identifiant client BC<input id="ligne1-profile-bc-id" maxlength="50"></label>
+                        </div>
+                        <label class="ligne1-enabled"><input id="ligne1-profile-active" type="checkbox" checked> Profil actif</label>
+                        <p class="ligne1-variable-help">Les textes affichés sont présentés avec un produit exemple. Pour personnaliser un parfum, ouvre son étiquette depuis la commande : le texte s’adaptera aux autres produits de la même catégorie.</p>
+                        <div id="ligne1-profile-rules"></div>
+                        <div class="ligne1-add-category"><input id="ligne1-new-category" placeholder="Catégorie d’article"><button type="button" id="ligne1-add-category" class="btn-secondary">Ajouter une catégorie</button></div>
+                        <p id="ligne1-profile-message" class="ligne1-warning" role="status"></p>
+                        <div class="ligne1-profiles-actions"><button type="button" id="ligne1-profile-cancel" class="btn-secondary">Annuler</button><button type="submit" class="btn-primary" id="ligne1-profile-save">Enregistrer le profil</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="conditionnement-label-settings-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content conditionnement-label-settings-content">
             <div class="conditionnement-label-settings-header">
@@ -1138,6 +1178,7 @@
         </div>
     </div>
     
-    <script src="/static/script.js?v=34"></script>
+    <script src="/static/script.js?v=36"></script>
+    <script src="/static/ligne1_profiles.js?v=2"></script>
 </body>
 </html>

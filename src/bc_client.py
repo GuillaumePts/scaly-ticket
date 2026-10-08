@@ -357,7 +357,7 @@ class BusinessCentralClient:
             },
         }
 
-    def fetch_sales_order(self, order_number: str) -> list:
+    def fetch_sales_order(self, order_number: str, label_profiles: bool = False) -> list:
         """
         Récupère les détails d'une commande client par son numéro dans Business Central.
         Accepte tout format : "269160", "00269160", "v-00269160", "V-00269160".
@@ -390,11 +390,8 @@ class BusinessCentralClient:
                 company_id = comp["id"]
                 break
         
-        if not company_id and companies_data:
-            company_id = companies_data[0]["id"]
-
         if not company_id:
-            raise Exception(f"Aucune société trouvée dans l'environnement BC '{env}'.")
+            raise Exception(f"La société '{company_name}' est introuvable dans l'environnement BC '{env}'.")
 
         # 2. Chercher la commande par son numéro (tentative numéro exact / normalisé)
         order_res = self._query_orders(tenant_id, env, company_id, token, f"number eq '{target_number}'")
@@ -447,6 +444,7 @@ class BusinessCentralClient:
             token,
             item_nos=order_item_nos,
         )
+        articles = self._fetch_label_articles(tenant_id, env, company_id, token, order_item_nos) if label_profiles else {}
         
         # 4b. Calculer la date de DLC minimale (strictement >= Date du jour)
         from datetime import datetime
@@ -457,8 +455,8 @@ class BusinessCentralClient:
         results = []
         for line in lines:
             libelle = line.get("description", "")
-            qty = int(line.get("quantity", 0))
-            if qty <= 0 or not libelle:
+            order_qty = int(math.ceil(float(line.get("quantity", 0))))
+            if order_qty <= 0 or not libelle:
                 continue
 
             # A. Résolution des références selon l'article et l'unité de la ligne.
@@ -537,15 +535,47 @@ class BusinessCentralClient:
                 "CodeBarre17": code_barre_17,
                 "CodeBarre10": code_barre_10,
                 "Numlot": num_lot_text,
-                "Quantite": qty,
+                "Quantite": order_qty,
                 "available_lots": available_lots
             })
+            if label_profiles:
+                article = articles.get(item_no, {})
+                results[-1].update({
+                    "CustomerId": order.get("customerId", ""),
+                    "CustomerNumber": order.get("customerNumber", ""),
+                    "BCScope": {"environment": env, "company": company_name},
+                    "ItemCategoryCode": article.get("itemCategoryCode", ""),
+                    "ItemDescription": article.get("displayName") or libelle,
+                    "ItemDescription2": article.get("displayName2", ""),
+                    "QuantiteCartons": order_qty,
+                })
 
         # INJECTION POUR DEBUG : Ajouter la réponse brute BC à la première ligne pour la console web
         if results and len(results) > 0:
             results[0]["_raw_bc_order"] = order
 
         return results
+
+    def _fetch_label_articles(self, tenant_id, env, company_id, token, item_nos):
+        """Lit seulement les descriptions/catégories des articles de la commande."""
+        articles = {}
+        # Une lecture ciblée par article évite les restrictions BC sur OR
+        # et ne requiert pas de télécharger l'ensemble du catalogue.
+        for item_no in sorted(set(item_nos)):
+            query = urllib.parse.urlencode({
+                "$filter": "number eq '" + item_no.replace("'", "''") + "'",
+                "$select": "number,displayName,displayName2,itemCategoryCode",
+            })
+            url = f"https://api.businesscentral.dynamics.com/v2.0/{tenant_id}/{env}/api/v2.0/companies({company_id})/items?{query}"
+            req = urllib.request.Request(url, method="GET", headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    rows = json.load(response).get("value", [])
+                if rows:
+                    articles[item_no] = rows[0]
+            except urllib.error.HTTPError as exc:
+                raise Exception(f"Impossible de lire la fiche article {item_no} pour les libellés BC ({exc.code}).") from exc
+        return articles
 
     def _fetch_item_references(
         self,

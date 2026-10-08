@@ -1,0 +1,231 @@
+{
+  "goal": "Profils clients et personnalisation des libellés pour la Ligne 1",
+  "status": "a_planifier",
+  "scope": {
+    "sector": "prepa_commande",
+    "workflow": "import de commandes via Business Central puis préparation des impressions Ligne 1",
+    "formats": [
+      {
+        "dpi": 300,
+        "type": "carton",
+        "barcode_source": "EAN14 via OData BC",
+        "label_text_only_customizable": true
+      },
+      {
+        "dpi": 203,
+        "type": "pots x2",
+        "barcode_source": "GENCOD via OData BC",
+        "label_text_only_customizable": true
+      }
+    ],
+    "out_of_scope": [
+      "Modifier les données dans Business Central",
+      "Faire des POST, PUT ou DELETE vers Business Central",
+      "Modifier les codes-barres, lots ou DLC depuis les profils clients",
+      "Remplacer la logique de sélection de l'unité de commande"
+    ]
+  },
+  "current_issue": {
+    "description": "Les clients CREMCENTRE et CREMLOG ont des libellés spécifiques qui ne peuvent pas être déduits correctement avec le seul libellé de la ligne de commande.",
+    "client_rules_known": {
+      "CREMCENTRE": {
+        "300_dpi": "6 Yaourt entier ${parfum} RGF - 2X125G",
+        "203_dpi": "RGF ${parfum} 2X125gr"
+      },
+      "CREMLOG": {
+        "300_dpi": "6 Yaourt entier ${parfum} RGF - 2X125G",
+        "203_dpi": "RGF ${parfum} 2X125gr"
+      }
+    },
+    "important_constraint": "Ces règles ne doivent pas être codées en dur dans le moteur d'impression. Elles doivent être configurables par client et par catégorie article."
+  },
+  "business_central_data_to_identify": {
+    "client_identity": {
+      "objective": "Utiliser un identifiant stable du client plutôt que son nom affiché lorsque la donnée est disponible.",
+      "candidate_fields": [
+        "customerNumber",
+        "customerId",
+        "customerName"
+      ],
+      "rule": "Le nom reste un secours d'affichage, mais la clé de profil doit être l'identifiant BC stable dès qu'il est disponible si pas disponible utiliser le nom comme identifiant."
+    },
+    "product_category": {
+      "objective": "Récupérer le code catégorie article de chaque ligne ou article BC afin de sélectionner la règle de libellé.",
+      "categories_initiales": [
+        "ENTIER",
+        "GELIFIE",
+        "PARRAFINE",
+        "BRASSE",
+        "MAIGRE",
+        "DESSERT",
+        "FF"
+      ],
+      "extensible": true,
+      "fallback": "Si la catégorie est inconnue ou absente, utiliser la règle par défaut du client puis la description BC."
+    },
+    "read_only_requirement": "Toutes les recherches Business Central restent strictement en GET, y compris la récupération du client et de la catégorie article."
+  },
+  "local_storage": {
+    "technology": "SQLite",
+    "reason": "Éviter les conflits d'écriture entre secteurs et opérateurs et conserver une configuration locale structurée.",
+    "do_not_use_for_profiles": "goal_ligne1.json est uniquement le cahier des charges. Les profils opérationnels ne doivent pas être stockés dans ce fichier JSON.",
+    "tables_proposees": {
+      "client_profiles": {
+        "purpose": "Identité et paramètres généraux du client.",
+        "fields": [
+          "id",
+          "bc_customer_id",
+          "bc_customer_number",
+          "display_name",
+          "active",
+          "created_at",
+          "updated_at"
+        ],
+        "constraints": [
+          "Unicité sur bc_customer_id lorsque présent",
+          "Unicité ou contrôle de doublon sur bc_customer_number",
+          "Ne jamais supprimer automatiquement un profil existant"
+        ]
+      },
+      "client_label_rules": {
+        "purpose": "Une règle de libellé par client, catégorie article et résolution d'impression.",
+        "fields": [
+          "id",
+          "client_profile_id",
+          "article_category",
+          "label_300_template",
+          "label_203_template",
+          "enabled",
+          "updated_at"
+        ],
+        "unique_key": [
+          "client_profile_id",
+          "article_category"
+        ]
+      }
+    }
+  },
+  "template_system": {
+    "objective": "Construire les deux libellés à partir de variables contrôlées plutôt que de concaténations codées en dur.",
+    "variables_initiales": [
+      "${parfum}",
+      "${description}",
+      "${description_2}",
+      "${categorie}",
+      "${unite}",
+      "${poids}",
+      "${quantite}",
+      "${client}"
+    ],
+    "default_behavior": {
+      "300_dpi": "Utiliser la description article BC et les informations d'unité et de poids disponibles.",
+      "203_dpi": "Utiliser la description article BC comme base, sans inventer de GENCOD.",
+      "missing_variable": "Remplacer la variable absente par une chaîne vide et afficher un avertissement explicite dans l'interface d'administration."
+    },
+    "examples": {
+      "300_dpi_cremcentre_entier": "6 Yaourt entier ${parfum} RGF - 2X125G",
+      "203_dpi_cremcentre_entier": "RGF ${parfum} 2X125gr"
+    },
+    "validation": [
+      "Limiter la longueur et les caractères incompatibles avec le moteur d'image ou ZPL.",
+      "Préserver les accents grâce à la police embarquée commune Linux/Windows.",
+      "Prévoir un aperçu avant validation.",
+      "Ne jamais modifier les champs EAN14, GENCOD, lot ou DLC lors d'une modification de libellé."
+    ]
+  },
+  "import_order_flow": {
+    "steps": [
+      "Importer la commande via Business Central en GET uniquement.",
+      "Résoudre l'identifiant et le nom du client.",
+      "Charger le profil client local correspondant à l'identifiant BC.",
+      "Récupérer la catégorie article de chaque ligne.",
+      "Sélectionner la règle client + catégorie.",
+      "Construire le libellé 300 dpi et le libellé 203 dpi.",
+      "Afficher les produits et les valeurs calculées dans le tableau avant impression."
+    ],
+    "unknown_client": {
+      "condition": "Aucun profil local ne correspond à l'identifiant BC du client.",
+      "message": "Nouveau client, voulez-vous ajouter ce client ?",
+      "confirmation_yes": [
+        "Créer le profil local du client.",
+        "Créer les règles initiales avec les descriptions BC comme valeurs par défaut.",
+        "Permettre immédiatement l'ajustement des règles depuis l'écran courant."
+      ],
+      "confirmation_no": [
+        "Ne rien écrire dans SQLite.",
+        "Continuer l'affichage avec les descriptions BC comme fallback.",
+        "Afficher clairement que le client n'est pas encore configuré."
+      ]
+    }
+  },
+  "user_interface": {
+    "client_profiles_management": {
+      "entry_point": "Ajouter un bouton de gestion des profils clients dans l'interface technique ou la configuration de la Ligne 1.",
+      "modal_actions": [
+        "Créer un client",
+        "Modifier un client",
+        "Activer ou désactiver un client",
+        "Ajouter, modifier ou désactiver une catégorie article"
+      ],
+      "fields": [
+        "Identifiant client BC",
+        "Numéro client BC",
+        "Nom affiché",
+        "Catégorie article",
+        "Modèle de libellé 300 dpi",
+        "Modèle de libellé 203 dpi"
+      ]
+    },
+    "order_table": {
+      "current_behavior": "Le clic sur le nom d'un parfum ouvre une modale de prévisualisation 300 dpi et 203 dpi.",
+      "target_behavior": "Étendre cette modale pour permettre de modifier uniquement les deux libellés du produit affiché.",
+      "live_edit": [
+        "Afficher le libellé 300 dpi éditable.",
+        "Afficher le libellé 203 dpi éditable.",
+        "Afficher un aperçu actualisé pour chaque format.",
+        "Ne pas rendre éditables les codes-barres, lots, DLC ou quantités depuis cette fonctionnalité."
+      ],
+      "apply_to_same_category": "À la validation, appliquer la règle au profil client et mettre à jour immédiatement toutes les lignes de la commande ayant la même catégorie article."
+    },
+    "category_preview": {
+      "requirement": "Chaque catégorie article configurée doit disposer d'un bouton d'aperçu 300 dpi et d'un bouton d'aperçu 203 dpi.",
+      "preview_source": "Utiliser les mêmes moteurs de rendu que l'impression, sans envoyer de travail à une imprimante.",
+      "refresh": "Actualiser l'aperçu pendant la modification du modèle ou après changement de variable."
+    }
+  },
+  "fallbacks_and_safety": {
+    "unknown_category": "Utiliser la règle par défaut du client ou, à défaut, la description BC.",
+    "unknown_client": "Ne jamais bloquer silencieusement l'import ; afficher le message de nouveau client et conserver un fallback visible.",
+    "missing_gencod": "Ne pas générer de faux GENCOD et ne pas lever d'erreur bloquante si le client n'en possède pas.",
+    "business_central": [
+      "GET uniquement.",
+      "Aucun POST.",
+      "Aucun PUT.",
+      "Aucun DELETE."
+    ],
+    "local_database": "Les écritures concernent uniquement la configuration locale SQLite après validation explicite de l'opérateur."
+  },
+  "acceptance_criteria": [
+    "Une commande CREMCENTRE ou CREMLOG de catégorie ENTIER produit les libellés RGF attendus en 300 dpi et 203 dpi.",
+    "Deux catégories différentes du même client peuvent avoir deux modèles indépendants.",
+    "Une modification d'un libellé depuis une ligne met à jour les autres lignes de même client et même catégorie dans la commande.",
+    "La règle modifiée est persistée localement dans SQLite et réutilisée lors d'un prochain import.",
+    "Un nouveau client est détecté par son identifiant BC et une proposition de création est affichée.",
+    "Les aperçus 300 dpi et 203 dpi sont disponibles avant toute impression.",
+    "Les codes EAN14 et GENCOD restent ceux sélectionnés depuis BC selon l'unité de commande.",
+    "Aucune opération d'écriture n'est effectuée dans Business Central.",
+    "Le rendu texte reste identique entre Linux et Windows grâce aux polices embarquées."
+  ],
+  "implementation_order": [
+    "Identifier et exposer proprement l'identifiant client BC et la catégorie article dans le flux de commande.",
+    "Concevoir la migration SQLite et les tables de profils clients/règles de libellés.",
+    "Créer les valeurs par défaut et le système de variables de modèles.",
+    "Ajouter la gestion des profils clients et catégories dans l'interface.",
+    "Brancher la résolution des libellés sur l'import de commande.",
+    "Étendre la modale de prévisualisation existante avec l'édition à la volée.",
+    "Ajouter l'application de la règle à toutes les lignes de même catégorie.",
+    "Tester les clients connus, les nouveaux clients, les catégories inconnues, les GENCOD absents et les deux systèmes Linux/Windows."
+  ],
+  "non_execution_note": "Ce fichier décrit le chantier à réaliser. La base client, les profils, la modale d'administration et la résolution par catégorie ne doivent pas être implémentés dans le cadre de la création de ce document.",
+  "RAPPEL" : "IL EST INTERDIT DE MODIFIER LES DONNEES SUR BUSINESS, AUCUNE ACTION SUR BUSINESS NOUS ON RECUPERE UNIQUEMENT LES DONNEES. IL FAUT PASSER SUR ENVIRRONNEMENT Dev ET SUR Ferme des Peupliers. TOUJOURS ME DEMANDER SI TU VEUX FAIRE UNE REQUETTE VERS BUSINESS" 
+}
