@@ -95,6 +95,137 @@ const apiOrderLabelPreviewClose = document.getElementById('api-order-label-previ
 const apiOrderLabelPreviewCloseBottom = document.getElementById('api-order-label-preview-close-bottom');
 let apiOrderLabelPreviewRequestId = 0;
 const apiOrderLabelPreviewUrls = { 203: null, 300: null };
+const ligne1LotSummaryModal = document.getElementById('ligne1-lot-summary-modal');
+const ligne1LotSummaryButton = document.getElementById('btn-ligne1-lot-summary');
+
+function closeLigne1LotSummary() {
+    if (ligne1LotSummaryModal) ligne1LotSummaryModal.style.display = 'none';
+    ligne1LotSummaryButton?.focus();
+}
+
+function openLigne1LotSummary() {
+    const stats = document.getElementById('ligne1-lot-summary-stats');
+    const list = document.getElementById('ligne1-lot-summary-list');
+    if (!stats || !list || !ligne1LotSummaryModal) return;
+
+    const products = new Map();
+    currentData.filter(item => !item.ClientCategoryBlocked).forEach(item => {
+        const productId = String(item.Item_No || item.Libelle || item.ItemDescription2 || 'produit');
+        const flavour = String(item.Parfum || '').trim();
+        const category = String(item.ItemCategoryCode || '').trim();
+        const key = JSON.stringify([productId, flavour.toLocaleLowerCase('fr'), category]);
+        if (!products.has(key)) {
+            products.set(key, {
+                flavour: flavour || item.ItemDescription2 || item.ItemDescription || item.Libelle || item.Item_No || 'Produit sans nom',
+                category,
+                description: item.Libelle || item.ItemDescription || '',
+                lots: new Map(),
+                warning: ''
+            });
+        }
+        const product = products.get(key);
+        if (!product.warning && (item.LotShortageWarning || item.LotSelectionWarning)) {
+            product.warning = item.LotShortageWarning || item.LotSelectionWarning;
+        }
+
+        const lotNumber = String(item.Numlot || '').trim();
+        const assigned = Boolean(lotNumber) && !item.LotSelectionBlocked;
+        const lotKey = assigned ? lotNumber : '__unassigned__';
+        const rawPots = item.LotAllocatedPotQuantity ?? (assigned ? item.QuantitePots : 0);
+        const pots = Math.max(0, Math.ceil(Number(String(rawPots ?? 0).replace(',', '.')) || 0));
+        const previous = product.lots.get(lotKey) || { lot: assigned ? lotNumber : '', pots: 0, assigned };
+        previous.pots += pots;
+        product.lots.set(lotKey, previous);
+    });
+
+    const productEntries = [...products.values()];
+    const assignedLots = productEntries.reduce((count, product) => count + [...product.lots.values()].filter(lot => lot.assigned).length, 0);
+    const totalPots = productEntries.reduce((sum, product) => sum + [...product.lots.values()].filter(lot => lot.assigned).reduce((lotSum, lot) => lotSum + lot.pots, 0), 0);
+    const formatNumber = value => new Intl.NumberFormat('fr-FR').format(value);
+    stats.replaceChildren();
+    [
+        { value: formatNumber(productEntries.length), label: 'produit(s)' },
+        { value: formatNumber(assignedLots), label: 'lot(s) attribué(s)' },
+        { value: `${formatNumber(totalPots)} pots`, label: 'au total' }
+    ].forEach(stat => {
+        const card = document.createElement('div');
+        card.className = 'ligne1-lot-summary-stat';
+        const value = document.createElement('strong');
+        value.textContent = stat.value;
+        const label = document.createElement('span');
+        label.textContent = stat.label;
+        card.append(value, label);
+        stats.appendChild(card);
+    });
+
+    list.replaceChildren();
+    if (!productEntries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'ligne1-lot-summary-empty';
+        empty.textContent = 'Aucun produit à récapituler.';
+        list.appendChild(empty);
+    }
+
+    productEntries.forEach(product => {
+        const card = document.createElement('article');
+        card.className = 'ligne1-lot-summary-product';
+        const heading = document.createElement('div');
+        heading.className = 'ligne1-lot-summary-product-heading';
+        const title = document.createElement('h3');
+        title.textContent = product.flavour;
+        heading.appendChild(title);
+        if (product.category) {
+            const category = document.createElement('span');
+            category.className = 'ligne1-lot-summary-category';
+            category.textContent = product.category;
+            heading.appendChild(category);
+        }
+        card.appendChild(heading);
+        if (product.description && product.description !== product.flavour) {
+            const description = document.createElement('p');
+            description.className = 'ligne1-lot-summary-product-description';
+            description.textContent = product.description;
+            card.appendChild(description);
+        }
+
+        const lotList = document.createElement('div');
+        lotList.className = 'ligne1-lot-summary-lots';
+        [...product.lots.values()].sort((a, b) => Number(b.assigned) - Number(a.assigned) || a.lot.localeCompare(b.lot, 'fr')).forEach(lot => {
+            const row = document.createElement('div');
+            row.className = `ligne1-lot-summary-lot${lot.assigned ? '' : ' is-unassigned'}`;
+            const name = document.createElement('span');
+            name.className = 'ligne1-lot-summary-lot-name';
+            name.textContent = lot.assigned ? `Lot ${lot.lot}` : 'Lot à attribuer';
+            const quantity = document.createElement('strong');
+            quantity.textContent = `${formatNumber(lot.pots)} pot${lot.pots > 1 ? 's' : ''}`;
+            row.append(name, quantity);
+            lotList.appendChild(row);
+        });
+        card.appendChild(lotList);
+
+        if (product.warning) {
+            const warning = document.createElement('p');
+            warning.className = 'ligne1-lot-summary-warning';
+            warning.textContent = product.warning;
+            card.appendChild(warning);
+        }
+        list.appendChild(card);
+    });
+
+    ligne1LotSummaryModal.style.display = 'flex';
+    lucide.createIcons();
+    document.getElementById('ligne1-lot-summary-close-icon')?.focus();
+}
+
+ligne1LotSummaryButton?.addEventListener('click', openLigne1LotSummary);
+document.getElementById('ligne1-lot-summary-close-icon')?.addEventListener('click', closeLigne1LotSummary);
+document.getElementById('ligne1-lot-summary-close')?.addEventListener('click', closeLigne1LotSummary);
+ligne1LotSummaryModal?.addEventListener('click', event => {
+    if (event.target === ligne1LotSummaryModal) closeLigne1LotSummary();
+});
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && ligne1LotSummaryModal?.style.display === 'flex') closeLigne1LotSummary();
+});
 
 function closeApiOrderLabelPreview() {
     apiOrderLabelPreviewRequestId += 1;
@@ -228,6 +359,7 @@ function activateSector(sector, saveState = true) {
         activateDedicatedTool('conditionnement', sector);
         return;
     }
+    if (ligne1LotSummaryModal) ligne1LotSummaryModal.style.display = 'none';
     clearDedicatedToolState();
     currentSector = sector;
     const btn = Array.from(sectorBtns).find(b => b.dataset.sector === sector);
@@ -429,6 +561,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 function activateDedicatedTool(tool, sector) {
     // Classe d'état dédiée à la présentation de l'outil, sans modifier la logique métier.
     clearDedicatedToolState();
+    if (ligne1LotSummaryModal) ligne1LotSummaryModal.style.display = 'none';
     document.body.classList.add('dedicated-tool-page', `dedicated-tool-${tool}`);
     const isLigne1Prepa = tool === 'zebra' && sector === 'prepa_commande';
     document.body.classList.toggle('dedicated-tool-ligne1-prepa', isLigne1Prepa);
@@ -2224,7 +2357,7 @@ if (apiFetchBtn) {
         const step2Timeout = setTimeout(() => {
             const textEl = document.getElementById('order-loader-text');
             if (textEl) {
-                textEl.innerHTML = "Étape 2/2 : Analyse des stocks et affectation des lots (FEFO)...";
+                textEl.innerHTML = "Étape 2/2 : Vérification des DLC, des blocages qualité et du FIFO...";
             }
         }, 1200);
 
@@ -2251,7 +2384,14 @@ if (apiFetchBtn) {
                     if (ligne1Profiles && window.Ligne1Profiles) {
                         clearTimeout(step2Timeout);
                         loader.style.display = 'none';
-                        await window.Ligne1Profiles.onImport();
+                        const ready = await window.Ligne1Profiles.onImport();
+                        if (!ready) {
+                            currentData = [];
+                            currentDataSource = null;
+                            closeEditSection();
+                            Modal.alert('Préparation interrompue', 'Le délai minimum avant DLC doit être renseigné pour préparer les étiquettes.', 'calendar-days', 'icon-warning');
+                            return;
+                        }
                     }
                     displayEditSection();
                 }
@@ -2329,7 +2469,7 @@ function aggregateOrderData(data) {
         if (!lib) return; 
         
         const key = item.Item_No
-            ? JSON.stringify([item.CustomerId, item.CustomerNumber, item.Item_No, item.UnitOfMeasureCode, item.CodeBarre01, item.GENCOD, item.CodeBarre10 || item.Numlot, dateKey])
+            ? JSON.stringify([item.CustomerId, item.CustomerNumber, item.BCOrderLineKey || '', item.Item_No, item.UnitOfMeasureCode, item.CodeBarre01, item.GENCOD, item.CodeBarre10 || item.Numlot, dateKey])
             : lib + "_" + dateKey;
         
         // Convertir la quantité en flottant (ex: 0,16667 -> 0.16667) puis arrondir au supérieur
@@ -2361,7 +2501,7 @@ function aggregateOrderData(data) {
     
     // Règle CREMLOG / CREMCENTRE : Les couches doivent être pleines (arrondi au supérieur)
     const client = data[0].Client ? data[0].Client.toUpperCase() : "";
-    if (client.includes("CREMLOG") || client.includes("CREMCENTRE")) {
+    if (!data[0].BCScope && (client.includes("CREMLOG") || client.includes("CREMCENTRE"))) {
         // Grouper par Libellé (ignorer DLC) pour avoir le total par parfum
         const totalParParfum = {};
         aggregated.forEach(item => {
@@ -2408,6 +2548,11 @@ productsTableBody.addEventListener('click', event => {
 });
 
 function displayEditSection() {
+    if (ligne1LotSummaryButton) {
+        ligne1LotSummaryButton.hidden = !(currentSector === 'prepa_commande'
+            && currentDataSource === 'business-central'
+            && currentData.some(item => item.BCScope));
+    }
     if (currentData.length === 0) return;
     const isConditionnement = currentSector === 'conditionnement';
     const showApiLabelPreview = currentDataSource === 'business-central' && currentSector === 'prepa_commande';
@@ -2465,7 +2610,9 @@ function displayEditSection() {
         thQuantite.style.backgroundColor = '#e0e7ff';
         thQuantite.style.color = '#3730a3';
         
-        thQuantitePots.innerHTML = `<div style="display:flex; align-items:center; gap:5px; justify-content:flex-start;"><input type="checkbox" id="enable-pots" ${potsWasChecked ? 'checked' : ''} class="large-checkbox" title="Activer/Désactiver l'impression Pots x2"> <i data-lucide="box"></i> Qte Pots x2</div>`;
+        const apiOrder = currentData.some(item => item.BCScope);
+        const label203Header = apiOrder ? 'Qte étiquettes 203 dpi' : 'Qte Pots x2';
+        thQuantitePots.innerHTML = `<div style="display:flex; align-items:center; gap:5px; justify-content:flex-start;"><input type="checkbox" id="enable-pots" ${potsWasChecked ? 'checked' : ''} class="large-checkbox" title="Activer/Désactiver l'impression 203 dpi"> <i data-lucide="box"></i> ${label203Header}</div>`;
         thQuantitePots.style.display = '';
     } else if (isConditionnement) {
         thQuantite.innerHTML = '<i data-lucide="package" style="width:15px;height:15px;vertical-align:-2px;"></i> Qte Cartons';
@@ -2493,16 +2640,19 @@ function displayEditSection() {
             : isConditionnement
                 ? 'background-color: #fff7ed; border-color: #fed7aa; font-weight: bold; color: #9a3412;'
                 : '';
+        const cartonQuantityTitle = item.BCOrderAllocated
+            ? `${item.QuantitePots || 0} pots ÷ ${item.CartonPotsPerCase || '?'} pots par carton, arrondi au supérieur`
+            : 'Quantité de cartons';
         let qteCartonCol = isConditionnement
             ? `<input type="number" id="qte-cartons-${index}" value="${item.Quantite || 0}" readonly title="Nombre de cartons calculé automatiquement à partir des pots" style="${quantityStyle}">`
-            : `<input type="number" value="${item.Quantite || 0}" style="${quantityStyle}" oninput="updateRowData(${index}, 'Quantite', this.value)">`;
+            : `<input type="number" value="${item.Quantite || 0}" style="${quantityStyle}" ${item.BCOrderAllocated ? `readonly title="${cartonQuantityTitle}"` : `oninput="updateRowData(${index}, 'Quantite', this.value)"`}>`;
         let extraCol = isLigne1
-            ? `<td style="background-color: #f0fdf4;"><input type="number" id="qte-pots-${index}" value="${item.QuantitePots || 0}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>`
+            ? `<td style="background-color: #f0fdf4;"><input type="number" id="qte-pots-${index}" value="${item.BCOrderAllocated ? (item.QuantiteEtiquettes203 || 0) : (item.QuantitePots || 0)}" style="background-color: #dcfce7; border-color: #bbf7d0; font-weight: bold; color: #166534;" ${item.BCOrderAllocated ? 'readonly title="Nombre d’unités de vente à étiqueter en 203 dpi"' : `oninput="updateRowData(${index}, 'QuantitePots', this.value)"`}></td>`
             : isConditionnement
                 ? `<td style="background-color: #fffbeb;"><input type="number" id="qte-pots-${index}" value="${item.QuantitePots ?? 0}" min="0" step="1" title="Quantité de pots à imprimer" style="background-color: #fef3c7; border-color: #fde68a; font-weight: bold; color: #92400e;" oninput="updateRowData(${index}, 'QuantitePots', this.value)"></td>`
                 : '<td style="display:none;"></td>';
 
-        const rawDLC = item.CodeBarre17 || (isConditionnement ? '' : item.DateLivraison || '');
+        const rawDLC = item.CodeBarre17 || (isConditionnement || item.BCScope ? '' : item.DateLivraison || '');
         let displayDLC = rawDLC;
         if (rawDLC && rawDLC.length === 6 && !rawDLC.includes('/')) {
             displayDLC = `${rawDLC.substring(4,6)}/${rawDLC.substring(2,4)}/20${rawDLC.substring(0,2)}`;
@@ -2517,11 +2667,11 @@ function displayEditSection() {
             <td data-product-preview-cell></td>
             <td>
                 <div style="display:flex; align-items:center; gap: 5px;">
-                    <input type="text" id="dlc-input-${index}" value="${displayDLC}" style="width: 120px;" onchange="updateDLC(${index}, this.value)">
+                    <input type="text" id="dlc-input-${index}" value="${displayDLC}" style="width: 120px;" ${item.BCScope ? 'readonly title="DLC issue du lot sélectionné"' : `onchange="updateDLC(${index}, this.value)"`}>
                     ${dlcLookupButton}
                 </div>
             </td>
-            <td><input type="text" id="lot-input-${index}" value="${item.Numlot || ''}" oninput="updateRowData(${index}, 'Numlot', this.value)"></td>
+            <td><input type="text" id="lot-input-${index}" class="${item.LotSelectionBlocked ? 'lot-input-no-eligible' : ''}" value="${item.Numlot || ''}" ${item.BCScope ? 'readonly' : `oninput="updateRowData(${index}, 'Numlot', this.value)"`} ${item.LotSelectionBlocked ? 'aria-invalid="true" title="Aucun lot éligible selon le délai DLC et les blocages qualité"' : item.BCScope ? 'title="Choisissez un lot dans la liste des lots éligibles"' : ''}></td>
             <td style="${isLigne1 ? 'background-color: #f5f8ff;' : ''}">${qteCartonCol}</td>
             ${extraCol}
             <td><button class="btn-remove" onclick="removeLine(${index})" title="Retirer cette ligne"><i data-lucide="trash-2"></i></button></td>
@@ -2617,12 +2767,15 @@ window.openStockPicker = (index, libelle) => {
     try {
         const item = currentData[index];
         const lots = item.available_lots || [];
-        
+        const minimumDate = item.ClientMinimumDlcDate || '';
+        const minimumLabel = minimumDate ? new Date(`${minimumDate}T00:00:00`).toLocaleDateString('fr-FR') : '';
         let content = `<div style="max-height: 500px; overflow-y: auto;">
+            ${minimumLabel ? `<p>Pour ce client, la DLC doit être au ${minimumLabel} minimum. Les lots sont classés du plus ancien au plus récent (FIFO).</p>` : ''}
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 15px;">
                 <thead>
                     <tr style="border-bottom: 2px solid #ddd; background-color: #f8fafc;">
                         <th style="padding: 12px 16px;">Date DLC</th>
+                        <th style="padding: 12px 16px;">Entrée stock</th>
                         <th style="padding: 12px 16px;">Lot</th>
                         <th style="padding: 12px 16px;">Quantité dispo</th>
                         <th style="padding: 12px 16px;">Statut</th>
@@ -2632,15 +2785,20 @@ window.openStockPicker = (index, libelle) => {
                 <tbody>`;
                 
         if (lots.length === 0) {
-            content += `<tr><td colspan="5" style="text-align:center; padding: 25px; color: #666; font-size: 16px;">Aucun stock disponible pour cet article.</td></tr>`;
+            content += `<tr><td colspan="6" style="text-align:center; padding: 25px; color: #666; font-size: 16px;">Aucun stock disponible pour cet article.</td></tr>`;
         } else {
             lots.forEach(l => {
-                const isBlocked = l.blocked ? `<span style="color:red; font-weight:bold;"><i data-lucide="alert-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;"></i> BLOQUÉ</span>` : `<span style="color:green; font-weight: 500;">OK</span>`;
+                const expiry = l.expiration_date || '';
+                const tooEarly = Boolean(minimumDate && expiry && expiry < minimumDate);
+                const isBlocked = l.blocked ? `<span style="color:red; font-weight:bold;"><i data-lucide="alert-circle" style="width:16px;height:16px;display:inline-block;vertical-align:middle;"></i> BLOQUÉ · confirmation</span>`
+                    : tooEarly ? `<span style="color:#a16207;font-weight:500;">DLC courte · confirmation</span>` : `<span style="color:green; font-weight: 500;">Éligible</span>`;
+                const postingDate = l.posting_date ? new Date(`${l.posting_date}T00:00:00`).toLocaleDateString('fr-FR') : '—';
                 content += `
-                    <tr style="border-bottom: 1px solid #eee; ${l.blocked ? 'background-color:#fff0f0;' : ''}">
+                    <tr style="border-bottom: 1px solid #eee; ${l.blocked ? 'background-color:#fff0f0;' : tooEarly ? 'background-color:#fffbeb;' : ''}">
                         <td style="padding: 12px 16px; font-weight: bold;">${l.dlc_display}</td>
+                        <td style="padding: 12px 16px;">${postingDate}</td>
                         <td style="padding: 12px 16px;">${l.lot}</td>
-                        <td style="padding: 12px 16px; font-weight: 600;">${l.qty}</td>
+                        <td style="padding: 12px 16px; font-weight: 600;">${l.qty} pots</td>
                         <td style="padding: 12px 16px;">${isBlocked}</td>
                         <td style="padding: 12px 16px;">
                             <button class="btn btn-primary" style="padding: 8px 16px; font-size: 14px; margin: 0; min-width: 90px;" onclick="selectLot(${index}, '${l.lot}', '${l.code_barre_17}', '${l.dlc_display}')">Choisir</button>
@@ -2659,20 +2817,65 @@ window.openStockPicker = (index, libelle) => {
     }
 };
 
-window.selectLot = (index, lot, codeBarre17, dlcDisplay) => {
+window.selectLot = async (index, lot, codeBarre17, dlcDisplay) => {
+    const item = currentData[index];
+    const lotDetails = item?.available_lots?.find(entry => String(entry.lot) === String(lot));
+    if (!item || !lotDetails) return;
+    const minimumDate = item.ClientMinimumDlcDate || '';
+    const tooEarly = Boolean(minimumDate && lotDetails.expiration_date && lotDetails.expiration_date < minimumDate);
+    const cannotCheckThreshold = !minimumDate;
+    const overrideReasons = [];
+    if (lotDetails.blocked) overrideReasons.push('ce lot est bloqué par la qualité');
+    if (tooEarly) overrideReasons.push(`sa DLC (${dlcDisplay}) est avant la date minimale`);
+    if (cannotCheckThreshold) overrideReasons.push('la date minimale n’a pas pu être calculée');
+    if (overrideReasons.length) {
+        const confirmed = await Modal.confirm(
+            'Confirmer le choix du lot',
+            `Attention : ${overrideReasons.join(' et ')}. Voulez-vous quand même utiliser le lot ${lot} ?`,
+            'triangle-alert',
+            'icon-warning'
+        );
+        if (!confirmed) return;
+    }
+
     // Fermer le modal
     Modal.close();
     
     // Mettre à jour les données
     updateRowData(index, 'Numlot', lot);
     updateRowData(index, 'CodeBarre17', codeBarre17);
+    if (currentData[index]) {
+        currentData[index].LotSelectionBlocked = false;
+        currentData[index].LotSelectionWarning = '';
+        currentData[index].LotManuallySelected = true;
+        currentData[index].LotManualOverride = overrideReasons.length > 0;
+    }
+
+    if (item.BCScope && window.Ligne1Profiles) {
+        try {
+            await window.Ligne1Profiles.refresh();
+            displayEditSection();
+            window.Ligne1Profiles.showStatus();
+            addLog(`Répartition FIFO recalculée après le choix du lot ${lot}`, "success");
+            return;
+        } catch (error) {
+            Modal.error('Lots non actualisés', error.message);
+            return;
+        }
+    }
     
     // Mettre à jour l'affichage dans les inputs
     const dlcInput = document.getElementById(`dlc-input-${index}`);
     const lotInput = document.getElementById(`lot-input-${index}`);
     
     if (dlcInput) dlcInput.value = dlcDisplay;
-    if (lotInput) lotInput.value = lot;
+    if (lotInput) {
+        lotInput.value = lot;
+        lotInput.classList.remove('lot-input-no-eligible');
+        lotInput.removeAttribute('aria-invalid');
+        lotInput.title = 'Choisissez un lot dans la liste des lots éligibles';
+    }
+    window.Ligne1Profiles?.showStatus();
     
     addLog(`Ligne ${index + 1} mise à jour avec le lot ${lot}`, "success");
 };
@@ -2707,6 +2910,8 @@ cancelBtn.onclick = async () => {
 };
 
 function closeEditSection() {
+    if (ligne1LotSummaryModal) ligne1LotSummaryModal.style.display = 'none';
+    if (ligne1LotSummaryButton) ligne1LotSummaryButton.hidden = true;
     editSection.style.display = 'none';
     conditionnementApiPreviewRequestId += 1;
     clearTimeout(conditionnementApiPreviewTimer);
@@ -2814,6 +3019,15 @@ async function startPrint(all = false) {
         try { await window.Ligne1Profiles.refresh(); }
         catch (error) { Modal.error('Libellés non actualisés', error.message); return; }
     }
+    const invalidLotItems = currentData.filter(item => item.LotSelectionBlocked
+        && !item.ClientCategoryBlocked
+        && (!currentCategoryFilter || item.ItemCategoryCode === currentCategoryFilter)
+        && (all || item._selected));
+    if (invalidLotItems.length) {
+        const names = [...new Set(invalidLotItems.map(item => item.Libelle || item.Item_No || 'Produit'))].join(', ');
+        Modal.error('Impression bloquée', `Aucun lot FIFO autorisé pour : ${names}. Vérifiez le délai minimum avant DLC et les blocages qualité.`);
+        return;
+    }
     const updatedData = currentData.filter(item => !item.ClientCategoryBlocked
         && (!currentCategoryFilter || item.ItemCategoryCode === currentCategoryFilter)
         && (all || item._selected));
@@ -2821,6 +3035,20 @@ async function startPrint(all = false) {
     if (updatedData.length === 0) {
         Modal.alert("Rien à imprimer", "Vous devez sélectionner (cocher) au moins une ligne à imprimer.", 'alert-circle', 'icon-warning');
         return;
+    }
+
+    const selectedOpt = printerSelect.options[printerSelect.selectedIndex];
+    const selectedIsLigne1 = selectedOpt && selectedOpt.text.startsWith("Zebra Prépa commande") && !selectedOpt.text.includes("x2");
+    const selectedCartonEnabled = selectedIsLigne1
+        ? Boolean(document.getElementById('enable-carton')?.checked)
+        : Number(selectedOpt?.dataset.dpi) === 300;
+    if (selectedCartonEnabled) {
+        const unmappedCartonTypes = updatedData.filter(item => item.CartonLabelBlocked);
+        if (unmappedCartonTypes.length) {
+            const types = [...new Set(unmappedCartonTypes.map(item => item.ItemCategoryCode || 'inconnu'))].join(', ');
+            Modal.error('Impression 300 dpi bloquée', `Le nombre de pots par carton n’est pas défini pour : ${types}. L’impression 203 dpi reste possible si elle est activée.`);
+            return;
+        }
     }
 
     const ok = await Modal.confirm("Démarrer l'impression", `Vous allez envoyer ${updatedData.length} produits à l'imprimante.\nTout est correct ?`, 'printer', 'icon-info');
@@ -2864,7 +3092,9 @@ async function startPrint(all = false) {
             if (opt2) {
                 let potsData = updatedData.map(item => {
                     let clone = {...item};
-                    clone.Quantite = clone.QuantitePots;
+                    clone.Quantite = clone.BCOrderAllocated
+                        ? clone.QuantiteEtiquettes203
+                        : clone.QuantitePots;
                     return clone;
                 }).filter(item => item.Quantite > 0);
                 

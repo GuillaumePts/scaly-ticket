@@ -409,11 +409,12 @@ class BusinessCentralClient:
         customer_name = order.get("customerName", "")
         order_num = order.get("number", "")
         
-        # Date de livraison : tester requestedDeliveryDate, orderDate, ou date du jour
-        raw_date = order.get("requestedDeliveryDate") or order.get("orderDate") or ""
+        # Seule la date de livraison demandée sert au calcul du seuil client.
+        # Ne pas lui substituer la date de commande ou celle du jour : cela
+        # pourrait rendre éligible un lot qui ne respecte pas le délai demandé.
+        raw_date = order.get("requestedDeliveryDate") or ""
         if not raw_date or raw_date.startswith("0001-01-01"):
-            from datetime import datetime
-            delivery_date = datetime.now().strftime("%d/%m/%y")
+            delivery_date = ""
         else:
             # Recomposer au format DD/MM/YY si YYYY-MM-DD
             try:
@@ -421,7 +422,7 @@ class BusinessCentralClient:
                 dt = datetime.strptime(raw_date.split("T")[0], "%Y-%m-%d")
                 delivery_date = dt.strftime("%d/%m/%y")
             except Exception:
-                delivery_date = raw_date
+                delivery_date = ""
 
         # 2b. Extraire tous les identifiants d'articles uniques de la commande
         lines = order.get("salesOrderLines", [])
@@ -446,15 +447,16 @@ class BusinessCentralClient:
         )
         articles = self._fetch_label_articles(tenant_id, env, company_id, token, order_item_nos) if label_profiles else {}
         
-        # 4b. Calculer la date de DLC minimale (strictement >= Date du jour)
-        from datetime import datetime
-        min_dlc_date = datetime.now()
-
         # 5. Parser les lignes de commande et construire les 9 colonnes complètes
         lines = order.get("salesOrderLines", [])
         results = []
         for line in lines:
             libelle = line.get("description", "")
+            # BC peut contenir une ligne-balise « RUPTURE » lorsqu'aucun lot
+            # n'a été affecté à la ligne de commande. Ce n'est pas un produit
+            # à présenter dans le tableau d'impression.
+            if "RUPTURE" in str(libelle).upper():
+                continue
             order_qty = int(math.ceil(float(line.get("quantity", 0))))
             if order_qty <= 0 or not libelle:
                 continue
@@ -477,14 +479,16 @@ class BusinessCentralClient:
                 )
 
             # B. Recherche du vrai numéro de lot et DLC dans la table BC
-            candidates = self._get_all_lots_for_libelle(libelle, stock_lots, min_dlc_date, item_no=item_no)
-            available_lots = []
-            
-            from datetime import datetime
+            # La sélection finale (seuil client + FIFO + qualité) est faite après
+            # résolution du profil local. On transmet donc tous les lots en stock
+            # pour cet article, sans les filtrer sur la date du jour.
+            candidates = self._get_all_lots_for_libelle(libelle, stock_lots, None, item_no=item_no)
+            lots_by_number = {}
             for c in candidates:
                 lot = normalize_lot_number(c.get('Lot_No', ''))
                 qty = float(c.get('Remaining_Quantity', 0))
                 dlc_raw = c.get('Expiration_Date', '').split('T')[0]
+                posting_raw = c.get('Posting_Date', '').split('T')[0]
                 
                 try:
                     dt_dlc = datetime.strptime(dlc_raw, "%Y-%m-%d")
@@ -493,31 +497,37 @@ class BusinessCentralClient:
                 except:
                     dlc_display = dlc_raw
                     code_barre_17 = ""
-                    
-                blocked = "BLOQUE" in lot.upper() or c.get('Quality_Blocked', False)
-                available_lots.append({
-                    "lot": lot,
-                    "dlc_display": dlc_display,
-                    "code_barre_17": code_barre_17,
-                    "qty": qty,
-                    "blocked": blocked
-                })
+                blocked_value = c.get('Quality_Blocked', False)
+                blocked = "BLOQUE" in lot.upper() or blocked_value is True or str(blocked_value).strip().lower() in {"1", "true", "yes", "oui"}
+                if lot not in lots_by_number:
+                    lots_by_number[lot] = {
+                        "lot": lot,
+                        "dlc_display": dlc_display,
+                        "expiration_date": dlc_raw,
+                        "code_barre_17": code_barre_17,
+                        "posting_date": posting_raw,
+                        "qty": qty,
+                        "blocked": blocked,
+                    }
+                else:
+                    existing = lots_by_number[lot]
+                    existing["qty"] += qty
+                    existing["blocked"] = existing["blocked"] or blocked
+                    if posting_raw and (not existing["posting_date"] or posting_raw < existing["posting_date"]):
+                        existing["posting_date"] = posting_raw
+
+            available_lots = sorted(
+                lots_by_number.values(),
+                key=lambda entry: (entry["posting_date"] or "9999-12-31", entry["expiration_date"] or "9999-12-31", entry["lot"]),
+            )
             
-            if candidates:
-                matched_lot = candidates[0]
-                lot_no = normalize_lot_number(matched_lot.get("Lot_No", ""))
-                exp_raw = matched_lot.get("Expiration_Date", "")
-                try:
-                    dt_exp = datetime.strptime(exp_raw.split("T")[0], "%Y-%m-%d")
-                    code_barre_17 = dt_exp.strftime("%y%m%d")
-                    dlc_display = dt_exp.strftime("%d/%m/%y")
-                except Exception:
-                    code_barre_17 = ""
-                    dlc_display = exp_raw
+            first_allowed = next((entry for entry in available_lots if not entry["blocked"]), None)
+            if first_allowed:
+                lot_no = first_allowed["lot"]
+                code_barre_17 = first_allowed["code_barre_17"]
             else:
                 lot_no = ""
                 code_barre_17 = ""
-                dlc_display = delivery_date
 
             # C. Formatage du Numlot et CodeBarre10
             code_barre_10 = lot_no
@@ -536,6 +546,9 @@ class BusinessCentralClient:
                 "CodeBarre10": code_barre_10,
                 "Numlot": num_lot_text,
                 "Quantite": order_qty,
+                "BCRequestedQuantity": order_qty,
+                "BCRequestedBasePots": line.get("quantityBase"),
+                "BCPotsPerSalesUnit": line.get("qtyPerUnitOfMeasure"),
                 "available_lots": available_lots
             })
             if label_profiles:
@@ -544,6 +557,8 @@ class BusinessCentralClient:
                     "CustomerId": order.get("customerId", ""),
                     "CustomerNumber": order.get("customerNumber", ""),
                     "BCScope": {"environment": env, "company": company_name},
+                    "BCOrderLineKey": str(line.get("id") or line.get("sequence") or f"{order_num}:{item_no}:{unit_of_measure}:{libelle}"),
+                    "BCOrderNumber": order_num,
                     "ItemCategoryCode": article.get("itemCategoryCode", ""),
                     "ItemDescription": article.get("displayName") or libelle,
                     "ItemDescription2": article.get("displayName2", ""),
@@ -647,7 +662,7 @@ class BusinessCentralClient:
         comp_encoded = urllib.parse.quote(company_name)
         
         # Filtre de base
-        base_filter = "Lot_No ne '' and Posting_Date ge 2026-01-01 and Remaining_Quantity gt 0"
+        base_filter = "Lot_No ne '' and Remaining_Quantity gt 0"
         
         if item_nos:
             # Filtrage STRICT sur les articles de la commande (méthode robuste)
@@ -715,12 +730,12 @@ class BusinessCentralClient:
             elif not found_flavor and ('nature' in desc if 'nature' in lib_clean else True):
                 candidates.append(e)
                 
-        # Trier par date de péremption la plus proche
-        candidates.sort(key=lambda x: x.get('Expiration_Date', ''))
+        # FIFO : entrée en stock la plus ancienne d'abord, DLC en départage.
+        candidates.sort(key=lambda x: (x.get('Posting_Date', '') or '9999-12-31', x.get('Expiration_Date', '') or '9999-12-31'))
         return candidates
 
     def _match_lot_for_libelle(self, libelle: str, stock_lots: list, min_dlc_date, item_no: str = None) -> dict:
-        """Trouve le lot et la DLC les plus pertinents pour un produit selon la méthode FEFO."""
+        """Trouve le lot éligible le plus ancien selon la méthode FIFO."""
         candidates = self._get_all_lots_for_libelle(libelle, stock_lots, min_dlc_date, item_no)
         if candidates:
             return candidates[0]

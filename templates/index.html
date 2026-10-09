@@ -13,7 +13,7 @@
         rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="/static/style.css?v=40">
+    <link rel="stylesheet" href="/static/style.css?v=44">
 </head>
 
 <body>
@@ -682,12 +682,32 @@
                 </div>
 
                 <div class="actions">
+                    <button type="button" id="btn-ligne1-lot-summary" class="btn-secondary ligne1-lot-summary-trigger" hidden><i data-lucide="clipboard-list"></i> Récapitulatif des lots</button>
                     <button type="button" id="btn-paletisation-order" class="btn-secondary" style="border: 1px solid #9333ea; color: #9333ea; background: white;" title="Calculer la palettisation pour cette commande"><i data-lucide="layers"></i> Palettisation</button>
                     <button type="button" id="print-btn" class="btn-primary"><i data-lucide="printer"></i> Imprimer</button>
                     <button type="button" id="cancel-btn" class="btn-error"><i data-lucide="x-circle"></i> Annuler le
                         fichier</button>
                 </div>
             </section>
+
+            <div id="ligne1-lot-summary-modal" class="modal-overlay ligne1-lot-summary-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ligne1-lot-summary-title" aria-describedby="ligne1-lot-summary-description">
+                <section class="modal-content ligne1-lot-summary-dialog">
+                    <header class="ligne1-lot-summary-header">
+                        <div>
+                            <span class="ligne1-lot-summary-kicker"><i data-lucide="clipboard-check"></i> Préparation de commande</span>
+                            <h2 id="ligne1-lot-summary-title">Récapitulatif des lots</h2>
+                            <p id="ligne1-lot-summary-description">Les quantités ci-dessous sont toujours exprimées en pots.</p>
+                        </div>
+                        <button type="button" id="ligne1-lot-summary-close-icon" class="btn-icon" aria-label="Fermer le récapitulatif"><i data-lucide="x"></i></button>
+                    </header>
+                    <div id="ligne1-lot-summary-stats" class="ligne1-lot-summary-stats"></div>
+                    <div id="ligne1-lot-summary-list" class="ligne1-lot-summary-list"></div>
+                    <footer class="ligne1-lot-summary-footer">
+                        <p><i data-lucide="info"></i> Ce récapitulatif ne modifie pas Business Central. Après vérification, reportez les lots sur la vraie commande.</p>
+                        <button type="button" id="ligne1-lot-summary-close" class="btn-primary"><i data-lucide="check"></i> Fermer</button>
+                    </footer>
+                </section>
+            </div>
 
             <!-- Aperçu des étiquettes d'une commande importée depuis BC -->
             <div id="api-order-label-preview-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="api-order-label-preview-title">
@@ -779,22 +799,41 @@
             <div class="ligne1-profiles-layout">
                 <aside><label>Client<select id="ligne1-profile-select"></select></label><button type="button" id="ligne1-new-profile" class="btn-secondary"><i data-lucide="user-plus"></i> Nouveau client</button></aside>
                 <div>
+                    <div id="ligne1-profile-empty" class="ligne1-profile-empty" hidden>
+                        <div class="ligne1-profile-empty-icon"><i data-lucide="users-round"></i></div>
+                        <h4 id="ligne1-profile-empty-title">Aucun profil sélectionné</h4>
+                        <p id="ligne1-profile-empty-message">Choisissez un client dans la liste ou créez une nouvelle fiche locale.</p>
+                        <button type="button" id="ligne1-profile-empty-create" class="btn-secondary"><i data-lucide="user-plus"></i> Créer un profil client</button>
+                    </div>
                     <form id="ligne1-profile-form">
                         <div class="ligne1-fields">
                             <label>Nom du client<input id="ligne1-profile-name" required maxlength="200" readonly></label>
                             <label>Numéro client<input id="ligne1-profile-number" maxlength="20" readonly></label>
                             <label>Identifiant client<input id="ligne1-profile-bc-id" maxlength="50" readonly></label>
+                            <label>Délai minimum avant DLC (jours)<input id="ligne1-profile-min-dlc-days" type="number" min="0" step="1" required><small>Valeur communiquée par le client.</small></label>
                         </div>
                         <label class="ligne1-enabled"><input id="ligne1-profile-active" type="checkbox" checked> Profil actif</label>
                         <p class="ligne1-variable-help">Aperçus des étiquettes pour chaque catégorie.</p>
                         <div id="ligne1-profile-rules"></div>
                         <div class="ligne1-add-category"><input id="ligne1-new-category" placeholder="Catégorie d’article"><button type="button" id="ligne1-add-category" class="btn-secondary">Ajouter une catégorie</button></div>
                         <p id="ligne1-profile-message" class="ligne1-warning" role="status"></p>
-                        <div class="ligne1-profiles-actions"><button type="button" id="ligne1-profile-cancel" class="btn-secondary">Annuler</button><button type="submit" class="btn-primary" id="ligne1-profile-save">Enregistrer le profil</button></div>
+                        <div class="ligne1-profiles-actions"><button type="button" id="ligne1-profile-delete" class="btn-error" hidden><i data-lucide="trash-2"></i> Supprimer ce profil local</button><button type="button" id="ligne1-profile-cancel" class="btn-secondary">Annuler</button><button type="submit" class="btn-primary" id="ligne1-profile-save">Enregistrer le profil</button></div>
                     </form>
                 </div>
             </div>
         </div>
+    </div>
+    <div id="ligne1-min-dlc-days-modal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ligne1-min-dlc-days-title">
+        <form id="ligne1-min-dlc-days-form" class="modal-content ligne1-min-dlc-days-dialog">
+            <h3 id="ligne1-min-dlc-days-title">Délai minimum avant DLC</h3>
+            <p>Saisissez le nombre de jours demandé par ce client.</p>
+            <label for="ligne1-min-dlc-days-input">Nombre de jours</label>
+            <input id="ligne1-min-dlc-days-input" type="number" min="0" step="1" required>
+            <div class="ligne1-profiles-actions">
+                <button type="button" id="ligne1-min-dlc-days-cancel" class="btn-secondary">Annuler</button>
+                <button type="submit" class="btn-primary">Continuer</button>
+            </div>
+        </form>
     </div>
     <div id="conditionnement-label-settings-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content conditionnement-label-settings-content">
@@ -1184,7 +1223,7 @@
         </div>
     </div>
     
-    <script src="/static/script.js?v=37"></script>
-    <script src="/static/ligne1_profiles.js?v=3"></script>
+    <script src="/static/script.js?v=43"></script>
+    <script src="/static/ligne1_profiles.js?v=9"></script>
 </body>
 </html>

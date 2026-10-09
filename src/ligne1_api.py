@@ -27,6 +27,7 @@ class RuleInput(BaseModel):
 
 class CreateProfile(BaseModel):
     identity: dict
+    min_dlc_days: int
     categories: list[str] = Field(default_factory=list)
     rules: list[RuleInput] = Field(default_factory=list)
     blocked_categories: list[str] = Field(default_factory=list)
@@ -45,6 +46,7 @@ class SaveProfile(BaseModel):
     active: bool = True
     rules: list[RuleInput]
     blocked_categories: list[str] | None = None
+    min_dlc_days: int | None = None
     identity: dict | None = None
     flavour: FlavourInput | None = None
 
@@ -53,6 +55,7 @@ class ResolveLabels(BaseModel):
     items: list[dict]
     draft: RuleInput | None = None
     draft_flavour: str | None = None
+    min_dlc_days: int | None = None
 
 
 def profile_error(exc):
@@ -70,7 +73,7 @@ def create_profile(request: CreateProfile):
     try:
         store, _ = configured_store()
         return store.create(request.identity, request.categories, [r.model_dump() for r in request.rules],
-                            request.active, request.blocked_categories)
+                            request.active, request.blocked_categories, request.min_dlc_days)
     except ValueError as exc:
         raise profile_error(exc) from exc
 
@@ -81,7 +84,17 @@ def save_profile(profile_id: str, request: SaveProfile):
         store, _ = configured_store()
         return store.save(profile_id, request.revision, request.display_name, request.active,
                           [r.model_dump() for r in request.rules], request.identity,
-                          request.flavour.model_dump() if request.flavour else None, request.blocked_categories)
+                          request.flavour.model_dump() if request.flavour else None, request.blocked_categories,
+                          request.min_dlc_days)
+    except ValueError as exc:
+        raise profile_error(exc) from exc
+
+
+@router.delete("/profiles/{profile_id}")
+def delete_profile(profile_id: str, revision: int):
+    try:
+        store, _ = configured_store()
+        return store.delete(profile_id, revision)
     except ValueError as exc:
         raise profile_error(exc) from exc
 
@@ -92,6 +105,7 @@ def resolve_labels(request: ResolveLabels):
         store, scope = configured_store()
         if any(item.get("BCScope") and item["BCScope"] != scope for item in request.items):
             raise ValueError("L'environnement BC a changé. Réimportez la commande avant d'appliquer un profil.")
-        return {"items": store.resolve(request.items, request.draft.model_dump() if request.draft else None, request.draft_flavour)}
+        return {"items": store.resolve(request.items, request.draft.model_dump() if request.draft else None,
+                                        request.draft_flavour, request.min_dlc_days)}
     except ValueError as exc:
         raise profile_error(exc) from exc

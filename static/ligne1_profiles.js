@@ -71,9 +71,10 @@
     document.body.appendChild(apiOrderLabelPreviewModal);
 
     async function api(path, body, method = 'POST') {
-        const response = await fetch('/api/ligne1/' + path, body === undefined ? {} : {
-            method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-        });
+        const options = body === undefined
+            ? (method === 'POST' ? {} : { method })
+            : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+        const response = await fetch('/api/ligne1/' + path, options);
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Impossible de charger les profils.');
         return data;
@@ -88,7 +89,10 @@
 
     async function refresh() {
         if (!currentData.length || !currentData[0].BCScope) return;
-        const data = await api('resolve', { items: currentData });
+        const temporaryDays = currentData[0].ClientMinDlcDaysTransient
+            ? Number(currentData[0].ClientMinDlcDays)
+            : undefined;
+        const data = await api('resolve', { items: currentData, min_dlc_days: temporaryDays });
         currentData = data.items;
     }
 
@@ -109,7 +113,12 @@
         const text = document.createElement('span');
         text.textContent = message;
         status.append(button, text);
-        const warnings = [...new Set(currentData.flatMap(row => row.LabelWarnings || []))];
+        const warnings = [...new Set([
+            ...currentData.flatMap(row => row.LabelWarnings || []),
+            ...currentData.map(row => row.LotSelectionWarning).filter(Boolean),
+            ...currentData.map(row => row.LotShortageWarning).filter(Boolean),
+            ...currentData.map(row => row.CartonLabelWarning).filter(Boolean),
+        ])];
         if (warnings.length) {
             const note = document.createElement('small');
             note.className = 'ligne1-warning'; note.textContent = readableWarnings(warnings);
@@ -117,19 +126,81 @@
         }
     }
 
-    async function createImportedProfile() {
+    function requestMinimumDlcDays() {
+        const overlay = byId('ligne1-min-dlc-days-modal');
+        const form = byId('ligne1-min-dlc-days-form');
+        const input = byId('ligne1-min-dlc-days-input');
+        const cancel = byId('ligne1-min-dlc-days-cancel');
+        input.value = '';
+        overlay.style.display = 'flex';
+        input.focus();
+        return new Promise(resolve => {
+            const finish = value => {
+                overlay.style.display = 'none';
+                form.onsubmit = null;
+                cancel.onclick = null;
+                overlay.onclick = null;
+                document.removeEventListener('keydown', onKeyDown);
+                resolve(value);
+            };
+            const onKeyDown = event => { if (event.key === 'Escape') finish(null); };
+            form.onsubmit = event => {
+                event.preventDefault();
+                if (!form.reportValidity()) return;
+                finish(Number(input.value));
+            };
+            cancel.onclick = () => finish(null);
+            overlay.onclick = event => { if (event.target === overlay) finish(null); };
+            document.addEventListener('keydown', onKeyDown);
+        });
+    }
+
+    async function createImportedProfile(minDlcDays) {
         const first = currentData[0];
-        const profile = await api('profiles', { identity: identity(first), categories: currentData.map(i => i.ItemCategoryCode).filter(Boolean) });
+        const profile = await api('profiles', { identity: identity(first), categories: currentData.map(i => i.ItemCategoryCode).filter(Boolean), min_dlc_days: minDlcDays });
         await refresh();
         return profile;
+    }
+
+    async function saveImportedProfileDays(profile, minDlcDays) {
+        await api(`profiles/${profile.id}`, {
+            revision: profile.revision,
+            display_name: profile.display_name,
+            active: profile.active,
+            rules: profile.rules,
+            blocked_categories: profile.blocked_categories || [],
+            min_dlc_days: minDlcDays,
+        }, 'PUT');
+        await refresh();
     }
 
     async function onImport() {
         await refresh();
         if (!currentData[0]?.ClientProfileId) {
             const yes = await Modal.confirm('Nouveau client', `Nouveau client, voulez-vous ajouter ce client ?\n${currentData[0].Client}`, 'user-plus');
-            if (yes) await createImportedProfile();
+            const minDlcDays = await requestMinimumDlcDays();
+            if (minDlcDays === null) return false;
+            if (yes) {
+                await createImportedProfile(minDlcDays);
+            } else {
+                currentData.forEach(item => {
+                    item.ClientMinDlcDays = minDlcDays;
+                    item.ClientMinDlcDaysTransient = true;
+                });
+                await refresh();
+                addLog('Délai appliqué uniquement à cette commande ; aucun profil client n’a été enregistré.', 'warning');
+            }
+            return true;
         }
+        if (currentData[0].ClientMinDlcDays === null || currentData[0].ClientMinDlcDays === undefined) {
+            await reload();
+            const profile = profiles.find(entry => entry.id === currentData[0].ClientProfileId);
+            if (!profile) return false;
+            const minDlcDays = await requestMinimumDlcDays();
+            if (minDlcDays === null) return false;
+            await saveImportedProfileDays(profile, minDlcDays);
+        }
+        return true;
     }
 
     async function imagePreview(dpi, ticket, image, isCurrent) {
@@ -256,6 +327,7 @@
             await api(`profiles/${productProfile.id}`, {
                 revision: productProfile.revision, display_name: productProfile.display_name, active: productProfile.active,
                 identity: identity(item), rules, blocked_categories: productProfile.blocked_categories || [],
+                min_dlc_days: productProfile.min_dlc_days,
                 flavour: { item_no: item.Item_No, value: byId('ligne1-flavour').value, revision: item.ParfumRevision || 0 }
             }, 'PUT');
             await refresh();
@@ -334,12 +406,34 @@
         container.append(card);
     }
 
+    function showProfileForm() {
+        byId('ligne1-profile-empty').hidden = true;
+        byId('ligne1-profile-form').hidden = false;
+        byId('ligne1-profile-form').classList.remove('is-deleting');
+    }
+
+    function showProfileEmpty(title, message) {
+        byId('ligne1-profile-form').hidden = true;
+        byId('ligne1-profile-empty-title').textContent = title;
+        byId('ligne1-profile-empty-message').textContent = message;
+        const empty = byId('ligne1-profile-empty');
+        empty.hidden = false;
+        empty.classList.remove('is-entering');
+        void empty.offsetWidth;
+        empty.classList.add('is-entering');
+        lucide.createIcons();
+    }
+
     function fillProfile(profile) {
         selected = profile;
+        byId('ligne1-profile-delete').hidden = !profile;
+        if (profile) showProfileForm();
+        else byId('ligne1-profile-form').hidden = true;
         blockedCategories = new Set(profile?.blocked_categories || []);
         byId('ligne1-profile-name').value = profile?.display_name || '';
         byId('ligne1-profile-number').value = profile?.customer_number || '';
         byId('ligne1-profile-bc-id').value = profile?.customer_id || '';
+        byId('ligne1-profile-min-dlc-days').value = profile?.min_dlc_days ?? '';
         byId('ligne1-profile-active').checked = profile ? !!profile.active : true;
         byId('ligne1-profile-rules').replaceChildren();
         const rulesByCategory = new Map();
@@ -357,7 +451,7 @@
             await reload();
             byId('ligne1-profiles-scope').textContent = `${scope.environment} · ${scope.company}`;
             const select = byId('ligne1-profile-select'); select.replaceChildren();
-            const empty = new Option('Nouveau client…', ''); select.add(empty);
+            const empty = new Option('— Sélectionner un client —', ''); select.add(empty);
             profiles.forEach(profile => select.add(new Option(`${profile.display_name}${profile.active ? '' : ' (désactivé)'}`, profile.id)));
             select.value = profileId || profiles[0]?.id || '';
             fillProfile(profiles.find(p => p.id === select.value));
@@ -366,13 +460,25 @@
                 byId('ligne1-profile-name').value = currentData[0].Client;
                 byId('ligne1-profile-number').value = currentData[0].CustomerNumber || '';
                 byId('ligne1-profile-bc-id').value = currentData[0].CustomerId || '';
+                showProfileForm();
+            } else if (!select.value) {
+                showProfileEmpty(profiles.length ? 'Aucun profil sélectionné' : 'Aucun profil client local',
+                    profiles.length ? 'Choisissez un client dans la liste ou créez une nouvelle fiche locale.' : 'La base locale ne contient aucun profil client. Vous pouvez en créer un depuis cette fenêtre.');
             }
             manager.style.display = 'flex'; lucide.createIcons();
         } catch (error) { Modal.error('Profils clients', error.message); }
     }
 
-    byId('ligne1-profile-select').onchange = event => fillProfile(profiles.find(p => p.id === event.target.value));
-    byId('ligne1-new-profile').onclick = () => {
+    byId('ligne1-profile-select').onchange = event => {
+        const profile = profiles.find(p => p.id === event.target.value);
+        if (profile) fillProfile(profile);
+        else {
+            fillProfile(null);
+            showProfileEmpty(profiles.length ? 'Aucun profil sélectionné' : 'Aucun profil client local',
+                profiles.length ? 'Choisissez un client dans la liste ou créez une nouvelle fiche locale.' : 'La base locale ne contient aucun profil client. Vous pouvez en créer un depuis cette fenêtre.');
+        }
+    };
+    const startNewProfile = () => {
         byId('ligne1-profile-select').value = ''; fillProfile(null);
         const item = currentData[0];
         if (item?.BCScope) {
@@ -380,7 +486,10 @@
             byId('ligne1-profile-number').value = item.CustomerNumber || '';
             byId('ligne1-profile-bc-id').value = item.CustomerId || '';
         }
+        showProfileForm();
     };
+    byId('ligne1-new-profile').onclick = startNewProfile;
+    byId('ligne1-profile-empty-create').onclick = startNewProfile;
     byId('ligne1-add-category').onclick = () => {
         const input = byId('ligne1-new-category');
         const category = input.value.trim().toUpperCase();
@@ -392,6 +501,7 @@
         try {
             const rules = [...byId('ligne1-profile-rules').children].map(readRule);
             const clientIdentity = { Client: byId('ligne1-profile-name').value, CustomerNumber: byId('ligne1-profile-number').value, CustomerId: byId('ligne1-profile-bc-id').value };
+            const minDlcDays = Number(byId('ligne1-profile-min-dlc-days').value);
             // Une transaction unique : aucun profil partiellement créé.
             const active = byId('ligne1-profile-active').checked;
             const blocked = [...byId('ligne1-profile-rules').children]
@@ -399,11 +509,74 @@
                 .map(card => card.dataset.category);
             selected = selected
                 ? await api(`profiles/${selected.id}`, { revision: selected.revision, display_name: clientIdentity.Client,
-                    active, rules, blocked_categories: blocked }, 'PUT')
-                : await api('profiles', { identity: clientIdentity, active, rules, blocked_categories: blocked });
+                    active, rules, blocked_categories: blocked, min_dlc_days: minDlcDays }, 'PUT')
+                : await api('profiles', { identity: clientIdentity, active, rules, blocked_categories: blocked, min_dlc_days: minDlcDays });
             await refresh(); displayEditSection(); closeManager();
         } catch (error) { byId('ligne1-profile-message').textContent = error.message; }
         finally { save.disabled = false; }
+    };
+    byId('ligne1-profile-delete').onclick = async () => {
+        if (!selected) return;
+        const profileToDelete = selected;
+        const confirmed = await Modal.confirm(
+            'Supprimer ce profil local ?',
+            `Le profil « ${profileToDelete.display_name} » et ses réglages seront supprimés de la base locale. Cette action ne modifie rien dans Business Central.`,
+            'trash-2', 'icon-error'
+        );
+        if (!confirmed) return;
+
+        const button = byId('ligne1-profile-delete');
+        const form = byId('ligne1-profile-form');
+        const label = [...button.childNodes].find(node => node.nodeType === Node.TEXT_NODE);
+        if (label) label.textContent = ' Suppression en cours…';
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        form.classList.add('is-deleting');
+        lucide.createIcons();
+        let deletionSucceeded = false;
+        try {
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                await new Promise(resolve => setTimeout(resolve, 220));
+            }
+            await api(`profiles/${encodeURIComponent(profileToDelete.id)}?revision=${profileToDelete.revision}`, undefined, 'DELETE');
+            deletionSucceeded = true;
+            byId('ligne1-profile-select').value = '';
+            fillProfile(null);
+            showProfileEmpty('Profil supprimé', profiles.length > 1
+                ? 'La fiche a été supprimée de la base locale. Choisissez un autre client ou créez un nouveau profil.'
+                : 'La fiche a été supprimée. Il n’y a maintenant plus aucun client dans la base locale.');
+            await reload();
+            const select = byId('ligne1-profile-select');
+            select.replaceChildren(new Option('— Sélectionner un client —', ''));
+            profiles.forEach(profile => select.add(new Option(`${profile.display_name}${profile.active ? '' : ' (désactivé)'}`, profile.id)));
+            select.value = '';
+            fillProfile(null);
+            showProfileEmpty(profiles.length ? 'Profil supprimé' : 'Aucun profil client local', profiles.length
+                ? 'La fiche a été supprimée de la base locale. Choisissez un autre client dans la liste ou créez un nouveau profil.'
+                : 'La fiche a été supprimée. Il n’y a maintenant plus aucun client dans la base locale.');
+
+            if (currentData.length && currentData[0]?.BCScope) {
+                try {
+                    await refresh();
+                    displayEditSection();
+                } catch (refreshError) {
+                    byId('ligne1-profile-message').textContent = `Profil supprimé. La commande affichée n’a pas pu être actualisée : ${refreshError.message}`;
+                }
+            }
+        } catch (error) {
+            if (deletionSucceeded) {
+                showProfileEmpty('Profil supprimé', `La fiche a bien été supprimée, mais la liste n’a pas pu être actualisée : ${error.message}`);
+            } else {
+                byId('ligne1-profile-message').textContent = error.message;
+                form.classList.remove('is-deleting');
+                showProfileForm();
+            }
+        } finally {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            if (label) label.textContent = ' Supprimer ce profil local';
+            lucide.createIcons();
+        }
     };
     function closeManager() {
         manager.style.display = 'none';
